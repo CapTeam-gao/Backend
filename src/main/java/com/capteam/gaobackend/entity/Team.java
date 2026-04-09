@@ -18,6 +18,7 @@ public class Team {
     @Column(name = "team_name", nullable = false)
     private String teamName;
 
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TeamStatus status;
