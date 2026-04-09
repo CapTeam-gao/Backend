@@ -1,10 +1,9 @@
 package com.capteam.gaobackend.enums;
 
-public enum TeamRole {
+public enum StudentRole {
     BACKEND,
     FRONTEND,
     AI,
     APP,
-    DESIGN,
-    PM
+    DESIGN
 }
