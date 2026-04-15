@@ -1,4 +1,4 @@
 package com.capteam.gaobackend.entity;
 
-public class Semester {
+public class UserChatRoom {
 }

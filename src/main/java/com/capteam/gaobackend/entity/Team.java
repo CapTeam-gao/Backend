@@ -2,14 +2,17 @@ package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.TeamStatus;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@NoArgsConstructor
-@Table(name = "team")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "teams")
+@EntityListeners(EntityListeners.class)
+
 public class Team {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -8,6 +8,7 @@ import java.util.List;
 
 
 @Entity
+@Table(name = "users")
 @Getter //게터만
 @NoArgsConstructor(access = AccessLevel.PROTECTED)  //서비스코드에서 함부로 new로 객체 생성 막하는거 방지(실수)
 public class User {
