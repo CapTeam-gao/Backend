@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.AccountRole;
+import com.capteam.gaobackend.enums.StudentRole;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -12,15 +13,6 @@ import java.util.List;
 @Data
 @NoArgsConstructor(access = AccessLevel.PROTECTED)  //서비스코드에서 함부로 new로 객체 생성 막하는거 방지(실수)
 public class User {
-    //회원가입 없음
-    //유저(학생)은 여러 채널(채팅방)을 만들 수 있음 1:n
-    //유저(학생)은 여러 기술을 가질 수 있음 학생 -> 내정보(기술 등) 1 : N 따로하거나 통함
-    //학기 : 팀 = 1 : N
-    //유저(학생) <-> 유저팀 <-> 팀
-    // 팀 : 유저팀 = 1 : N
-    // 유저(학생) : 유저팀 = 1 : N
-    //학생은 그 팀에서 (팀장/팀원)이어야 함 (관계) -> 새 테이블
-    //오프라인/온라인은 웹소켓이든/세션이든/redis로 하든 메모리에 저장 접속/비접속
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,6 +28,10 @@ public class User {
     private String password = "1234";    //초기 비번 디폴트로 1234로 하고 로그인후 변경 가능하게
 
     private boolean passwordEncoded;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StudentRole studentRole;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

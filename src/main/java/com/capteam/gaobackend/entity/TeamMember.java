@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.entity;
 
-import com.capteam.gaobackend.enums.TeamRole;
+import com.capteam.gaobackend.enums.LeaderRole;
+import com.capteam.gaobackend.enums.StudentRole;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,12 +25,16 @@ public class TeamMember {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "team_role", nullable = false)
-    private TeamRole teamRole;
+    @Column(name = "student_role", nullable = false)
+    private StudentRole studentRole;
 
-    public TeamMember(Team team, User user, TeamRole teamRole) {
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private LeaderRole leaderRole;
+
+    public TeamMember(Team team, User user, StudentRole studentRole) {
         this.team = team;
         this.user = user;
-        this.teamRole = teamRole;
+        this.studentRole = studentRole;
     }
 }

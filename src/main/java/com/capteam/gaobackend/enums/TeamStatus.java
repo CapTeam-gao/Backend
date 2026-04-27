@@ -1,4 +1,6 @@
 package com.capteam.gaobackend.enums;
 
-public class TeamStatus {
+public enum TeamStatus {
+    Approve,
+    Refuse
 }
