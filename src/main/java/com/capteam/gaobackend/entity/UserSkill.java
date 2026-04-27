@@ -2,23 +2,22 @@ package com.capteam.gaobackend.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "chat_room")
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(EntityListeners.class)
-public class ChatRoom {
 
+@Entity
+@Table(name = "user_skill")
+@Getter //게터만
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class UserSkill {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String chatRoomName;
+    @ManyToOne
+    private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    private Team team;
+    @ManyToOne
+    private Skill skill;
 }
