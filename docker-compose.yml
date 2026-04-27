@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: gao-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: thdk5238!
+      MYSQL_DATABASE: gao_db
+      MYSQL_USER: gao_user
+      MYSQL_PASSWORD: 1234
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: gaobackend:1.0
+    container_name: gao-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/gao_db
+      SPRING_DATASOURCE_USERNAME: gao_user
+      SPRING_DATASOURCE_PASSWORD: 1234
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
