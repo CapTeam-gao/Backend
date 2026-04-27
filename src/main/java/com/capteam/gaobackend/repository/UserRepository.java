@@ -1,4 +1,10 @@
 package com.capteam.gaobackend.repository;
 
-public interface UserRepository {
+import com.capteam.gaobackend.entity.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.Optional;
+
+public interface UserRepository extends JpaRepository<User,String> {
+    Optional<User> findByStuId(String stuId); //학번으로 있는지 없는지
 }
