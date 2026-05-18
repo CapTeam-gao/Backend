@@ -6,35 +6,23 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-
 @Entity
-@Table(name = "chat_message")
+@Table(name = "studentChatRoom")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(EntityListeners.class)
-public class ChatMessage extends BaseTimeEntity {
+public class StudentChatRoom extends BaseTimeEntity{
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private String message;
+    @ManyToOne
+    @JoinColumn(name = "chatRoomNameId")
+    private ChatRoom chatRoomId;
 
     @ManyToOne
     @JoinColumn(name = "userId")
     private User userId;
-
-    @ManyToOne
-    @JoinColumn(name = "teamId")
-    private Team teamId;
-
-
-//    @CreatedDate
-//    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-//    private LocalDateTime createdAt;
-
-
-
-
 }
