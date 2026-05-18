@@ -1,4 +1,11 @@
 package com.capteam.gaobackend.entity;
 
-public class Notice {
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Notice extends BaseTimeEntity {
+
 }

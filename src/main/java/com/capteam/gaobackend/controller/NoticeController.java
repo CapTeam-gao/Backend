@@ -1,5 +1,12 @@
 package com.capteam.gaobackend.controller;
 
-public class NoticeController
-{
+import com.capteam.gaobackend.dto.common.ApiResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/notices")
+@RequiredArgsConstructor
+public class NoticeController {
+
 }

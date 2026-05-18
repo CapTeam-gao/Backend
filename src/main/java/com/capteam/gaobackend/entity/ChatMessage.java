@@ -1,4 +1,11 @@
 package com.capteam.gaobackend.entity;
 
-public class ChatMessage {
+import jakarta.persistence.*;
+import lombok.*;
+
+@Entity
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class ChatMessage extends BaseTimeEntity {
+
 }

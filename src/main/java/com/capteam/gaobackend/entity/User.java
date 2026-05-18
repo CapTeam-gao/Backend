@@ -25,22 +25,18 @@ public class User {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StudentRole studentRole;
+    private StudentRole studentRole; // 자신의 전공
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AccountRole accountRole = getAccountRole();
-
-
-
-
+    private AccountRole accountRole; //admin, student
 
     //회원 생성할 때 무조건 필요한 값만 넣어야 해서 프로필 이미지 뺌
     @Builder    //NO알규스랑 같이 있으면 생성자 충돌때문에 여기다 넣음
-    public User(String userId,String name,String password,AccountRole accountRole){
+    public User(String userId, String name, AccountRole accountRole){
         this.userId = userId;
         this.name = name;
-        this.password = password;
+        this.password = "1234";
         this.accountRole = accountRole;
     }
 
@@ -54,13 +50,14 @@ public class User {
 
     @ElementCollection
     private List<String> experience;  //경험    뭐 만들었는지
-//
+
     @Column(columnDefinition = "LONGTEXT") //글자 너무 길어서 이걸로
     private String profileImage;    //프로필 이미지
-//
-//
-//    따로
-//    private String user_analyze;    //ai가 분석한 학생 점수
+
+    private boolean wantsLeader;    // 팀장 희망 여부 (AI 팀 생성 시 반영)
+
+    @ElementCollection
+    private List<String> preferredTeammates;    // 선호 팀원 userId 최대 3명
 
 
 

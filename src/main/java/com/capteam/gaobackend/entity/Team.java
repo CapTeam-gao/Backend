@@ -1,16 +1,15 @@
 package com.capteam.gaobackend.entity;
 
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.TeamStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Getter
-@NoArgsConstructor
-@Table(name = "team")
-public class Team {
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "teams")
+public class Team extends BaseTimeEntity  {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -18,13 +17,18 @@ public class Team {
     @Column(name = "team_name", nullable = false)
     private String teamName;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Grade grade;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TeamStatus status;
 
-    public Team(String teamName, TeamStatus status) {
+    @Builder
+    public Team(String teamName, TeamStatus status, Grade grade) {
         this.teamName = teamName;
         this.status = status;
+        this.grade = grade;
     }
 }
