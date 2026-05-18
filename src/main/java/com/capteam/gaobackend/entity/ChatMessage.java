@@ -5,10 +5,6 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.springframework.data.annotation.CreatedDate;
-
-import java.time.LocalDateTime;
-import java.util.List;
 
 
 @Entity
@@ -16,7 +12,7 @@ import java.util.List;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(EntityListeners.class)
-public class ChatMessage {
+public class ChatMessage extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,9 +30,9 @@ public class ChatMessage {
     private Team teamId;
 
 
-    @CreatedDate
-    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-    private LocalDateTime createdAt;
+//    @CreatedDate
+//    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+//    private LocalDateTime createdAt;
 
 
 

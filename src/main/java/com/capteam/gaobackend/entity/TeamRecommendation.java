@@ -1,4 +1,4 @@
 package com.capteam.gaobackend.entity;
 
-public class TeamRecommendation {
+public class TeamRecommendation  extends BaseTimeEntity{
 }

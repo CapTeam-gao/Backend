@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "teams")
 @EntityListeners(EntityListeners.class)
 
-public class Team {
+public class Team extends BaseTimeEntity{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EntityListeners(EntityListeners.class)
-public class StudentChatRoom {
+public class StudentChatRoom extends BaseTimeEntity{
 
 
     @Id
