@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "user_skill")
 @Getter //게터만
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class UserSkill {
+public class UserSkill  extends BaseTimeEntity{
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -19,5 +19,11 @@ public class UserSkill {
     private User user;
 
     @ManyToOne
+    @JoinColumn(name = "skill_id")
     private Skill skill;
+
+
+    @ManyToOne
+    @JoinColumn(name = "skill_id")
+    private Skill experience;
 }
