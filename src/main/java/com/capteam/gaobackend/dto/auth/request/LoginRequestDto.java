@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoginRequestDto {
     @NotBlank
-    private String studentId;  //학번 gbsw2108
+    private String userId;  //학번 gbsw2108
     @NotBlank
     private String password;    //1234
 }

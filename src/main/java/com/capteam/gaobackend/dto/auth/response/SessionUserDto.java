@@ -9,17 +9,13 @@ import lombok.Getter;
 @Builder
 public class SessionUserDto {
 
-    private Long id;
-    private String studentId;
+    private String userId;
     private String name;
 
     public static SessionUserDto from(User user) {
         return SessionUserDto.builder()
-                .id(user.getId())
-                .studentId(user.getStudentId())
+                .userId(user.getUserId())
                 .name(user.getName())
                 .build();
     }
-
-
 }
