@@ -1,4 +1,4 @@
-package com.capteam.gaobackend.ai;
+package com.capteam.gaobackend.dto.chat;
 
 import lombok.*;
 
@@ -6,6 +6,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class AiAnalysisResult {
+public class ChatChannelRequestDto {
 
 }

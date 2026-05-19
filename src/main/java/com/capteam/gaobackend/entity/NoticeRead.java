@@ -6,6 +6,6 @@ import lombok.*;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TeamRecommendation extends BaseTimeEntity {
+public class NoticeRead extends BaseTimeEntity {
 
 }

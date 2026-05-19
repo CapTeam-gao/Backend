@@ -1,4 +1,4 @@
-package com.capteam.gaobackend.service;
+package com.capteam.gaobackend.service.admin;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -7,6 +7,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChatService {
+public class AdminService {
 
 }

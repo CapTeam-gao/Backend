@@ -3,14 +3,16 @@ package com.capteam.gaobackend.entity;
 import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.enums.StudentRole;
 import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
-@NoArgsConstructor
-@Table(name = "team_member")
-public class TeamMember  extends BaseTimeEntity{
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "team_members")
+public class TeamMember extends BaseTimeEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,12 +31,14 @@ public class TeamMember  extends BaseTimeEntity{
     private StudentRole studentRole;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "leader_role",nullable = false)
     private LeaderRole leaderRole;
 
-    public TeamMember(Team team, User user, StudentRole studentRole) {
+    @Builder
+    public TeamMember(Team team, User user, StudentRole studentRole, LeaderRole leaderRole) {
         this.team = team;
         this.user = user;
         this.studentRole = studentRole;
+        this.leaderRole = leaderRole;
     }
 }

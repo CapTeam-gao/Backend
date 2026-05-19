@@ -1,12 +1,12 @@
-package com.capteam.gaobackend.controller;
+package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/notices")
+@RequestMapping("/api/admin/teams")
 @RequiredArgsConstructor
-public class NoticeController {
+public class AdminTeamController {
 
 }

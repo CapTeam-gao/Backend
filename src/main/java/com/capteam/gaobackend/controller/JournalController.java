@@ -5,8 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/notices")
+@RequestMapping("/api/journals")
 @RequiredArgsConstructor
-public class NoticeController {
+public class JournalController {
 
 }
