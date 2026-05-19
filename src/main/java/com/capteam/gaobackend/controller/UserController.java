@@ -1,21 +1,31 @@
 package com.capteam.gaobackend.controller;
 
-
-import com.capteam.gaobackend.dto.auth.request.LoginRequestDto;
-import com.capteam.gaobackend.service.AuthService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import com.capteam.gaobackend.dto.common.ApiResponse;
+import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
+import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
+import com.capteam.gaobackend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
 
+    private final UserService userService;
+
+    // GET /api/user/me/profile - 내 프로필 조회
+    @GetMapping("/me/profile")
+    public ResponseEntity<ApiResponse<UserMeResponseDto>> getMyProfile() {
+        UserMeResponseDto dto = userService.getMyProfile();
+        return ApiResponse.ok(dto);
+    }
+
+    // PUT /api/user/me/profile - 내 프로필 수정
+    @PutMapping("/me/profile")
+    public ResponseEntity<ApiResponse<UserMeResponseDto>> updateMyProfile(@RequestBody UserProfileUpdateRequestDto dto) {
+        UserMeResponseDto result = userService.updateMyProfile(dto);
+        return ApiResponse.ok(result);
+    }
 }

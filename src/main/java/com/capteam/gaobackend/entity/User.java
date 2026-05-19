@@ -9,55 +9,68 @@ import java.util.List;
 
 
 @Entity
-@Getter //게터만
-@NoArgsConstructor(access = AccessLevel.PROTECTED)  //서비스코드에서 함부로 new로 객체 생성 막하는거 방지(실수)
-public class User {
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "users")
+public class User extends BaseTimeEntity {
 
     @Id
     @Column(nullable = false)
-    private String userId; //학번 stu252108으로 하고 24,25,26으로 학년 구분
+    private String userId;
 
     @Column(nullable = false)
-    private String name;    //이름 디비에 직접 넣기
+    private String name;
 
     @Column(nullable = false)
-    private String password = "1234";    //초기 비번 디폴트로 1234로 하고 로그인후 변경 가능하게
+    private String password = "1234";
+
+    private boolean passwordEncoded = false;    // 최초 로그인 시 암호화 여부
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StudentRole studentRole; // 자신의 전공
+    private AccountRole accountRole;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private AccountRole accountRole; //admin, student
-
-    //회원 생성할 때 무조건 필요한 값만 넣어야 해서 프로필 이미지 뺌
-    @Builder    //NO알규스랑 같이 있으면 생성자 충돌때문에 여기다 넣음
-    public User(String userId, String name, AccountRole accountRole){
+    @Builder
+    public User(String userId, String name, AccountRole accountRole) {
         this.userId = userId;
         this.name = name;
         this.password = "1234";
         this.accountRole = accountRole;
     }
 
-
 //    여기부터 프로필(마이페이지)에서 직접 값 넣기
-    private String department;  //역할 벡엔드,프론트 하나씩 지정
-
-    //여러개니까 리스트
-    @ElementCollection
-    private List<String> skill;   //스택    언어,프레임워크 등
+    @Enumerated(EnumType.STRING)
+    private StudentRole studentRole;            // 희망 역할 (마이페이지에서 설정)
 
     @ElementCollection
-    private List<String> experience;  //경험    뭐 만들었는지
+    private List<String> skill;                 // 기술스택
 
-    @Column(columnDefinition = "LONGTEXT") //글자 너무 길어서 이걸로
-    private String profileImage;    //프로필 이미지
+    @ElementCollection
+    private List<String> experience;            // 경험
 
-    private boolean wantsLeader;    // 팀장 희망 여부 (AI 팀 생성 시 반영)
+    @Column(columnDefinition = "LONGTEXT")
+    private String profileImage;                // 프로필 이미지
+
+    private boolean wantsLeader;                // 팀장 희망 여부
 
     @ElementCollection
     private List<String> preferredTeammates;    // 선호 팀원 userId 최대 3명
+
+//    업데이트 메서드
+    public void updatePassword(String encodedPassword) {
+        this.password = encodedPassword;
+        this.passwordEncoded = true;
+    }
+
+    public void updateProfile(StudentRole studentRole, List<String> skill, List<String> experience,
+                              String profileImage, boolean wantsLeader, List<String> preferredTeammates) {
+        this.studentRole = studentRole;
+        this.skill = skill;
+        this.experience = experience;
+        this.profileImage = profileImage;
+        this.wantsLeader = wantsLeader;
+        this.preferredTeammates = preferredTeammates;
+    }
 
 
 

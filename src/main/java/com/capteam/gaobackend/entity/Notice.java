@@ -1,16 +1,13 @@
 package com.capteam.gaobackend.entity;
 
-
+import com.capteam.gaobackend.enums.Grade;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
-@Table(name = "notices")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(EntityListeners.class)
+@Table(name = "notices")
 public class Notice extends BaseTimeEntity {
 
     @Id
@@ -20,13 +17,27 @@ public class Notice extends BaseTimeEntity {
     @Column(nullable = false)
     private String title;
 
-    @Column(columnDefinition = "TEXT",nullable = false)
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
-    @ManyToOne
-    @JoinColumn(name = "admin")
-    private User user;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "author_id", nullable = false)
+    private User author;
 
+    @Enumerated(EnumType.STRING)
+    private Grade grade;    // null이면 전체 학년 대상
 
+    @Builder
+    public Notice(String title, String content, User author, Grade grade) {
+        this.title = title;
+        this.content = content;
+        this.author = author;
+        this.grade = grade;
+    }
 
+    public void update(String title, String content, Grade grade) {
+        this.title = title;
+        this.content = content;
+        this.grade = grade;
+    }
 }
