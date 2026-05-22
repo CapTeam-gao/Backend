@@ -3,8 +3,8 @@ package com.capteam.gaobackend.ai;
 import lombok.*;
 
 @Getter
-@NoArgsConstructor
-@AllArgsConstructor
+//@NoArgsConstructor
+//@AllArgsConstructor
 @Builder
 public class AiAnalysisResult {
 
