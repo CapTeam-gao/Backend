@@ -15,7 +15,7 @@ import java.util.List;
 public class User extends BaseTimeEntity {
 
     @Id
-    @Column(nullable = false)
+    @Column(nullable = false, name = "user_id")
     private String userId;
 
     @Column(nullable = false)
