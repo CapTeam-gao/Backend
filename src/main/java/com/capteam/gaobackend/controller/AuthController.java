@@ -2,10 +2,10 @@ package com.capteam.gaobackend.controller;
 
 import com.capteam.gaobackend.dto.auth.request.ChangePasswordRequestDto;
 import com.capteam.gaobackend.dto.auth.request.LoginRequestDto;
-import com.capteam.gaobackend.dto.auth.response.SessionUserDto;
+import com.capteam.gaobackend.dto.auth.request.RefreshRequest;
+import com.capteam.gaobackend.dto.auth.response.AuthResponse;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.AuthService;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,10 +23,9 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<SessionUserDto> doLogin(@RequestBody LoginRequestDto dto, HttpSession session) {
-        SessionUserDto user = authService.doLogin(dto);
-        session.setAttribute("LOGIN_USER", user.getUserId());
-        return ResponseEntity.ok(user);
+    public ResponseEntity<AuthResponse> doLogin(@Valid @RequestBody LoginRequestDto dto) {
+        AuthResponse authResponse = authService.doLogin(dto);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PutMapping("/password")
@@ -40,9 +39,16 @@ public class AuthController {
         if (userDetails != null) {
             return ResponseEntity.ok(Map.of(
                     "isLoggedIn", true,
-                    "username", userDetails.getUsername()
+                    "username", userDetails.getUsername(),
+                    "role", userDetails.getAuthorities().iterator().next().getAuthority()
             ));
         }
         return ResponseEntity.ok(Map.of("isLoggedIn", false));
+    }
+
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@RequestBody RefreshRequest dto) {
+        return authService.refreshToken(dto);
     }
 }
