@@ -1,11 +1,10 @@
 package com.capteam.gaobackend.controller;
 
-import com.capteam.gaobackend.dto.auth.response.HeaderUserResponseDto;
+import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.service.UserService;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;

@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "team_members")
-public class TeamMember extends BaseTimeEntity{
+public class TeamUser extends BaseTimeEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,7 +35,7 @@ public class TeamMember extends BaseTimeEntity{
     private LeaderRole leaderRole;
 
     @Builder
-    public TeamMember(Team team, User user, StudentRole studentRole, LeaderRole leaderRole) {
+    public TeamUser(Team team, User user, StudentRole studentRole, LeaderRole leaderRole) {
         this.team = team;
         this.user = user;
         this.studentRole = studentRole;
