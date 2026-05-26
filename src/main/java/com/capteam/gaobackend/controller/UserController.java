@@ -1,11 +1,14 @@
 package com.capteam.gaobackend.controller;
 
+import com.capteam.gaobackend.dto.auth.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.service.UserService;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RequiredArgsConstructor
@@ -27,5 +30,12 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserMeResponseDto>> updateMyProfile(@RequestBody UserProfileUpdateRequestDto dto) {
         UserMeResponseDto result = userService.updateMyProfile(dto);
         return ApiResponse.ok(result);
+    }
+
+
+    @GetMapping("/header")
+    public ResponseEntity<HeaderUserResponseDto> getHeaderUser(Authentication authentication) {
+        String userId = authentication.getName();
+        return ResponseEntity.ok(userService.getHeaderUser(userId));
     }
 }
