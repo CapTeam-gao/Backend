@@ -38,7 +38,7 @@ public class User extends BaseTimeEntity {
         this.accountRole = accountRole;
     }
 
-//    여기부터 프로필(마이페이지)에서 직접 값 넣기
+    //    여기부터 프로필(마이페이지)에서 직접 값 넣기
     @Enumerated(EnumType.STRING)
     private StudentRole studentRole;            // 희망 역할 (마이페이지에서 설정)
 
@@ -56,7 +56,7 @@ public class User extends BaseTimeEntity {
     @ElementCollection
     private List<String> preferredTeammates;    // 선호 팀원 userId 최대 3명
 
-//    업데이트 메서드
+    //    업데이트 메서드
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
         this.passwordEncoded = true;
@@ -71,12 +71,5 @@ public class User extends BaseTimeEntity {
         this.wantsLeader = wantsLeader;
         this.preferredTeammates = preferredTeammates;
     }
-
-
-
-
-
-
-
-
 }
+
