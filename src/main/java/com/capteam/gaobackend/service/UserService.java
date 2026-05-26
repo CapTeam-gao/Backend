@@ -1,10 +1,13 @@
 package com.capteam.gaobackend.service;
 
-import com.capteam.gaobackend.dto.auth.response.HeaderUserResponseDto;
+import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
+import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
+import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.exception.UserNotFoundException;
+import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 //import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -12,11 +15,14 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TeamUserRepository teamUserRepository;
 
     // 마이페이지 조회
     @Transactional(readOnly = true)
@@ -54,9 +60,20 @@ public class UserService {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(UserNotFoundException::new);
 
-        return new HeaderUserResponseDto(
-                user.getUserId(),
-                user.getName()
-        );
+        return HeaderUserResponseDto.builder()
+                .userId(user.getUserId())
+                .name(user.getName())
+                .accountRole(user.getAccountRole())
+                .build();
+    }
+
+
+    //전체 학생 조회(어드민)
+    public List<StudentListResponseDto> getAllStudents() {
+
+        List<TeamUser> teamUsers = teamUserRepository.findAll();
+
+        return teamUsers.stream().map(StudentListResponseDto::from).toList();
+
     }
 }
