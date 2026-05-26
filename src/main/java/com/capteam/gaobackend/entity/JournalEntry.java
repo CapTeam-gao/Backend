@@ -3,6 +3,7 @@ package com.capteam.gaobackend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+// 팀원 개별 작성 항목
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -19,19 +20,30 @@ public class JournalEntry extends BaseTimeEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
-    private User author;    // 항목 작성한 팀원
+    private User author;
 
     @Column(columnDefinition = "TEXT", nullable = false)
-    private String content;
+    private String activityContent;         // 활동 내용
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String nextPlanContent;         // 다음 캡스톤 시간까지 진행할 내용
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String reflectionContent;       // 오늘 프로젝트 수행 만족도 및 자기 반성
 
     @Builder
-    public JournalEntry(Journal journal, User author, String content) {
+    public JournalEntry(Journal journal, User author,
+                        String activityContent, String nextPlanContent, String reflectionContent) {
         this.journal = journal;
         this.author = author;
-        this.content = content;
+        this.activityContent = activityContent;
+        this.nextPlanContent = nextPlanContent;
+        this.reflectionContent = reflectionContent;
     }
 
-    public void update(String content) {
-        this.content = content;
+    public void update(String activityContent, String nextPlanContent, String reflectionContent) {
+        this.activityContent = activityContent;
+        this.nextPlanContent = nextPlanContent;
+        this.reflectionContent = reflectionContent;
     }
 }

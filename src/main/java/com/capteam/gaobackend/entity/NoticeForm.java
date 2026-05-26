@@ -3,35 +3,19 @@ package com.capteam.gaobackend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+// 공지에 첨부되는 신청 폼 (껍데기 역할)
+// 제목/작성자는 Notice에 이미 있으므로 중복 제거
+// 실제 폼 필드(label, 필수여부 등)는 NoticeFormField에서 관리
 @Entity
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA 전용 생성자, 외부 직접 생성 방지
 @Table(name = "notice_forms")
 public class NoticeForm extends BaseTimeEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // DB가 id를 1,2,3... 자동으로 올려줌
     private Long id;
 
-    @Column(nullable = false)
-    private String title;
-
-    @Column(columnDefinition = "TEXT")
-    private String description;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
-    private User author;    // 어드민
-
-    @Builder
-    public NoticeForm(String title, String description, User author) {
-        this.title = title;
-        this.description = description;
-        this.author = author;
-    }
-
-    public void update(String title, String description) {
-        this.title = title;
-        this.description = description;
-    }
+    @Builder // NoticeForm.builder().build() 형태로 생성
+    public NoticeForm() {}
 }
