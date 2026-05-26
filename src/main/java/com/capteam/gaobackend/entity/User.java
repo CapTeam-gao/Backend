@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.AccountRole;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.StudentRole;
 import jakarta.persistence.*;
 import lombok.*;
@@ -50,6 +51,10 @@ public class User extends BaseTimeEntity {
 
     @Column(columnDefinition = "LONGTEXT")
     private String profileImage;                // 프로필 이미지
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Grade grade;
 
     private boolean wantsLeader;                // 팀장 희망 여부
 
