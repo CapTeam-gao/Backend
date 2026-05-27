@@ -31,12 +31,6 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
     @Enumerated(EnumType.STRING)
     private Important important;
 
-    // 공지에 신청 폼이 붙을 수 있음 (null이면 폼 없는 일반 공지)
-    // cascade = ALL: 공지 저장/삭제 시 폼도 함께 저장/삭제
-    // orphanRemoval = true: 폼 연결이 끊기면(removeForm 호출 시) DB에서도 폼 자동 삭제
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "form_id")
-    private NoticeForm form;
 
     @Builder // Notice.builder().title("...").content("...").writer(user).grade(grade).build() 형태로 생성
     public Notice(String title, String content, User writer, Important important) {
@@ -55,13 +49,4 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
 //        this.grade = grade;
     }
 
-    // 폼 연결 (공지에 신청 폼 추가)
-    public void attachForm(NoticeForm form) {
-        this.form = form;
-    }
-
-    // 폼 연결 해제 (orphanRemoval=true 덕분에 DB에서도 폼 자동 삭제됨)
-    public void removeForm() {
-        this.form = null;
-    }
 }

@@ -1,6 +1,5 @@
 package com.capteam.gaobackend.dto.notice;
 
-import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.Important;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -16,5 +15,6 @@ public class NoticeCreateRequestDto {
     @NotBlank
     private String content;
 
-    private Important Important;    // null이면 전체 학년 대상
+    // 프론트 체크박스 값이 IMPORTANT 또는 COMMON 문자열로 들어옴
+    private Important important;
 }

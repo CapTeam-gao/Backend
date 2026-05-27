@@ -1,6 +1,6 @@
 package com.capteam.gaobackend.dto.notice;
 
-import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.Important;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,5 +12,6 @@ public class NoticeUpdateRequestDto {
 
     private String content;
 
-    private Grade grade;
+    // 공지 수정 시 중요 공지 여부도 함께 변경할 수 있도록 받음
+    private Important important;
 }
