@@ -8,7 +8,7 @@ import lombok.*;
 // 실제 폼 필드(label, 필수여부 등)는 NoticeFormField에서 관리
 @Entity
 @Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA 전용 생성자, 외부 직접 생성 방지
+//@NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA 전용 생성자, 외부 직접 생성 방지
 @Table(name = "notice_forms")
 public class NoticeForm extends BaseTimeEntity {
 
