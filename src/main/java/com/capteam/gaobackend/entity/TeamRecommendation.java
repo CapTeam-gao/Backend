@@ -23,13 +23,9 @@ public class TeamRecommendation extends BaseTimeEntity {
     @Column(nullable = false)
     private RecommendationStatus status;
 
-    @Column(nullable = false)
-    private String teamName;        // AI가 제안한 팀 이름
-
     @Builder
-    public TeamRecommendation(Grade grade, String teamName) {
+    public TeamRecommendation(Grade grade) {
         this.grade = grade;
-        this.teamName = teamName;
         this.status = RecommendationStatus.PENDING;
     }
 

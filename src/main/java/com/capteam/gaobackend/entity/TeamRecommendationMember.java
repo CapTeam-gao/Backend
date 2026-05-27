@@ -24,12 +24,16 @@ public class TeamRecommendationMember extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "student_role", nullable = false)
-    private StudentRole studentRole;    // AI가 배정한 역할
+    private StudentRole studentRole;        // AI가 배정한 역할
+
+    private boolean isRecommendedLeader;    // AI가 추천한 팀장 여부 (wantsLeader 기반)
 
     @Builder
-    public TeamRecommendationMember(TeamRecommendation recommendation, User user, StudentRole studentRole) {
+    public TeamRecommendationMember(TeamRecommendation recommendation, User user,
+                                    StudentRole studentRole, boolean isRecommendedLeader) {
         this.recommendation = recommendation;
         this.user = user;
         this.studentRole = studentRole;
+        this.isRecommendedLeader = isRecommendedLeader;
     }
 }
