@@ -49,9 +49,6 @@ public class User extends BaseTimeEntity {
     @ElementCollection
     private List<String> experience;            // 경험
 
-    @Column(columnDefinition = "LONGTEXT")
-    private String profileImage;                // 프로필 이미지
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Grade grade;
@@ -68,11 +65,10 @@ public class User extends BaseTimeEntity {
     }
 
     public void updateProfile(StudentRole studentRole, List<String> skill, List<String> experience,
-                              String profileImage, boolean wantsLeader, List<String> preferredTeammates) {
+                              boolean wantsLeader, List<String> preferredTeammates) {
         this.studentRole = studentRole;
         this.skill = skill;
         this.experience = experience;
-        this.profileImage = profileImage;
         this.wantsLeader = wantsLeader;
         this.preferredTeammates = preferredTeammates;
     }
