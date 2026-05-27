@@ -48,7 +48,7 @@ public class JwtTokenProvider {
     private String createToken(User user,long expiration) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getUserId()); //페이로드 안에 정보 넣기 유저랑 역할
-        claims.put("role","ROLE_STUDENT");
+        claims.put("role",user.getAccountRole().name());
 
         return Jwts.builder()
                 .setClaims(claims)
