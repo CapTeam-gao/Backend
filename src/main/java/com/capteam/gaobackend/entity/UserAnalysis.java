@@ -14,7 +14,7 @@ public class UserAnalysis extends BaseTimeEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(columnDefinition = "LONGTEXT")
+//    @Column(columnDefinition = "LONGTEXT")
     private String analysisResult;
 
     @Builder

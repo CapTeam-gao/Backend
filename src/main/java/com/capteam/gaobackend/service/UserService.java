@@ -2,12 +2,15 @@ package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
+import com.capteam.gaobackend.dto.user.response.StudentDetailResponseDto;
 import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 //import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +26,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final TeamUserRepository teamUserRepository;
+    private final UserAnalysisRepository userAnalysisRepository;
 
     // 마이페이지 조회
     @Transactional(readOnly = true)
@@ -75,5 +79,17 @@ public class UserService {
 
         return teamUsers.stream().map(StudentListResponseDto::from).toList();
 
+    }
+
+
+    //학생 상세 조회 어드민_
+    public StudentDetailResponseDto getStudentDetail(String userId) {
+        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        UserAnalysis userAnalysis = userAnalysisRepository.findByUserUserId(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        return StudentDetailResponseDto.from(teamUser,userAnalysis);
     }
 }
