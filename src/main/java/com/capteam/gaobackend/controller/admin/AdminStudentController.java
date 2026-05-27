@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.common.ApiResponse;
+import com.capteam.gaobackend.dto.user.response.StudentDetailResponseDto;
 import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
 import com.capteam.gaobackend.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,13 @@ public class AdminStudentController {
     @GetMapping
     public ResponseEntity<List<StudentListResponseDto>> getAllStudent() {
         return ResponseEntity.ok(userService.getAllStudents());
+    }
+
+
+    @GetMapping("/{userId}")
+    public ResponseEntity<StudentDetailResponseDto> getStudentInfo(@PathVariable String userId) {
+        StudentDetailResponseDto response = userService.getStudentDetail(userId);
+        return ResponseEntity.ok(response);
     }
 
 }
