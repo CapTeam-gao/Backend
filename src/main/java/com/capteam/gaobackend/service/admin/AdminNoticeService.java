@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
 public class AdminNoticeService {
 
     private final NoticeRepository noticeRepository;
-    private final NoticeFormRepository noticeFormRepository;
-    private final NoticeFormFieldRepository noticeFormFieldRepository;
     private final NoticeReadRepository noticeReadRepository;
     private final UserRepository userRepository;
 
