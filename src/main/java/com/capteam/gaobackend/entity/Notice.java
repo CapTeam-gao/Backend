@@ -1,6 +1,6 @@
 package com.capteam.gaobackend.entity;
 
-import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.Important;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,11 +22,14 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
     private String content; // 공지 내용
 
     @ManyToOne(fetch = FetchType.LAZY) // 여러 공지가 한 명의 작성자에 연결됨
-    @JoinColumn(name = "author_id", nullable = false) // DB에 author_id 컬럼으로 저장
-    private User author; // 공지 작성자 (어드민)
+    @JoinColumn(name = "writer_id", nullable = false) // DB에 writer_id 컬럼으로 저장
+    private User writer; // 공지 작성자 (어드민)
 
-    @Enumerated(EnumType.STRING) // DB에 숫자 대신 "GRADE_1" 같은 문자열로 저장
-    private Grade grade; // 대상 학년 (null이면 전체 학년 대상)
+//    @Enumerated(EnumType.STRING) // DB에 숫자 대신 "GRADE_1" 같은 문자열로 저장
+//    private Grade grade; // 대상 학년 (null이면 전체 학년 대상)
+
+    @Enumerated(EnumType.STRING)
+    private Important important;
 
     // 공지에 신청 폼이 붙을 수 있음 (null이면 폼 없는 일반 공지)
     // cascade = ALL: 공지 저장/삭제 시 폼도 함께 저장/삭제
@@ -35,19 +38,21 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
     @JoinColumn(name = "form_id")
     private NoticeForm form;
 
-    @Builder // Notice.builder().title("...").content("...").author(user).grade(grade).build() 형태로 생성
-    public Notice(String title, String content, User author, Grade grade) {
+    @Builder // Notice.builder().title("...").content("...").writer(user).grade(grade).build() 형태로 생성
+    public Notice(String title, String content, User writer, Important important) {
         this.title = title;
         this.content = content;
-        this.author = author;
-        this.grade = grade;
+        this.writer = writer;
+        this.important = important;
+//        this.grade = grade;
     }
 
     // 공지 수정 (제목, 내용, 대상 학년)
-    public void update(String title, String content, Grade grade) {
+    public void update(String title, String content, Important important) {
         this.title = title;
         this.content = content;
-        this.grade = grade;
+        this.important = important;
+//        this.grade = grade;
     }
 
     // 폼 연결 (공지에 신청 폼 추가)

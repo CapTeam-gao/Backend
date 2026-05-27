@@ -53,8 +53,8 @@ public class AdminNoticeService {
         Notice notice = Notice.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
-                .author(author)
-                .grade(dto.getGrade())
+                .writer(author)
+                .important(dto.getImportant())
                 .build();
 
         noticeRepository.save(notice); // DB에 저장
@@ -71,7 +71,7 @@ public class AdminNoticeService {
                 .orElseThrow(() -> new RuntimeException("공지를 찾을 수 없습니다."));
 
         // setter 대신 엔티티의 update() 메서드로 수정
-        notice.update(dto.getTitle(), dto.getContent(), dto.getGrade());
+        notice.update(dto.getTitle(), dto.getContent(), dto.getImportant());
 
         // @Transactional 덕분에 save() 없이도 변경사항이 자동으로 DB에 반영됨 (더티 체킹)
         return NoticeDetailResponseDto.from(notice);

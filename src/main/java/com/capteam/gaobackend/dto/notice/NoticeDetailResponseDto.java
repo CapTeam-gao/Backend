@@ -2,6 +2,7 @@ package com.capteam.gaobackend.dto.notice;
 
 import com.capteam.gaobackend.entity.Notice;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.Important;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -14,8 +15,8 @@ public class NoticeDetailResponseDto {
     private Long id;
     private String title;
     private String content;
-    private String authorName;
-    private Grade grade;
+    private String writer;
+    private Important important;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -24,8 +25,8 @@ public class NoticeDetailResponseDto {
                 .id(notice.getId())
                 .title(notice.getTitle())
                 .content(notice.getContent())
-                .authorName(notice.getAuthor().getName())
-                .grade(notice.getGrade())
+                .writer(notice.getWriter().getName())
+                .important(notice.getImportant())
                 .createdAt(notice.getCreatedAt())
                 .updatedAt(notice.getUpdatedAt())
                 .build();
