@@ -44,7 +44,6 @@ public class UserService {
                 dto.getStudentRole(),
                 dto.getSkill(),
                 dto.getExperience(),
-                dto.getProfileImage(),
                 dto.isWantsLeader(),
                 dto.getPreferredTeammates()
         );

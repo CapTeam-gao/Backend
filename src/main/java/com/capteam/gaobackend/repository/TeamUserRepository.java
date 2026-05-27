@@ -3,8 +3,10 @@ package com.capteam.gaobackend.repository;
 import com.capteam.gaobackend.entity.TeamUser;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface TeamUserRepository extends JpaRepository<TeamUser,Long> {
-    Optional<TeamUser> findByUserUserId(String userId); //유저안에 유저아이디로 찾기
+    Optional<TeamUser> findByUserUserId(String userId); // 유저 아이디로 팀원 조회
+    List<TeamUser> findByTeamId(Long teamId);           // 특정 팀의 팀원 목록 조회
 }

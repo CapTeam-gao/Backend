@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.entity;
 
+import com.capteam.gaobackend.enums.StudentLevel;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,16 +19,21 @@ public class UserAnalysis extends BaseTimeEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-//    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String analysisResult;
 
+    @Enumerated(EnumType.STRING)
+    private StudentLevel studentLevel; // AI가 분석한 학생 실력 (상/중/하), 어드민만 조회 가능
+
     @Builder
-    public UserAnalysis(User user, String analysisResult) {
+    public UserAnalysis(User user, String analysisResult, StudentLevel studentLevel) {
         this.user = user;
         this.analysisResult = analysisResult;
+        this.studentLevel = studentLevel;
     }
 
-    public void updateAnalysisResult(String analysisResult) {
+    public void updateAnalysisResult(String analysisResult, StudentLevel studentLevel) {
         this.analysisResult = analysisResult;
+        this.studentLevel = studentLevel;
     }
 }
