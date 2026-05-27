@@ -1,40 +1,33 @@
 package com.capteam.gaobackend.entity;
 
-
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 
 @Entity
-@Table(name = "chat_message")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@EntityListeners(EntityListeners.class)
+@Table(name = "chat_messages")
 public class ChatMessage extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "channel_id", nullable = false)
+    private ChatChannel channel;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_id", nullable = false)
+    private User sender;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
     private String message;
 
-    @ManyToOne
-    @JoinColumn(name = "userId")
-    private User userId;
-
-    @ManyToOne
-    @JoinColumn(name = "teamId")
-    private Team teamId;
-
-
-//    @CreatedDate
-//    @Column(columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-//    private LocalDateTime createdAt;
-
-
-
-
+    @Builder
+    public ChatMessage(ChatChannel channel, User sender, String message) {
+        this.channel = channel;
+        this.sender = sender;
+        this.message = message;
+    }
 }

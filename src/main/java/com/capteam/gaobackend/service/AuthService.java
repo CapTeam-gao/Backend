@@ -1,8 +1,11 @@
 package com.capteam.gaobackend.service;
 
+import com.capteam.gaobackend.config.JwtTokenProvider;
 import com.capteam.gaobackend.dto.auth.request.ChangePasswordRequestDto;
 import com.capteam.gaobackend.dto.auth.request.LoginRequestDto;
-import com.capteam.gaobackend.dto.auth.response.SessionUserDto;
+import com.capteam.gaobackend.dto.auth.request.RefreshRequest;
+import com.capteam.gaobackend.dto.auth.response.AuthResponse;
+
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.UserRepository;
@@ -11,7 +14,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
 @Service
@@ -19,59 +22,74 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
+    public AuthResponse doLogin(LoginRequestDto dto) {
+        User user = userRepository.findByUserId(dto.getUserId()).orElseThrow(UserNotFoundException::new);
 
+        if (!user.isPasswordEncoded()) {
+            // 최초 로그인 - 평문 비번 비교 후 암호화 저장
+            if (!user.getPassword().equals(dto.getPassword()))
+                throw new RuntimeException("비밀번호가 틀렸습니다.");
 
-    public SessionUserDto doLogin(LoginRequestDto dto) {
-        //유저 있는지 없는지
-        User user = userRepository.findByStudentId(dto.getStudentId()).orElseThrow(UserNotFoundException::new);
-
-        if(!user.isPasswordEncoded()) {
-            if(!user.getPassword().equals(dto.getPassword()))
-                throw new RuntimeException("비밀번호 틀림");
-
-
-            String encoded = passwordEncoder.encode(dto.getPassword()); // 비번 해쉬하기
-
-            user.setPassword(encoded);      //해쉬된 비번 저장
-            user.setPasswordEncoded(true);  //비번 해쉬된거 true
-
-            userRepository.save(user);  //저장
-
+            user.updatePassword(passwordEncoder.encode(dto.getPassword()));
+            userRepository.save(user);
         } else {
-            if(!passwordEncoder.matches(dto.getPassword(),user.getPassword())) {   //비번 암호화된 사용자 비번 검증
+            // 이후 로그인 - 암호화된 비번 비교
+            if (!passwordEncoder.matches(dto.getPassword(), user.getPassword()))
                 throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
-            }
         }
 
 
-        return SessionUserDto.from(user);
+        var accessToken = jwtTokenProvider.createAccessToken(user);
+        var refreshToken = jwtTokenProvider.createRefreshToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .role(user.getAccountRole().name())
+                .build();
     }
 
+    public void changePassword(ChangePasswordRequestDto dto) {
+        User user = getAuthenticatedUser();
 
-
-
-
-    public void changePassword(ChangePasswordRequestDto dto){
-        var user = getAuthenticatedUser();
-        if(!passwordEncoder.matches(dto.getPassword(),user.getPassword())){
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword()))
             throw new BadCredentialsException("현재 비밀번호가 일치하지 않습니다.");
-        }
 
-        if(!dto.getNewPassword().equals(dto.getCheckPassword())) {
+        if (!dto.getNewPassword().equals(dto.getCheckPassword()))
             throw new BadCredentialsException("새 비밀번호가 일치하지 않습니다.");
-        }
 
         user.updatePassword(passwordEncoder.encode(dto.getNewPassword()));
-
         userRepository.save(user);
     }
 
-
     private User getAuthenticatedUser() {
-        var userId = Long.valueOf(SecurityContextHolder.getContext().getAuthentication().getName());
-
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
+    }
+
+
+    @Transactional(readOnly = true)
+    public AuthResponse refreshToken(RefreshRequest dto) {
+        var refreshToken = dto.refreshToken();
+
+        var userId = jwtTokenProvider.extractUserId(refreshToken);
+
+        if(!jwtTokenProvider.validateRefreshToken(userId,refreshToken)) {
+            throw new BadCredentialsException("유효하지 않은 리프레시 토큰입니다.");
+        }
+
+        var user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadCredentialsException("유효하지 않은 사용자 입니다."));
+
+        var newAccessToken = jwtTokenProvider.createAccessToken(user);
+        var newRefreshToken = jwtTokenProvider.createRefreshToken(user);
+
+        return AuthResponse.builder()
+                .accessToken(newAccessToken)
+                .refreshToken(newRefreshToken)
+                .build();
     }
 }

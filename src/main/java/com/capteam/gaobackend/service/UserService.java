@@ -1,25 +1,95 @@
 package com.capteam.gaobackend.service;
 
-
+import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
+import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
+import com.capteam.gaobackend.dto.user.response.StudentDetailResponseDto;
+import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
+import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
+import com.capteam.gaobackend.entity.TeamUser;
+import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.entity.UserAnalysis;
+import com.capteam.gaobackend.exception.UserNotFoundException;
+import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import com.capteam.gaobackend.repository.UserRepository;
-import jakarta.transaction.Transactional;
+//import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @Service
-//@Transactional
 public class UserService {
 
     private final UserRepository userRepository;
+    private final TeamUserRepository teamUserRepository;
+    private final UserAnalysisRepository userAnalysisRepository;
+
+    // 마이페이지 조회
+    @Transactional(readOnly = true)
+    public UserMeResponseDto getMyProfile() {
+        User user = getAuthenticatedUser();
+        return UserMeResponseDto.from(user);
+    }
+
+    // 마이페이지 수정
+    @Transactional
+    public UserMeResponseDto updateMyProfile(UserProfileUpdateRequestDto dto) {
+        User user = getAuthenticatedUser();
+
+        user.updateProfile(
+                dto.getStudentRole(),
+                dto.getSkill(),
+                dto.getExperience(),
+                dto.getProfileImage(),
+                dto.isWantsLeader(),
+                dto.getPreferredTeammates()
+        );
+
+        return UserMeResponseDto.from(user);
+    }
+
+    private User getAuthenticatedUser() {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
+    }
 
 
-    //마이페이지 조회
-//    public
+    //헤더바에 학번 이름을 보내주는 코드
+    public HeaderUserResponseDto getHeaderUser(String userId) {
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(UserNotFoundException::new);
+
+        return HeaderUserResponseDto.builder()
+                .userId(user.getUserId())
+                .name(user.getName())
+                .accountRole(user.getAccountRole())
+                .build();
+    }
 
 
+    //전체 학생 조회(어드민)
+    public List<StudentListResponseDto> getAllStudents() {
+
+        List<TeamUser> teamUsers = teamUserRepository.findAll();
+
+        return teamUsers.stream().map(StudentListResponseDto::from).toList();
+
+    }
 
 
+    //학생 상세 조회 어드민_
+    public StudentDetailResponseDto getStudentDetail(String userId) {
+        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+                .orElseThrow(UserNotFoundException::new);
 
+        UserAnalysis userAnalysis = userAnalysisRepository.findByUserUserId(userId)
+                .orElseThrow(UserNotFoundException::new);
 
+        return StudentDetailResponseDto.from(teamUser,userAnalysis);
+    }
 }
