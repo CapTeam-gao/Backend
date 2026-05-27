@@ -5,11 +5,13 @@ import com.capteam.gaobackend.entity.TeamRecommendationMember;
 import com.capteam.gaobackend.entity.TeamRecommendationReason;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.RecommendationStatus;
+import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.StudentRole;
 import lombok.Builder;
 import lombok.Getter;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 // 추천 상세 조회 시 반환하는 DTO (멤버 목록 + 배정 이유 포함)
@@ -29,11 +31,12 @@ public class TeamRecommendationDetailResponseDto {
     public static class MemberDto {
         private String userId;
         private String name;
-        private StudentRole studentRole;    // AI가 배정한 역할
+        private StudentRole studentRole;     // AI가 배정한 역할
         private boolean isRecommendedLeader; // AI가 추천한 팀장 여부
-        private String skill;               // 대표 기술스택 (User.skill 첫 번째)
+        private String skill;                // 대표 기술스택 (User.skill 첫 번째)
+        private StudentLevel studentLevel;   // AI가 분석한 실력 (상/중/하), 어드민만 조회 가능
 
-        public static MemberDto from(TeamRecommendationMember member) {
+        public static MemberDto from(TeamRecommendationMember member, StudentLevel studentLevel) {
             List<String> skills = member.getUser().getSkill();
             return MemberDto.builder()
                     .userId(member.getUser().getUserId())
@@ -41,6 +44,7 @@ public class TeamRecommendationDetailResponseDto {
                     .studentRole(member.getStudentRole())
                     .isRecommendedLeader(member.isRecommendedLeader())
                     .skill(skills != null && !skills.isEmpty() ? skills.get(0) : null)
+                    .studentLevel(studentLevel)
                     .build();
         }
     }
@@ -60,15 +64,19 @@ public class TeamRecommendationDetailResponseDto {
         }
     }
 
+    // levelMap: userId → studentLevel (서비스에서 UserAnalysis 조회 후 전달)
     public static TeamRecommendationDetailResponseDto from(
             TeamRecommendation recommendation,
             List<TeamRecommendationMember> members,
-            List<TeamRecommendationReason> reasons) {
+            List<TeamRecommendationReason> reasons,
+            Map<String, StudentLevel> levelMap) {
         return TeamRecommendationDetailResponseDto.builder()
                 .id(recommendation.getId())
                 .grade(recommendation.getGrade())
                 .status(recommendation.getStatus())
-                .members(members.stream().map(MemberDto::from).collect(Collectors.toList()))
+                .members(members.stream()
+                        .map(m -> MemberDto.from(m, levelMap.get(m.getUser().getUserId())))
+                        .collect(Collectors.toList()))
                 .reasons(reasons.stream().map(ReasonDto::from).collect(Collectors.toList()))
                 .build();
     }

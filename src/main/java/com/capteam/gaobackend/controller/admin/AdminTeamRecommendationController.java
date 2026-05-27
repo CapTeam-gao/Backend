@@ -50,11 +50,4 @@ public class AdminTeamRecommendationController {
         return ApiResponse.ok("팀이 생성되었습니다.");
     }
 
-    // 추천 거절
-    // POST /api/admin/team-recommendations/{recommendationId}/reject
-    @PostMapping("/{recommendationId}/reject")
-    public ResponseEntity<ApiResponse<Void>> rejectRecommendation(@PathVariable Long recommendationId) {
-        adminTeamRecommendationService.rejectRecommendation(recommendationId);
-        return ApiResponse.ok("추천안이 거절되었습니다.");
-    }
 }

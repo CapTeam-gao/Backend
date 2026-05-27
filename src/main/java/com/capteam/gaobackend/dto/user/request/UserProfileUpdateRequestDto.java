@@ -13,7 +13,6 @@ public class UserProfileUpdateRequestDto {
     private StudentRole studentRole;
     private List<String> skill;
     private List<String> experience;
-    private String profileImage;
     private boolean wantsLeader;
     private List<String> preferredTeammates;
 }

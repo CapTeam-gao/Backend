@@ -33,7 +33,4 @@ public class TeamRecommendation extends BaseTimeEntity {
         this.status = RecommendationStatus.ACCEPTED;
     }
 
-    public void reject() {
-        this.status = RecommendationStatus.REJECTED;
-    }
 }

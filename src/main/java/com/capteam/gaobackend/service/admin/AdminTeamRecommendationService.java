@@ -5,6 +5,7 @@ import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.LeaderRole;
+import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.TeamStatus;
 import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,7 +25,8 @@ public class AdminTeamRecommendationService {
     private final TeamRecommendationMemberRepository recommendationMemberRepository;
     private final TeamRecommendationReasonRepository recommendationReasonRepository;
     private final TeamRepository teamRepository;
-    private final TeamMemberRepository teamMemberRepository;
+    private final TeamUserRepository teamUserRepository;
+    private final UserAnalysisRepository userAnalysisRepository;
 
     // ──────────────────────────────────────────
     // AI 팀 추천 요청
@@ -63,7 +66,16 @@ public class AdminTeamRecommendationService {
         List<TeamRecommendationReason> reasons =
                 recommendationReasonRepository.findByRecommendationId(recommendationId);
 
-        return TeamRecommendationDetailResponseDto.from(recommendation, members, reasons);
+        // 멤버별 studentLevel 맵 생성 (userId → studentLevel)
+        Map<String, StudentLevel> levelMap = members.stream()
+                .collect(Collectors.toMap(
+                        m -> m.getUser().getUserId(),
+                        m -> userAnalysisRepository.findByUserUserId(m.getUser().getUserId())
+                                .map(UserAnalysis::getStudentLevel)
+                                .orElse(null)
+                ));
+
+        return TeamRecommendationDetailResponseDto.from(recommendation, members, reasons, levelMap);
     }
 
     // ──────────────────────────────────────────
@@ -91,28 +103,17 @@ public class AdminTeamRecommendationService {
                 recommendationMemberRepository.findByRecommendationId(recommendationId);
 
         for (TeamRecommendationMember recommendedMember : recommendedMembers) {
-            TeamMember teamMember = TeamMember.builder()
+            TeamUser teamUser = TeamUser.builder()
                     .team(team)
                     .user(recommendedMember.getUser())
                     .studentRole(recommendedMember.getStudentRole())
-                    .leaderRole(LeaderRole.MEMBER) // 기본값 MEMBER, 나중에 팀장 지정
+                    .leaderRole(recommendedMember.isRecommendedLeader() ? LeaderRole.LEADER : LeaderRole.MEMBER)
                     .build();
-            teamMemberRepository.save(teamMember);
+            teamUserRepository.save(teamUser);
         }
 
         // 추천안 상태 수락으로 변경 (더티 체킹)
         recommendation.accept();
     }
 
-    // ──────────────────────────────────────────
-    // 추천 거절
-    // ──────────────────────────────────────────
-    @Transactional
-    public void rejectRecommendation(Long recommendationId) {
-        TeamRecommendation recommendation = recommendationRepository.findById(recommendationId)
-                .orElseThrow(() -> new RuntimeException("추천안을 찾을 수 없습니다."));
-
-        // 추천안 상태 거절로 변경 (더티 체킹)
-        recommendation.reject();
-    }
 }

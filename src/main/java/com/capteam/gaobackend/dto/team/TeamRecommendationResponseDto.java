@@ -15,7 +15,7 @@ public class TeamRecommendationResponseDto {
 
     private Long id;
     private Grade grade;              // 대상 학년
-    private RecommendationStatus status; // PENDING / ACCEPTED / REJECTED
+    private RecommendationStatus status; // PENDING / ACCEPTED
     private LocalDateTime createdAt;  // 추천 생성 시각
 
     public static TeamRecommendationResponseDto from(TeamRecommendation recommendation) {
