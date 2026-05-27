@@ -13,16 +13,17 @@ public class NoticeResponseDto {
 
     private Long id;
     private String title;
-    private String authorName;      // 작성자 이름
-    private Grade grade;            // 대상 학년 (null이면 전체)
+    private String writer;      // 작성자 이름 수정
+    private String content;         // content 추가
+//    private Grade grade;            // 대상 학년 (null이면 전체)
     private LocalDateTime createdAt;
 
     public static NoticeResponseDto from(Notice notice) {
         return NoticeResponseDto.builder()
                 .id(notice.getId())
                 .title(notice.getTitle())
-                .authorName(notice.getAuthor().getName())
-                .grade(notice.getGrade())
+                .content(notice.getContent())
+                .writer(notice.getWriter().getName())
                 .createdAt(notice.getCreatedAt())
                 .build();
     }

@@ -17,19 +17,19 @@ public class AdminNoticeController {
 
     private final AdminNoticeService adminNoticeService;
 
-    // 공지 목록 조회
-    // GET /api/admin/notices
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<NoticeResponseDto>>> getNoticeList() {
-        return ApiResponse.ok(adminNoticeService.getNoticeList());
-    }
-
-    // 공지 상세 조회
-    // GET /api/admin/notices/{noticeId}
-    @GetMapping("/{noticeId}")
-    public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> getNoticeDetail(@PathVariable Long noticeId) {
-        return ApiResponse.ok(adminNoticeService.getNoticeDetail(noticeId));
-    }
+//    // 공지 목록 조회
+//    // GET /api/admin/notices
+//    @GetMapping
+//    public ResponseEntity<ApiResponse<List<NoticeResponseDto>>> getNoticeList() {
+//        return ApiResponse.ok(adminNoticeService.getNoticeList());
+//    }
+//
+//    // 공지 상세 조회
+//    // GET /api/admin/notices/{noticeId}
+//    @GetMapping("/{noticeId}")
+//    public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> getNoticeDetail(@PathVariable Long noticeId) {
+//        return ApiResponse.ok(adminNoticeService.getNoticeDetail(noticeId));
+//    }
 
     // 공지 생성
     // POST /api/admin/notices
