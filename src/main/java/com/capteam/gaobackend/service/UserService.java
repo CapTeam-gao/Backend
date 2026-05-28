@@ -25,8 +25,7 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final TeamUserRepository teamUserRepository;
-    private final UserAnalysisRepository userAnalysisRepository;
+
 
     // 마이페이지 조회
     @Transactional(readOnly = true)
@@ -71,24 +70,5 @@ public class UserService {
     }
 
 
-    //전체 학생 조회(어드민)
-    public List<StudentListResponseDto> getAllStudents() {
 
-        List<TeamUser> teamUsers = teamUserRepository.findAll();
-
-        return teamUsers.stream().map(StudentListResponseDto::from).toList();
-
-    }
-
-
-    //학생 상세 조회 어드민_
-    public StudentDetailResponseDto getStudentDetail(String userId) {
-        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
-                .orElseThrow(UserNotFoundException::new);
-
-        UserAnalysis userAnalysis = userAnalysisRepository.findByUserUserId(userId)
-                .orElseThrow(UserNotFoundException::new);
-
-        return StudentDetailResponseDto.from(teamUser,userAnalysis);
-    }
 }
