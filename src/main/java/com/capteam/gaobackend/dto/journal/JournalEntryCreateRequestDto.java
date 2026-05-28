@@ -6,13 +6,10 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @NoArgsConstructor
-public class JournalCreateRequestDto {
+public class JournalEntryCreateRequestDto {
 
     @NotBlank
     private String activityContent;
-
-    @NotBlank
-    private String todayActivityContent;
 
     @NotBlank
     private String nextPlanContent;

@@ -30,9 +30,9 @@ public class Journal extends BaseTimeEntity {
     @Column(nullable = false)
     private JournalStatus status;
 
-    // 팀원 전원 작성 완료 후 AI가 병합한 최종 결과
-    @Column(columnDefinition = "LONGTEXT")
-    private String aiMergedContent;
+//    // 팀원 전원 작성 완료 후 AI가 병합한 최종 결과
+//    @Column(columnDefinition = "LONGTEXT")
+//    private String aiMergedContent;
 
     @Builder
     public Journal(Team team, String title, LocalDate date) {
@@ -43,10 +43,10 @@ public class Journal extends BaseTimeEntity {
     }
 
     // 팀원 전원 완료 시 AI 병합 결과 저장하면서 상태 변경
-    public void complete(String aiMergedContent) {
-        this.aiMergedContent = aiMergedContent;
-        this.status = JournalStatus.COMPLETED;
-    }
+//    public void complete(String aiMergedContent) {
+//        this.aiMergedContent = aiMergedContent;
+//        this.status = JournalStatus.COMPLETED;
+//    }
 
     public void update(String title, LocalDate date) {
         this.title = title;

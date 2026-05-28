@@ -5,6 +5,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface UserAnalysisRepository extends JpaRepository<UserAnalysis,Long> {
+public interface UserAnalysisRepository extends JpaRepository<UserAnalysis,String> {
     Optional<UserAnalysis> findByUserUserId(String userId); //유저의 유저 아이디로 찾기
 }
