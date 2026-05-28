@@ -1,9 +1,8 @@
 package com.capteam.gaobackend.controller.admin;
 
-import com.capteam.gaobackend.dto.common.ApiResponse;
-import com.capteam.gaobackend.dto.user.response.StudentDetailResponseDto;
-import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
-import com.capteam.gaobackend.service.UserService;
+import com.capteam.gaobackend.dto.admin.AdminStudentDetailResponseDto;
+import com.capteam.gaobackend.dto.admin.AdminStudentListResponseDto;
+import com.capteam.gaobackend.service.admin.AdminStudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,18 +14,18 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminStudentController {
 
-    private final UserService userService;
+    private final AdminStudentService adminStudentService;
 
 
     @GetMapping
-    public ResponseEntity<List<StudentListResponseDto>> getAllStudent() {
-        return ResponseEntity.ok(userService.getAllStudents());
+    public ResponseEntity<List<AdminStudentListResponseDto>> getAllStudent() {
+        return ResponseEntity.ok(adminStudentService.getAllStudents());
     }
 
 
     @GetMapping("/{userId}")
-    public ResponseEntity<StudentDetailResponseDto> getStudentInfo(@PathVariable String userId) {
-        StudentDetailResponseDto response = userService.getStudentDetail(userId);
+    public ResponseEntity<AdminStudentDetailResponseDto> getStudentInfo(@PathVariable String userId) {
+        AdminStudentDetailResponseDto response = adminStudentService.getStudentDetail(userId);
         return ResponseEntity.ok(response);
     }
 
