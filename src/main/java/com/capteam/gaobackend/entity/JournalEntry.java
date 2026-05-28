@@ -19,8 +19,11 @@ public class JournalEntry extends BaseTimeEntity {
     private Journal journal;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "author_id", nullable = false)
-    private User author;
+    @JoinColumn(name = "writer_id", nullable = false)
+    private User writer;
+
+    @Column(columnDefinition = "TEXT", nullable = false)
+    private String todayActivityContent;    // 오늘 진행한 상황
 
     @Column(columnDefinition = "TEXT", nullable = false)
     private String activityContent;         // 활동 내용
@@ -32,10 +35,10 @@ public class JournalEntry extends BaseTimeEntity {
     private String reflectionContent;       // 오늘 프로젝트 수행 만족도 및 자기 반성
 
     @Builder
-    public JournalEntry(Journal journal, User author,
+    public JournalEntry(Journal journal, User writer,
                         String activityContent, String nextPlanContent, String reflectionContent) {
         this.journal = journal;
-        this.author = author;
+        this.writer = writer;
         this.activityContent = activityContent;
         this.nextPlanContent = nextPlanContent;
         this.reflectionContent = reflectionContent;
