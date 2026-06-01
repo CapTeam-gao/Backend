@@ -1,9 +1,14 @@
 package com.capteam.gaobackend.dto.admin;
 
 import com.capteam.gaobackend.dto.journal.JournalListItemResponseDto;
+import com.capteam.gaobackend.entity.Journal;
+import com.capteam.gaobackend.entity.TeamProject;
+import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.JournalStatus;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Getter
