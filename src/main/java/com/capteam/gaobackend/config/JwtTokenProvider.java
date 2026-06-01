@@ -7,10 +7,15 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -116,6 +121,18 @@ public class JwtTokenProvider {
 
     public String extractRole(String token) {
         return extractClaim(token,claims -> claims.get("role",String.class));
+    }
+
+    public Authentication getAuthentication(String token) {
+        // WebSocket CONNECT 인증 후 STOMP 세션에 넣을 Spring Security Authentication 객체를 만듭니다.
+        // principal name은 userId가 되며, 이후 @MessageMapping 메서드의 Principal#getName()으로 꺼낼 수 있습니다.
+        String userId = extractUserId(token);
+        String role = extractRole(token);
+
+        var authorities = Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role));
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(userId, "", authorities);
+
+        return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
     public void invalidateRefreshToken(String userId) {
