@@ -30,6 +30,7 @@ public class Journal extends BaseTimeEntity {
     @Column(nullable = false)
     private JournalStatus status;
 
+
 //    // 팀원 전원 작성 완료 후 AI가 병합한 최종 결과
 //    @Column(columnDefinition = "LONGTEXT")
 //    private String aiMergedContent;
@@ -51,5 +52,9 @@ public class Journal extends BaseTimeEntity {
     public void update(String title, LocalDate date) {
         this.title = title;
         this.date = date;
+    }
+
+    public void complete() {
+        this.status = JournalStatus.COMPLETED;
     }
 }

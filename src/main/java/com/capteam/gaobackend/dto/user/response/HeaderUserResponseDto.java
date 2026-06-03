@@ -11,4 +11,5 @@ public class HeaderUserResponseDto {
     private String userId;
     private String name;
     private AccountRole accountRole;
+    private boolean surveyCompleted;
 }

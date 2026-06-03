@@ -34,6 +34,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_TOKEN_EXPIRATION: ${JWT_ACCESS_TOKEN_EXPIRATION}
       JWT_REFRESH_JWT_ACCESS_TOKEN_EXPIRATION: ${JWT_REFRESH_JWT_ACCESS_TOKEN_EXPIRATION}
+      AI_SERVER_BASE_URL: ${AI_SERVER_BASE_URL:-http://host.docker.internal:8000}
     depends_on:
       mysql:
         condition: service_healthy
