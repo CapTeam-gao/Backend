@@ -58,6 +58,14 @@ public class User extends BaseTimeEntity {
     @ElementCollection
     private List<String> preferredTeammates;    // 선호 팀원 userId 최대 3명
 
+    private boolean surveyCompleted = false;
+
+    @ElementCollection
+    private List<Integer> personalityScores;
+
+    @ElementCollection
+    private List<Integer> developmentScores;
+
     //    업데이트 메서드
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
@@ -72,5 +80,13 @@ public class User extends BaseTimeEntity {
         this.wantsLeader = wantsLeader;
         this.preferredTeammates = preferredTeammates;
     }
-}
 
+    public void completeSurvey(StudentRole studentRole, List<String> skill, List<String> experience,
+                               boolean wantsLeader, List<String> preferredTeammates,
+                               List<Integer> personalityScores, List<Integer> developmentScores) {
+        updateProfile(studentRole, skill, experience, wantsLeader, preferredTeammates);
+        this.personalityScores = personalityScores;
+        this.developmentScores = developmentScores;
+        this.surveyCompleted = true;
+    }
+}
