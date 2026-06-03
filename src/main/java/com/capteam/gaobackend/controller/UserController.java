@@ -3,7 +3,9 @@ package com.capteam.gaobackend.controller;
 import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
+import com.capteam.gaobackend.dto.user.request.UserSurveyRequestDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
+import com.capteam.gaobackend.dto.user.response.UserSurveyResponseDto;
 import com.capteam.gaobackend.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,16 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserMeResponseDto>> updateMyProfile(@RequestBody UserProfileUpdateRequestDto dto) {
         UserMeResponseDto result = userService.updateMyProfile(dto);
         return ApiResponse.ok(result);
+    }
+
+    @GetMapping("/survey")
+    public ResponseEntity<ApiResponse<UserSurveyResponseDto>> getMySurvey() {
+        return ApiResponse.ok(userService.getMySurvey());
+    }
+
+    @PostMapping("/survey")
+    public ResponseEntity<ApiResponse<UserSurveyResponseDto>> submitMySurvey(@RequestBody UserSurveyRequestDto dto) {
+        return ApiResponse.ok(userService.submitMySurvey(dto));
     }
 
 

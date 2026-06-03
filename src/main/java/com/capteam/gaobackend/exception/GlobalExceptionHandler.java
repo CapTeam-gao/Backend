@@ -11,6 +11,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(AiServerException.class)
+    public ResponseEntity<Map<String,String>> handleAiServer(AiServerException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", e.getMessage()));
+    }
+
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<Map<String,String>> handleUserNotFound(UserNotFoundException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -6,5 +6,6 @@ import lombok.Builder;
 public record AuthResponse(
         String accessToken,
         String refreshToken,
-        String role
+        String role,
+        boolean surveyCompleted
 ) {}

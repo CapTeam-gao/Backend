@@ -25,6 +25,11 @@ public class AdminTeamService {
     private final TeamProjectRepository teamProjectRepository;
     private final TeamRepository teamRepository;
 
+//    public AdminTeamListResponseDto createTeam() {
+//
+//    }
+
+
     public List<AdminTeamListResponseDto> getTeamList() {
 
         //전체 팀 조회

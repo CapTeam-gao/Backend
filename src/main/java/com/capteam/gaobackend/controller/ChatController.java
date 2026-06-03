@@ -5,6 +5,7 @@ import com.capteam.gaobackend.dto.chat.ChatChannelPresenceResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
@@ -101,6 +102,17 @@ public class ChatController {
         // 과거 메시지는 REST로 페이지 단위 조회하고, 새 메시지는 WebSocket 구독으로 받습니다.
         // 기본 정렬은 서비스에서 최신순으로 고정되어 있습니다.
         return ApiResponse.ok(chatService.findMessages(channelId, authentication.getName(), pageable));
+    }
+
+    @PostMapping("/channels/{channelId}/messages")
+    public ResponseEntity<ApiResponse<ChatMessageResponseDto>> sendMessage(
+            @PathVariable Long channelId,
+            @RequestBody ChatMessageRequestDto request,
+            Authentication authentication
+    ) {
+        // 기본 실시간 전송은 WebSocket /pub/chat/{channelId}/send 입니다.
+        // 이 REST API는 HTTP 기반 fallback과 API 테스트 편의를 위해 같은 저장 로직을 재사용합니다.
+        return ApiResponse.ok(chatService.saveMessage(channelId, authentication.getName(), request));
     }
 
     @PostMapping("/channels/{channelId}/read")

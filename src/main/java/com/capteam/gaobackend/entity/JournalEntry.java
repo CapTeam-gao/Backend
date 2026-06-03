@@ -36,15 +36,19 @@ public class JournalEntry extends BaseTimeEntity {
 
     @Builder
     public JournalEntry(Journal journal, User writer,
-                        String activityContent, String nextPlanContent, String reflectionContent) {
+                        String todayActivityContent, String activityContent,
+                        String nextPlanContent, String reflectionContent) {
         this.journal = journal;
         this.writer = writer;
+        this.todayActivityContent = todayActivityContent;
         this.activityContent = activityContent;
         this.nextPlanContent = nextPlanContent;
         this.reflectionContent = reflectionContent;
     }
 
-    public void update(String activityContent, String nextPlanContent, String reflectionContent) {
+    public void update(String todayActivityContent, String activityContent,
+                       String nextPlanContent, String reflectionContent) {
+        this.todayActivityContent = todayActivityContent;
         this.activityContent = activityContent;
         this.nextPlanContent = nextPlanContent;
         this.reflectionContent = reflectionContent;

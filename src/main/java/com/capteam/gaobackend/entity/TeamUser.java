@@ -41,4 +41,10 @@ public class TeamUser extends BaseTimeEntity{
         this.studentRole = studentRole;
         this.leaderRole = leaderRole;
     }
+
+    public void updateTeamMember(Team team, StudentRole studentRole, LeaderRole leaderRole) {
+        this.team = team;
+        this.studentRole = studentRole;
+        this.leaderRole = leaderRole;
+    }
 }

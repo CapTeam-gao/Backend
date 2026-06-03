@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Builder
 public class AdminTeamListResponseDto {
+    private Long teamId;
     private String teamName;
     private Grade grade;    //학년
     private String serviceName;
@@ -35,6 +36,7 @@ public class AdminTeamListResponseDto {
 
     public static AdminTeamListResponseDto from(Team team, TeamProject teamProject, List<TeamUser> teamUsers) {
         return AdminTeamListResponseDto.builder()
+                .teamId(team.getId())
                 .teamName(team.getTeamName())
                 .grade(team.getGrade())
                 .serviceName(teamProject != null ? teamProject.getServiceName() : null)

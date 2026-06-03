@@ -48,6 +48,7 @@ public class AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .role(user.getAccountRole().name())
+                .surveyCompleted(user.isSurveyCompleted())
                 .build();
     }
 
@@ -90,6 +91,8 @@ public class AuthService {
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
                 .refreshToken(newRefreshToken)
+                .role(user.getAccountRole().name())
+                .surveyCompleted(user.isSurveyCompleted())
                 .build();
     }
 }

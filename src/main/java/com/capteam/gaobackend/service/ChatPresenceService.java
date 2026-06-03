@@ -72,6 +72,13 @@ public class ChatPresenceService {
         return sessions != null && !sessions.isEmpty();
     }
 
+    public long countOnlineMembersByTeamId(Long teamId) {
+        return teamUserRepository.findByTeamId(teamId)
+                .stream()
+                .filter(teamUser -> isOnline(teamUser.getUser().getUserId()))
+                .count();
+    }
+
     public ChatChannelPresenceResponseDto findChannelPresence(Long channelId, String userId) {
         // 온라인 목록도 팀 정보이므로 채널 접근 권한을 확인하고 내려줍니다.
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
