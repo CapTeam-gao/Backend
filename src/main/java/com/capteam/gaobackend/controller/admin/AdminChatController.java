@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.controller.admin;
 
+import com.capteam.gaobackend.dto.chat.AdminChatRoomCreateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
@@ -27,9 +28,27 @@ public class AdminChatController {
         return ApiResponse.ok(chatService.getAdminRooms());
     }
 
+    @PostMapping("/rooms")
+    public ResponseEntity<ApiResponse<ChatRoomResponseDto>> createRoom(
+            @RequestBody AdminChatRoomCreateRequestDto request,
+            Authentication authentication
+    ) {
+        return ApiResponse.ok(chatService.createAdminRoom(
+                request.getTeamId(),
+                request.getChannelName(),
+                authentication.getName()
+        ));
+    }
+
     @GetMapping("/rooms/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> getRoom(@PathVariable Long roomId) {
         return ApiResponse.ok(chatService.getAdminRoom(roomId));
+    }
+
+    @DeleteMapping("/rooms/{roomId}")
+    public ResponseEntity<ApiResponse<String>> deleteRoom(@PathVariable Long roomId) {
+        chatService.deleteAdminRoom(roomId);
+        return ApiResponse.ok("채팅방이 삭제되었습니다.");
     }
 
     @GetMapping("/teams/{teamId}/room")

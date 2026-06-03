@@ -10,11 +10,13 @@ import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatReadStatus;
 import com.capteam.gaobackend.entity.ChatRoom;
+import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
 import com.capteam.gaobackend.repository.ChatReadStatusRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
+import com.capteam.gaobackend.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +36,9 @@ public class ChatService {
     private final ChatRoomRepository chatRoomRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
     private final ChatAccessService chatAccessService;
+    private final TeamRepository teamRepository;
+
+
 
     public ChatRoomResponseDto getMyChatRoom(String userId) {
         ChatRoom room = chatAccessService.getMyChatRoom(userId);
@@ -77,6 +82,42 @@ public class ChatService {
                 .orElseThrow(() -> new IllegalArgumentException("해당 팀의 채팅방이 없습니다."));
 
         return buildRoomResponse(room);
+    }
+
+    @Transactional
+    public ChatRoomResponseDto createAdminRoom(Long teamId, String channelName, String creatorId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 팀입니다."));
+
+        if (chatRoomRepository.findByTeamId(teamId).isPresent()) {
+            throw new IllegalArgumentException("이미 해당 팀의 채팅방이 있습니다.");
+        }
+
+        User creator = chatAccessService.getUser(creatorId);
+        ChatRoom room = chatRoomRepository.save(ChatRoom.builder()
+                .team(team)
+                .build());
+        chatChannelRepository.save(ChatChannel.builder()
+                .chatRoom(room)
+                .channelName(normalize(channelName).isEmpty() ? "공통" : normalize(channelName))
+                .createdBy(creator)
+                .build());
+
+        return buildRoomResponse(room);
+    }
+
+    @Transactional
+    public void deleteAdminRoom(Long roomId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
+
+        List<ChatChannel> channels = chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId());
+        for (ChatChannel channel : channels) {
+            chatReadStatusRepository.deleteByChannelId(channel.getId());
+            chatMessageRepository.deleteByChannelId(channel.getId());
+        }
+        chatChannelRepository.deleteByChatRoomId(room.getId());
+        chatRoomRepository.delete(room);
     }
 
     @Transactional
@@ -180,6 +221,8 @@ public class ChatService {
                 .map(ChatMessageResponseDto::from);
     }
 
+
+    //채팅을 로드하는 공통 메서드
     private ChatRoomResponseDto buildRoomResponse(ChatRoom room) {
         return ChatRoomResponseDto.from(
                 room,
