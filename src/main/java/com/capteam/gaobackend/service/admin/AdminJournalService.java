@@ -19,12 +19,17 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AdminJournalService {
 
+    // 관리자 일지 목록 조회에 사용할 일지 Repository 필드입니다.
     private final JournalRepository journalRepository;
+
+    // 일지 목록에 프로젝트 서비스명을 함께 보여주기 위한 Repository 필드입니다.
     private final TeamProjectRepository teamProjectRepository;
+
+    // 일지 상세 조회 로직을 재사용하기 위한 공통 JournalService 필드입니다.
     private final JournalService journalService;
 
 
-    // 일지 리스트 조회
+    // 전체 일지 목록과 제출/미제출 통계를 조회하는 기능입니다.
     public AdminJournalListResponseDto getJournalList() {
         Map<Long, TeamProject> teamProjectMap = teamProjectRepository.findAll()
                 .stream()
@@ -45,7 +50,7 @@ public class AdminJournalService {
     }
 
 
-    // 일지 상세 조회
+    // 관리자가 특정 일지 상세를 조회하는 기능입니다.
     public JournalDetailResponseDto getJournalDetail(Long journalId) {
         return journalService.getAdminJournalDetail(journalId);
     }

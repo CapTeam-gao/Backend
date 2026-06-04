@@ -10,17 +10,37 @@ import java.time.LocalDateTime;
 @Builder
 public class ChatMessageResponseDto {
 
+    // 메시지 고유 id를 내려주는 필드입니다.
     private Long id;
+
+    // 메시지가 속한 채널 id를 내려주는 필드입니다.
     private Long channelId;
+
+    // 메시지를 보낸 사용자 id를 내려주는 필드입니다.
     private String senderId;
+
+    // 메시지를 보낸 사용자 이름을 내려주는 필드입니다.
     private String senderName;
+
+    // 텍스트 메시지 내용을 내려주는 필드입니다.
     private String message;
+
+    // 첨부 파일 접근 URL을 내려주는 필드입니다.
     private String fileUrl;
+
+    // 첨부 파일 표시용 이름을 내려주는 필드입니다.
     private String fileName;
+
+    // 첨부 파일 MIME 타입을 내려주는 필드입니다.
     private String fileType;
+
+    // 첨부 파일 크기를 byte 단위로 내려주는 필드입니다.
     private Long fileSize;
+
+    // 메시지 생성 시각을 내려주는 필드입니다.
     private LocalDateTime createdAt;
 
+    // ChatMessage 엔티티를 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatMessageResponseDto from(ChatMessage chatMessage) {
         return ChatMessageResponseDto.builder()
                 .id(chatMessage.getId())

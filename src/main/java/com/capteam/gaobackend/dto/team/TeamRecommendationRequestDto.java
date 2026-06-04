@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class TeamRecommendationRequestDto {
 
+    // AI 팀 추천을 생성할 대상 학년을 받는 필드입니다.
     @NotNull
-    private Grade grade; // 추천 대상 학년
+    private Grade grade;
 }

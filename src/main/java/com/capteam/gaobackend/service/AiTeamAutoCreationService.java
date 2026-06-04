@@ -38,15 +38,28 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AiTeamAutoCreationService {
 
+    // 자동 팀 생성 시 기본으로 맞추려는 팀당 인원 수입니다.
     private static final int TEAM_SIZE = 5;
 
+    // 설문을 완료한 학생 계정과 관리자 계정을 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
+
+    // 자동 생성된 팀을 저장하고 현재 팀 존재 여부를 확인하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
+
+    // 팀에 학생을 배정하거나 현재 팀원 목록을 조회하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // 팀 생성 후 팀별 채팅방을 자동 생성하는 Repository 필드입니다.
     private final ChatRoomRepository chatRoomRepository;
+
+    // 팀 채팅방의 기본 채널을 자동 생성하는 Repository 필드입니다.
     private final ChatChannelRepository chatChannelRepository;
+
+    // 대량 삭제와 user_analysis upsert를 직접 SQL로 처리하기 위한 필드입니다.
     private final JdbcTemplate jdbcTemplate;
 
+    // 학생 프로필 기반으로 기존 팀 데이터를 초기화하고 새 팀/팀원/채팅방을 자동 생성하는 기능입니다.
     @Transactional
     public AiTeamSummaryResponseDto recreateTeamsByStudentProfiles() {
         List<StudentProfile> profiles = loadStudentProfiles();
@@ -61,6 +74,7 @@ public class AiTeamAutoCreationService {
         return buildSummary(teamResults, profiles.size());
     }
 
+    // 현재 DB에 저장된 팀 정보를 기준으로 AI 팀 요약 응답을 다시 만드는 기능입니다.
     @Transactional(readOnly = true)
     public AiTeamSummaryResponseDto summarizeCurrentTeams() {
         List<TeamResult> teamResults = teamRepository.findAll()
@@ -83,10 +97,12 @@ public class AiTeamAutoCreationService {
         return buildSummary(teamResults, (int) userRepository.countByAccountRole(AccountRole.STUDENT));
     }
 
+    // 이미 팀이 생성되어 있는지 확인하는 기능입니다.
     public boolean hasCreatedTeams() {
         return teamRepository.count() > 0;
     }
 
+    // 학생 계정 목록을 설문 정보 기반 StudentProfile 목록으로 변환하는 기능입니다.
     private List<StudentProfile> loadStudentProfiles() {
         return userRepository.findAll()
                 .stream()
@@ -110,10 +126,12 @@ public class AiTeamAutoCreationService {
                 .toList();
     }
 
+    // null 목록을 빈 목록으로 바꾸고 null 원소를 제거하는 기능입니다.
     private List<String> safeList(List<String> values) {
         return values == null ? List.of() : values.stream().filter(Objects::nonNull).toList();
     }
 
+    // 기술 스택, 구현 경험, 팀장 희망, 선호 팀원 수를 기준으로 매칭 점수를 계산하는 기능입니다.
     private double calculateScore(User user, List<String> skills, List<String> experiences) {
         double score = 10;
         score += Math.min(skills.size(), 6) * 5;
@@ -123,6 +141,7 @@ public class AiTeamAutoCreationService {
         return score;
     }
 
+    // StudentRole enum을 AI 요약에서 사용하는 역할군 문자열로 변환하는 기능입니다.
     private String toRoleGroup(StudentRole role) {
         return switch (role) {
             case BACKEND -> "backend";
@@ -133,6 +152,7 @@ public class AiTeamAutoCreationService {
         };
     }
 
+    // 매칭 점수를 기준으로 상위 20%, 중간, 하위 20% 실력 등급을 부여하는 기능입니다.
     private void analyzeSkillLevels(List<StudentProfile> profiles) {
         List<StudentProfile> sorted = profiles.stream()
                 .sorted(Comparator
@@ -158,6 +178,7 @@ public class AiTeamAutoCreationService {
         }
     }
 
+    // 계산된 학생 분석 결과와 실력 등급을 user_analysis 테이블에 저장하거나 갱신하는 기능입니다.
     private void saveAnalysisResults(List<StudentProfile> profiles) {
         jdbcTemplate.batchUpdate(
                 """
@@ -178,6 +199,7 @@ public class AiTeamAutoCreationService {
         );
     }
 
+    // 현재 DB의 TeamUser 정보를 StudentProfile로 변환해 요약 생성에 재사용하는 기능입니다.
     private StudentProfile toCurrentProfile(TeamUser teamUser) {
         User user = teamUser.getUser();
         List<String> skills = safeList(user.getSkill());
@@ -195,6 +217,7 @@ public class AiTeamAutoCreationService {
         return profile;
     }
 
+    // user_analysis 테이블에서 학생의 실력 등급을 조회하고 없으면 MIDDLE로 처리하는 기능입니다.
     private StudentLevel loadLevel(String userId) {
         List<StudentLevel> levels = jdbcTemplate.query(
                 "SELECT student_level FROM user_analysis WHERE user_id = ?",
@@ -204,6 +227,7 @@ public class AiTeamAutoCreationService {
         return levels.isEmpty() ? StudentLevel.MIDDLE : levels.get(0);
     }
 
+    // 학생 역할/스킬/경험/등급을 사람이 읽을 수 있는 분석 문장으로 만드는 기능입니다.
     private String buildAnalysisText(StudentProfile profile) {
         return "%s 역할 희망, 스킬 %d개, 경험 %d개를 기준으로 %s 등급으로 분석되었습니다."
                 .formatted(
@@ -214,6 +238,7 @@ public class AiTeamAutoCreationService {
                 );
     }
 
+    // 팀 재생성 전에 기존 팀/채팅/일지 관련 데이터를 삭제하는 기능입니다.
     private void resetTeamData() {
         jdbcTemplate.update("DELETE FROM chat_read_status");
         jdbcTemplate.update("DELETE FROM chat_messages");
@@ -226,6 +251,7 @@ public class AiTeamAutoCreationService {
         jdbcTemplate.update("DELETE FROM teams");
     }
 
+    // 자동 생성 채팅 채널의 createdBy에 넣을 관리자 계정을 찾는 기능입니다.
     private User findChannelCreator() {
         return userRepository.findAll()
                 .stream()
@@ -234,6 +260,7 @@ public class AiTeamAutoCreationService {
                 .orElseThrow(() -> new IllegalStateException("채팅 채널 생성자로 사용할 관리자 계정이 없습니다."));
     }
 
+    // 역할별 큐를 만들어 각 팀에 역할이 최대한 분산되도록 학생을 배치하는 기능입니다.
     private List<List<StudentProfile>> matchTeams(List<StudentProfile> profiles) {
         int teamCount = (int) Math.ceil((double) profiles.size() / TEAM_SIZE);
         List<List<StudentProfile>> teams = new ArrayList<>();
@@ -274,6 +301,7 @@ public class AiTeamAutoCreationService {
         return teams;
     }
 
+    // 매칭 결과를 Team, TeamUser, ChatRoom, ChatChannel 테이블에 저장하는 기능입니다.
     private List<TeamResult> persistTeams(List<List<StudentProfile>> matchedTeams, User channelCreator) {
         List<TeamResult> results = new ArrayList<>();
         int teamNumber = 1;
@@ -311,6 +339,7 @@ public class AiTeamAutoCreationService {
         return results;
     }
 
+    // 팀장 희망자 중 점수가 높은 학생을 우선 팀장으로 선택하는 기능입니다.
     private StudentProfile chooseLeader(List<StudentProfile> members) {
         return members.stream()
                 .filter(member -> member.getUser().isWantsLeader())
@@ -320,6 +349,7 @@ public class AiTeamAutoCreationService {
                         .orElseThrow());
     }
 
+    // 팀 생성 결과 목록을 AI 팀 요약 최상위 응답 DTO로 변환하는 기능입니다.
     private AiTeamSummaryResponseDto buildSummary(List<TeamResult> teamResults, int totalStudents) {
         AiTeamSummaryResponseDto response = new AiTeamSummaryResponseDto();
         response.setTotalStudents(totalStudents);
@@ -328,6 +358,7 @@ public class AiTeamAutoCreationService {
         return response;
     }
 
+    // 한 팀의 매칭 결과를 AI 팀 요약의 팀 DTO로 변환하는 기능입니다.
     private AiTeamSummaryResponseDto.TeamDto buildTeamDto(TeamResult result) {
         AiTeamSummaryResponseDto.TeamDto dto = new AiTeamSummaryResponseDto.TeamDto();
         dto.setTeamName(result.team().getTeamName());
@@ -343,6 +374,7 @@ public class AiTeamAutoCreationService {
         return dto;
     }
 
+    // 팀원 목록에서 역할군별 인원 수 DTO 목록을 만드는 기능입니다.
     private List<AiTeamSummaryResponseDto.RoleCountDto> buildRoleCounts(List<StudentProfile> members) {
         Map<String, Long> counts = members.stream()
                 .collect(Collectors.groupingBy(StudentProfile::getRoleGroup, LinkedHashMap::new, Collectors.counting()));
@@ -357,6 +389,7 @@ public class AiTeamAutoCreationService {
                 .toList();
     }
 
+    // 학생 프로필 하나를 AI 팀 요약의 팀원 DTO로 변환하는 기능입니다.
     private AiTeamSummaryResponseDto.MemberDto buildMemberDto(StudentProfile profile) {
         AiTeamSummaryResponseDto.MemberDto dto = new AiTeamSummaryResponseDto.MemberDto();
         dto.setName(profile.getUser().getName());
@@ -369,12 +402,14 @@ public class AiTeamAutoCreationService {
         return dto;
     }
 
+    // 학생의 기술 스택과 경험을 조합해 강점 문장을 만드는 기능입니다.
     private String buildStrength(StudentProfile profile) {
         String skillText = profile.getSkills().isEmpty() ? "등록된 스킬 없음" : String.join(", ", profile.getSkills());
         String experienceText = profile.getExperiences().isEmpty() ? "등록된 경험 없음" : String.join(", ", profile.getExperiences());
         return skillText + " 기반으로 " + experienceText + " 경험을 보유했습니다.";
     }
 
+    // 학생 개인의 상위 기술 스택 점수 목록을 만드는 기능입니다.
     private List<AiTeamSummaryResponseDto.MemberTopStackScoreDto> buildMemberTopStacks(StudentProfile profile) {
         return profile.getSkills().stream()
                 .limit(2)
@@ -387,6 +422,7 @@ public class AiTeamAutoCreationService {
                 .toList();
     }
 
+    // 팀 전체에서 대표 기술 스택 점수 목록을 만드는 기능입니다.
     private List<AiTeamSummaryResponseDto.TeamTopStackScoreDto> buildTeamTopStacks(List<StudentProfile> members) {
         return members.stream()
                 .flatMap(member -> member.getSkills().stream().limit(1).map(skill -> Map.entry(member, skill)))
@@ -401,6 +437,7 @@ public class AiTeamAutoCreationService {
                 .toList();
     }
 
+    // 팀원들의 상/중/하 실력 등급 분포를 계산하는 기능입니다.
     private Map<String, Integer> buildSkillLevelCounts(List<StudentProfile> members) {
         Map<String, Integer> counts = new HashMap<>();
         counts.put("상", 0);
@@ -413,6 +450,7 @@ public class AiTeamAutoCreationService {
         return counts;
     }
 
+    // 팀 역할 분산과 팀장 선택 이유를 설명하는 매칭 이유 문장을 만드는 기능입니다.
     private String buildMatchingReason(TeamResult result) {
         String roles = result.members().stream()
                 .map(member -> member.getRole().name())
@@ -422,6 +460,7 @@ public class AiTeamAutoCreationService {
                 + "을 팀장으로 두어 실력 수준과 구현 경험이 섞이도록 자동 생성했습니다.";
     }
 
+    // 팀의 역할군 구성을 기반으로 팀 강점 문장을 만드는 기능입니다.
     private String buildTeamStrengths(List<StudentProfile> members) {
         return members.stream()
                 .map(StudentProfile::getRoleGroup)
@@ -430,6 +469,7 @@ public class AiTeamAutoCreationService {
                 + " 역할군이 함께 있어 기능 구현 범위를 넓게 커버할 수 있습니다.";
     }
 
+    // 하 등급 학생 수를 기준으로 팀 보완점 문장을 만드는 기능입니다.
     private String buildTeamWeaknesses(List<StudentProfile> members) {
         long lowerCount = members.stream().filter(member -> member.getLevel() == StudentLevel.LOWER).count();
         return lowerCount > 0
@@ -437,6 +477,7 @@ public class AiTeamAutoCreationService {
                 : "뚜렷한 하 등급 리스크는 낮지만 역할 간 작업 범위 조율이 필요합니다.";
     }
 
+    // StudentLevel enum을 화면 표시용 한국어 등급으로 변환하는 기능입니다.
     private String toKoreanLevel(StudentLevel level) {
         return switch (level) {
             case UPPER -> "상";
@@ -447,20 +488,36 @@ public class AiTeamAutoCreationService {
 
     @lombok.Builder
     @lombok.Getter
+    // 자동 팀 매칭에 필요한 학생 정보를 메모리에서 들고 다니는 내부 DTO입니다.
     private static class StudentProfile {
+        // 실제 User 엔티티를 참조하는 필드입니다.
         private final User user;
+
+        // 학생의 세부 개발 역할을 저장하는 필드입니다.
         private final StudentRole role;
+
+        // AI 요약에서 사용할 역할군 문자열을 저장하는 필드입니다.
         private final String roleGroup;
+
+        // 학생 기술 스택 목록을 저장하는 필드입니다.
         private final List<String> skills;
+
+        // 학생 구현 경험 목록을 저장하는 필드입니다.
         private final List<String> experiences;
+
+        // 자동 매칭에 사용할 학생 점수를 저장하는 필드입니다.
         private final double score;
+
+        // 점수를 기준으로 계산된 상/중/하 등급을 저장하는 필드입니다.
         private StudentLevel level;
 
+        // 분석된 학생 실력 등급을 설정하는 기능입니다.
         private void setLevel(StudentLevel level) {
             this.level = level;
         }
     }
 
+    // 저장된 팀, 팀원 목록, 선택된 팀장을 함께 묶는 내부 결과 DTO입니다.
     private record TeamResult(Team team, List<StudentProfile> members, StudentProfile leader) {
     }
 }

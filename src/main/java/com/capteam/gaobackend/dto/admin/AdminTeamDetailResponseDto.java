@@ -19,26 +19,51 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Builder
 public class AdminTeamDetailResponseDto {
+    // 팀 고유 id를 내려주는 필드입니다.
     private Long teamId;
+
+    // 팀 이름을 내려주는 필드입니다.
     private String teamName;
+
+    // 팀 학년을 내려주는 필드입니다.
     private Grade grade;
+
+    // 팀 프로젝트 서비스 이름을 내려주는 필드입니다.
     private String serviceName;
+
+    // 팀 안의 개발 역할별 인원 수를 내려주는 필드입니다.
     private Map<StudentRole, Long> roleCount;
+
+    // 팀 프로젝트 서비스 소개를 내려주는 필드입니다.
     private String serviceIntro;
+
+    // 팀 프로젝트 주요 기능을 내려주는 필드입니다.
     private String mainFeatures;
+
+    // 팀원 상세 목록을 내려주는 필드입니다.
     private List<TeamMemberDto> members;
 
     @Getter
     @AllArgsConstructor
     @Builder
     public static class TeamMemberDto {
+        // 팀원 userId를 내려주는 필드입니다.
         private String userId;
+
+        // 팀원 이름을 내려주는 필드입니다.
         private String name;
+
+        // 팀원의 개발 역할을 내려주는 필드입니다.
         private StudentRole studentRole;
+
+        // 팀원의 팀장/팀원 역할을 내려주는 필드입니다.
         private LeaderRole leaderRole;
+
+        // 팀원의 기술 스택 목록을 내려주는 필드입니다.
         private List<String> skill;
     }
 
+    // Team, TeamProject, TeamUser 목록을 관리자 팀 상세 응답 DTO로 변환하는 기능입니다.
     public static AdminTeamDetailResponseDto from(Team team, TeamProject teamProject, List<TeamUser> teamUsers) {
         Map<StudentRole, Long> roleCount = teamUsers.stream()
                 // 같은 역할끼리 묶고, 역할별 인원 수를 센다.

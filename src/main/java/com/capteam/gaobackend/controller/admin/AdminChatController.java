@@ -21,6 +21,7 @@ public class AdminChatController {
 
     private final ChatService chatService;
 
+    // 관리자가 전체 팀 채팅방 목록과 채널 목록을 조회하는 기능입니다.
     @GetMapping("/rooms")
     public ResponseEntity<ApiResponse<List<ChatRoomResponseDto>>> getRooms() {
         // 선생님 관리 화면에서 전체 팀 채팅방 목록을 볼 때 사용합니다.
@@ -28,6 +29,7 @@ public class AdminChatController {
         return ApiResponse.ok(chatService.getAdminRooms());
     }
 
+    // 관리자가 특정 팀에 채팅방과 기본 채널을 생성하는 기능입니다.
     @PostMapping("/rooms")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> createRoom(
             @RequestBody AdminChatRoomCreateRequestDto request,
@@ -40,22 +42,26 @@ public class AdminChatController {
         ));
     }
 
+    // 관리자가 특정 채팅방 상세 정보를 조회하는 기능입니다.
     @GetMapping("/rooms/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> getRoom(@PathVariable Long roomId) {
         return ApiResponse.ok(chatService.getAdminRoom(roomId));
     }
 
+    // 관리자가 특정 채팅방과 하위 채널/메시지를 삭제하는 기능입니다.
     @DeleteMapping("/rooms/{roomId}")
     public ResponseEntity<ApiResponse<String>> deleteRoom(@PathVariable Long roomId) {
         chatService.deleteAdminRoom(roomId);
         return ApiResponse.ok("채팅방이 삭제되었습니다.");
     }
 
+    // 관리자가 특정 팀에 연결된 채팅방을 조회하는 기능입니다.
     @GetMapping("/teams/{teamId}/room")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> getTeamRoom(@PathVariable Long teamId) {
         return ApiResponse.ok(chatService.getAdminTeamRoom(teamId));
     }
 
+    // 관리자가 특정 채널의 메시지를 페이지 단위로 조회하는 기능입니다.
     @GetMapping("/channels/{channelId}/messages")
     public ResponseEntity<ApiResponse<Page<ChatMessageResponseDto>>> getMessages(
             @PathVariable Long channelId,

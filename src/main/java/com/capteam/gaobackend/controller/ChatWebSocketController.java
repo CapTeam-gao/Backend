@@ -18,6 +18,7 @@ public class ChatWebSocketController {
 
     private final ChatService chatService;
 
+    // WebSocket으로 들어온 채팅 메시지를 저장하고 해당 채널 구독자에게 브로드캐스트하는 기능입니다.
     @MessageMapping("/chat/{channelId}/send")
     @SendTo("/sub/chat/{channelId}")
     public ChatMessageResponseDto sendMessage(  //메시지 보내는 코드

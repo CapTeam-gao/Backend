@@ -13,11 +13,19 @@ import java.time.LocalDateTime;
 @Builder
 public class TeamRecommendationResponseDto {
 
+    // 팀 추천안 고유 id를 내려주는 필드입니다.
     private Long id;
-    private Grade grade;              // 대상 학년
-    private RecommendationStatus status; // PENDING / ACCEPTED
-    private LocalDateTime createdAt;  // 추천 생성 시각
 
+    // 추천 대상 학년을 내려주는 필드입니다.
+    private Grade grade;
+
+    // 추천안 상태를 내려주는 필드입니다. 예: PENDING, ACCEPTED
+    private RecommendationStatus status;
+
+    // 추천안 생성 시각을 내려주는 필드입니다.
+    private LocalDateTime createdAt;
+
+    // TeamRecommendation 엔티티를 추천 목록 응답 DTO로 변환하는 기능입니다.
     public static TeamRecommendationResponseDto from(TeamRecommendation recommendation) {
         return TeamRecommendationResponseDto.builder()
                 .id(recommendation.getId())

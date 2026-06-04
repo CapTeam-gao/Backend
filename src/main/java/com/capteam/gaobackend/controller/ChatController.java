@@ -31,6 +31,7 @@ public class ChatController {
     private final ChatFileStorageService chatFileStorageService;
     private final ChatPresenceService chatPresenceService;
 
+    // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
     @GetMapping("/rooms/my")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> getMyChatRoom(Authentication authentication) {
         // 학생이 채팅 화면에 들어올 때 가장 먼저 호출할 API입니다.
@@ -38,6 +39,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.getMyChatRoom(authentication.getName()));
     }
 
+    // 내 팀 채팅방의 채널별 마지막 메시지와 unreadCount를 조회하는 기능입니다.
     @GetMapping("/rooms/my/channel-summaries")
     public ResponseEntity<ApiResponse<List<ChatChannelSummaryResponseDto>>> getMyChannelSummaries(Authentication authentication) {
         // 헤더 채팅 알림이나 메인 화면의 채팅 미리보기용입니다.
@@ -45,6 +47,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.getMyChannelSummaries(authentication.getName()));
     }
 
+    // 특정 채팅방 상세를 조회하고 사용자 접근 권한을 검사하는 기능입니다.
     @GetMapping("/rooms/{roomId}")
     public ResponseEntity<ApiResponse<ChatRoomResponseDto>> getRoom(
             @PathVariable Long roomId,
@@ -53,6 +56,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.getRoom(roomId, authentication.getName()));
     }
 
+    // 팀 채팅방 안에 새 대화 채널을 생성하는 기능입니다.
     @PostMapping("/rooms/{roomId}/channels")
     public ResponseEntity<ApiResponse<ChatChannelResponseDto>> createChannel(
             @PathVariable Long roomId,
@@ -64,6 +68,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.createChannel(roomId, authentication.getName(), request));
     }
 
+    // 팀 채팅 채널 이름을 수정하는 기능입니다.
     @PatchMapping("/channels/{channelId}")
     public ResponseEntity<ApiResponse<ChatChannelResponseDto>> updateChannel(
             @PathVariable Long channelId,
@@ -73,6 +78,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.updateChannel(channelId, authentication.getName(), request));
     }
 
+    // 팀 채팅 채널과 해당 채널의 메시지/읽음 상태를 삭제하는 기능입니다.
     @DeleteMapping("/channels/{channelId}")
     public ResponseEntity<ApiResponse<String>> deleteChannel(
             @PathVariable Long channelId,
@@ -82,6 +88,7 @@ public class ChatController {
         return ApiResponse.ok("채널이 삭제되었습니다.");
     }
 
+    // 특정 채널에 첨부 파일을 업로드하고 채팅 메시지에서 사용할 파일 URL을 반환하는 기능입니다.
     @PostMapping("/channels/{channelId}/files")
     public ResponseEntity<ApiResponse<ChatFileUploadResponseDto>> uploadFile(
             @PathVariable Long channelId,
@@ -93,6 +100,7 @@ public class ChatController {
         return ApiResponse.ok(chatFileStorageService.upload(channelId, authentication.getName(), file));
     }
 
+    // 특정 채널의 과거 메시지를 페이지 단위로 조회하는 기능입니다.
     @GetMapping("/channels/{channelId}/messages")
     public ResponseEntity<ApiResponse<Page<ChatMessageResponseDto>>> getMessages(
             @PathVariable Long channelId,
@@ -104,6 +112,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.findMessages(channelId, authentication.getName(), pageable));
     }
 
+    // REST 방식으로 채팅 메시지를 저장하는 fallback 전송 기능입니다.
     @PostMapping("/channels/{channelId}/messages")
     public ResponseEntity<ApiResponse<ChatMessageResponseDto>> sendMessage(
             @PathVariable Long channelId,
@@ -115,6 +124,7 @@ public class ChatController {
         return ApiResponse.ok(chatService.saveMessage(channelId, authentication.getName(), request));
     }
 
+    // 특정 채널의 메시지를 현재 사용자 기준으로 읽음 처리하는 기능입니다.
     @PostMapping("/channels/{channelId}/read")
     public ResponseEntity<ApiResponse<String>> markAsRead(
             @PathVariable Long channelId,
@@ -126,6 +136,7 @@ public class ChatController {
         return ApiResponse.ok("읽음 처리되었습니다.");
     }
 
+    // 특정 채널이 속한 팀의 팀원별 온라인 상태를 조회하는 기능입니다.
     @GetMapping("/channels/{channelId}/presence")
     public ResponseEntity<ApiResponse<ChatChannelPresenceResponseDto>> getPresence(
             @PathVariable Long channelId,

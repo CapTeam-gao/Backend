@@ -14,6 +14,7 @@ public class ChatFileController {
 
     private final ChatFileStorageService chatFileStorageService;
 
+    // 업로드된 채팅 첨부 파일을 공개 URL로 조회하는 기능입니다.
     @GetMapping("/chat-files/{fileName:.+}")
     public ResponseEntity<Resource> getChatFile(@PathVariable String fileName) {
         // 업로드된 채팅 파일을 프론트에서 링크나 이미지로 바로 열 때 쓰는 endpoint입니다.

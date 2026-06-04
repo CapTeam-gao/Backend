@@ -21,11 +21,22 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AdminTeamRecommendationService {
 
+    // 팀 추천안 생성/목록/상세/승인 상태 변경에 사용하는 Repository 필드입니다.
     private final TeamRecommendationRepository recommendationRepository;
+
+    // 추천안에 포함된 추천 팀원 목록을 조회하는 Repository 필드입니다.
     private final TeamRecommendationMemberRepository recommendationMemberRepository;
+
+    // 추천안의 AI 배정 이유 목록을 조회하는 Repository 필드입니다.
     private final TeamRecommendationReasonRepository recommendationReasonRepository;
+
+    // 추천 수락 시 실제 Team 엔티티를 생성하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
+
+    // 추천 수락 시 추천 멤버를 실제 팀원으로 저장하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // 추천 상세에서 멤버별 AI 분석 실력 등급을 조회하는 Repository 필드입니다.
     private final UserAnalysisRepository userAnalysisRepository;
 
     // ──────────────────────────────────────────

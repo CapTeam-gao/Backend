@@ -20,10 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AuthService {
 
+    // 로그인/비밀번호 변경 대상 사용자를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
+
+    // 비밀번호 암호화와 암호화된 비밀번호 비교에 사용하는 필드입니다.
     private final PasswordEncoder passwordEncoder;
+
+    // JWT access/refresh token 생성과 검증에 사용하는 필드입니다.
     private final JwtTokenProvider jwtTokenProvider;
 
+    // 로그인 요청을 처리하고 최초 로그인 비밀번호 암호화 후 JWT를 발급하는 기능입니다.
     public AuthResponse doLogin(LoginRequestDto dto) {
         User user = userRepository.findByUserId(dto.getUserId()).orElseThrow(UserNotFoundException::new);
 
@@ -52,6 +58,7 @@ public class AuthService {
                 .build();
     }
 
+    // 현재 로그인한 사용자의 비밀번호를 검증 후 새 비밀번호로 변경하는 기능입니다.
     public void changePassword(ChangePasswordRequestDto dto) {
         User user = getAuthenticatedUser();
 
@@ -65,6 +72,7 @@ public class AuthService {
         userRepository.save(user);
     }
 
+    // SecurityContext에 들어있는 userId로 현재 로그인한 사용자를 조회하는 기능입니다.
     private User getAuthenticatedUser() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findById(userId)
@@ -73,6 +81,7 @@ public class AuthService {
 
 
     @Transactional(readOnly = true)
+    // refresh token을 검증하고 새 access/refresh token을 재발급하는 기능입니다.
     public AuthResponse refreshToken(RefreshRequest dto) {
         var refreshToken = dto.refreshToken();
 

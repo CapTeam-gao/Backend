@@ -10,23 +10,97 @@ import java.util.List;
 @NoArgsConstructor
 public class UserSurveyRequestDto {
 
+    // 학생이 희망하는 개발 역할을 저장하는 필드입니다.
     private StudentRole studentRole;
+
+    // 프론트 선택 UI에서 넘어오는 역할 문자열 목록을 받는 필드입니다.
     private List<String> selectedRoles;
+
+    // 학생이 입력한 기술 스택 목록을 저장하는 필드입니다.
     private List<String> skill;
+
+    // 쉼표로 입력된 기술 스택 문자열을 받는 필드입니다.
     private String stackText;
+
+    // 학생이 입력한 구현 경험 목록을 저장하는 필드입니다.
     private List<String> experience;
+
+    // 프론트 경험 입력 컴포넌트에서 넘어오는 경험 객체 목록을 받는 필드입니다.
     private List<ExperienceItemDto> experiences;
+
+    // 팀장 희망 여부를 boolean으로 받는 필드입니다.
     private Boolean wantsLeader;
+
+    // 팀장 희망 여부를 O/X 문자열로 받는 필드입니다.
     private String leaderPreference;
+
+    // 선호 팀원 userId 목록을 저장하는 필드입니다.
     private List<String> preferredTeammates;
+
+    // 프론트 선택 UI에서 넘어오는 선호 팀원 문자열 목록을 받는 필드입니다.
     private List<String> preferredMembers;
-    private List<Integer> personalityScores;
-    private List<Integer> developmentScores;
-    private List<Integer> devScores;
+
+    // 성격 성향 항목별 평균 점수를 받는 필드입니다.
+    private PersonalityScoresDto personalityScores;
+
+    // 개발 성향 항목별 평균 점수를 받는 필드입니다.
+    private DevelopmentScoresDto developmentScores;
+
+    // 개발 성향 항목별 평균 점수의 기존 프론트 별칭을 받는 필드입니다.
+    private DevelopmentScoresDto devScores;
+
+    // 성격 성향 10개 문항 원점수를 받는 필드입니다. 2문항씩 묶어 5개 항목 평균으로 계산합니다.
+    private List<Integer> personalityScoreAnswers;
+
+    // 개발 성향 10개 문항 원점수를 받는 필드입니다. 2문항씩 묶어 5개 항목 평균으로 계산합니다.
+    private List<Integer> developmentScoreAnswers;
+
 
     @Getter
     @NoArgsConstructor
     public static class ExperienceItemDto {
+
+        // 구현 경험 입력값을 저장하는 필드입니다.
         private String value;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class PersonalityScoresDto {
+
+        // 소통 성향 점수를 저장하는 필드입니다.
+        private Integer communication;
+
+        // 책임감 성향 점수를 저장하는 필드입니다.
+        private Integer responsibility;
+
+        // 협업 성향 점수를 저장하는 필드입니다.
+        private Integer collaboration;
+
+        // 유연성 성향 점수를 저장하는 필드입니다.
+        private Integer flexibility;
+
+        // 감정 안정성 점수를 저장하는 필드입니다.
+        private Integer emotionalStability;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    public static class DevelopmentScoresDto {
+
+        // 리더십 성향 점수를 저장하는 필드입니다.
+        private Integer leadership;
+
+        // 문제 해결력 점수를 저장하는 필드입니다.
+        private Integer problemSolving;
+
+        // 구현 실행력 점수를 저장하는 필드입니다.
+        private Integer implementation;
+
+        // 학습 성장성 점수를 저장하는 필드입니다.
+        private Integer learningAbility;
+
+        // 기획 정리력 점수를 저장하는 필드입니다.
+        private Integer planning;
     }
 }

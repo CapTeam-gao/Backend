@@ -21,15 +21,20 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class AdminTeamService {
 
+    // 팀별 멤버 목록과 역할 정보를 조회하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // 팀 프로젝트 소개/서비스명을 조회하는 Repository 필드입니다.
     private final TeamProjectRepository teamProjectRepository;
+
+    // 팀 목록과 팀 상세 기본 정보를 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
 
 //    public AdminTeamListResponseDto createTeam() {
 //
 //    }
 
-
+    // 관리자가 전체 팀 목록을 프로젝트 정보와 팀원 요약까지 함께 조회하는 기능입니다.
     public List<AdminTeamListResponseDto> getTeamList() {
 
         //전체 팀 조회
@@ -55,7 +60,7 @@ public class AdminTeamService {
     }
 
 
-    //팀 정보 상세 확인 (어드민)
+    // 관리자가 특정 팀의 프로젝트 정보와 팀원 상세 목록을 조회하는 기능입니다.
     public AdminTeamDetailResponseDto getTeamDetail(Long teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(TeamNotFoundException::new);

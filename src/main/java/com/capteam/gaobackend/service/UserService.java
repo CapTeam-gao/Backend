@@ -10,6 +10,8 @@ import com.capteam.gaobackend.dto.user.response.UserSurveyResponseDto;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
+import com.capteam.gaobackend.entity.UserDevelopmentScore;
+import com.capteam.gaobackend.entity.UserPersonalityScore;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.TeamUserRepository;
@@ -40,14 +42,14 @@ public class UserService {
     private static final Pattern PREFERRED_MEMBER_PATTERN = Pattern.compile("^(?:stu)?(\\d{4})\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
 
-    // 마이페이지 조회
+    // 마이페이지 정보를 조회하는 기능입니다.
     @Transactional(readOnly = true)
     public UserMeResponseDto getMyProfile() {
         User user = getAuthenticatedUser();
         return UserMeResponseDto.from(user);
     }
 
-    // 마이페이지 수정
+    // 마이페이지 정보를 수정하는 기능입니다.
     @Transactional
     public UserMeResponseDto updateMyProfile(UserProfileUpdateRequestDto dto) {
         User user = getAuthenticatedUser();
@@ -63,11 +65,13 @@ public class UserService {
         return UserMeResponseDto.from(user);
     }
 
+    // 내 설문 저장 결과를 조회하는 기능입니다.
     @Transactional(readOnly = true)
     public UserSurveyResponseDto getMySurvey() {
         return UserSurveyResponseDto.from(getAuthenticatedUser());
     }
 
+    // 내 설문 응답을 저장하고 성격/개발 성향 점수를 반영하는 기능입니다.
     @Transactional
     public UserSurveyResponseDto submitMySurvey(UserSurveyRequestDto dto) {
         User user = getAuthenticatedUser();
@@ -77,11 +81,8 @@ public class UserService {
         List<String> experiences = resolveExperiences(dto);
         List<String> preferredTeammates = resolvePreferredTeammates(user, dto);
         boolean wantsLeader = resolveWantsLeader(dto);
-        List<Integer> personalityScores = validateScores(dto.getPersonalityScores(), "성격 성향");
-        List<Integer> developmentScores = validateScores(
-                dto.getDevelopmentScores() != null ? dto.getDevelopmentScores() : dto.getDevScores(),
-                "개발 성향"
-        );
+        UserPersonalityScore personalityScores = resolvePersonalityScores(dto);
+        UserDevelopmentScore developmentScores = resolveDevelopmentScores(dto);
 
         if (studentRole == null) {
             throw new IllegalArgumentException("희망 직군을 선택해주세요.");
@@ -106,6 +107,7 @@ public class UserService {
         return UserSurveyResponseDto.from(user);
     }
 
+    // 현재 로그인한 사용자를 조회하는 기능입니다.
     private User getAuthenticatedUser() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findById(userId)
@@ -113,7 +115,7 @@ public class UserService {
     }
 
 
-    //헤더바에 학번, 이름을 보내주는 코드
+    // 헤더바에 표시할 사용자 정보를 조회하는 기능입니다.
     public HeaderUserResponseDto getHeaderUser(String userId) {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(UserNotFoundException::new);
@@ -126,6 +128,7 @@ public class UserService {
                 .build();
     }
 
+    // 설문 요청에서 희망 직군을 결정하는 기능입니다.
     private StudentRole resolveStudentRole(UserSurveyRequestDto dto) {
         if (dto.getStudentRole() != null) {
             return dto.getStudentRole();
@@ -141,6 +144,7 @@ public class UserService {
         return null;
     }
 
+    // 프론트 문자열 역할을 StudentRole enum으로 변환하는 기능입니다.
     private StudentRole mapRole(String role) {
         if (role == null) {
             return null;
@@ -164,6 +168,7 @@ public class UserService {
         };
     }
 
+    // 설문 요청에서 기술 스택 목록을 결정하는 기능입니다.
     private List<String> resolveSkills(UserSurveyRequestDto dto) {
         if (dto.getSkill() != null && !dto.getSkill().isEmpty()) {
             return cleanDistinct(dto.getSkill());
@@ -176,6 +181,7 @@ public class UserService {
         return cleanDistinct(Arrays.asList(dto.getStackText().split(",")));
     }
 
+    // 설문 요청에서 구현 경험 목록을 결정하는 기능입니다.
     private List<String> resolveExperiences(UserSurveyRequestDto dto) {
         if (dto.getExperience() != null && !dto.getExperience().isEmpty()) {
             return cleanDistinct(dto.getExperience());
@@ -190,6 +196,7 @@ public class UserService {
                 .toList());
     }
 
+    // 설문 요청에서 선호 팀원 목록을 userId 기준으로 결정하는 기능입니다.
     private List<String> resolvePreferredTeammates(User user, UserSurveyRequestDto dto) {
         List<String> inputs = dto.getPreferredTeammates() != null ? dto.getPreferredTeammates() : dto.getPreferredMembers();
         List<String> cleaned = cleanDistinct(inputs);
@@ -214,6 +221,7 @@ public class UserService {
         return userIds;
     }
 
+    // 선호 팀원 입력값에서 userId를 추출하는 기능입니다.
     private String resolvePreferredUserId(String input) {
         Matcher matcher = PREFERRED_MEMBER_PATTERN.matcher(input.trim());
         if (matcher.matches()) {
@@ -223,6 +231,7 @@ public class UserService {
         return input.trim();
     }
 
+    // 선호 팀원 입력값의 학번과 이름이 실제 사용자와 일치하는지 검증하는 기능입니다.
     private void validatePreferredName(String input, User preferredUser) {
         Matcher matcher = PREFERRED_MEMBER_PATTERN.matcher(input.trim());
         if (!matcher.matches()) {
@@ -235,6 +244,7 @@ public class UserService {
         }
     }
 
+    // 설문 요청에서 팀장 희망 여부를 결정하는 기능입니다.
     private boolean resolveWantsLeader(UserSurveyRequestDto dto) {
         if (dto.getWantsLeader() != null) {
             return dto.getWantsLeader();
@@ -243,20 +253,85 @@ public class UserService {
         return "O".equalsIgnoreCase(dto.getLeaderPreference());
     }
 
-    private List<Integer> validateScores(List<Integer> scores, String label) {
+    // 성격 성향 점수를 항목별 엔티티 값으로 변환하는 기능입니다.
+    private UserPersonalityScore resolvePersonalityScores(UserSurveyRequestDto dto) {
+        if (dto.getPersonalityScoreAnswers() != null) {
+            List<Integer> scores = calculateTwoQuestionScores(dto.getPersonalityScoreAnswers(), "성격 성향");
+            return new UserPersonalityScore(scores.get(0), scores.get(1), scores.get(2), scores.get(3), scores.get(4));
+        }
+
+        UserSurveyRequestDto.PersonalityScoresDto scores = dto.getPersonalityScores();
         if (scores == null) {
-            return Collections.emptyList();
+            return new UserPersonalityScore(0, 0, 0, 0, 0);
         }
 
-        for (Integer score : scores) {
-            if (score == null || score < 1 || score > 5) {
-                throw new IllegalArgumentException(label + " 점수는 1~5 사이여야 합니다.");
-            }
-        }
-
-        return List.copyOf(scores);
+        return new UserPersonalityScore(
+                validateCategoryScore(scores.getCommunication(), "소통"),
+                validateCategoryScore(scores.getResponsibility(), "책임감"),
+                validateCategoryScore(scores.getCollaboration(), "협업"),
+                validateCategoryScore(scores.getFlexibility(), "유연성"),
+                validateCategoryScore(scores.getEmotionalStability(), "감정 안정성")
+        );
     }
 
+    // 개발 성향 점수를 항목별 엔티티 값으로 변환하는 기능입니다.
+    private UserDevelopmentScore resolveDevelopmentScores(UserSurveyRequestDto dto) {
+        if (dto.getDevelopmentScoreAnswers() != null) {
+            List<Integer> scores = calculateTwoQuestionScores(dto.getDevelopmentScoreAnswers(), "개발 성향");
+            return new UserDevelopmentScore(scores.get(0), scores.get(1), scores.get(2), scores.get(3), scores.get(4));
+        }
+
+        UserSurveyRequestDto.DevelopmentScoresDto scores =
+                dto.getDevelopmentScores() != null ? dto.getDevelopmentScores() : dto.getDevScores();
+        if (scores == null) {
+            return new UserDevelopmentScore(0, 0, 0, 0, 0);
+        }
+
+        return new UserDevelopmentScore(
+                validateCategoryScore(scores.getLeadership(), "리더십"),
+                validateCategoryScore(scores.getProblemSolving(), "문제 해결력"),
+                validateCategoryScore(scores.getImplementation(), "구현 실행력"),
+                validateCategoryScore(scores.getLearningAbility(), "학습 성장성"),
+                validateCategoryScore(scores.getPlanning(), "기획 정리력")
+        );
+    }
+
+    // 10개 문항 원점수를 2문항씩 묶어 5개 항목 평균 점수로 계산하는 기능입니다.
+    private List<Integer> calculateTwoQuestionScores(List<Integer> answers, String label) {
+        if (answers.size() != 10) {
+            throw new IllegalArgumentException(label + " 문항 점수는 10개가 필요합니다.");
+        }
+
+        List<Integer> scores = new ArrayList<>();
+        for (int index = 0; index < answers.size(); index += 2) {
+            int firstScore = validateAnswerScore(answers.get(index), label);
+            int secondScore = validateAnswerScore(answers.get(index + 1), label);
+            scores.add(Math.round((firstScore + secondScore) / 2.0f));
+        }
+
+        return scores;
+    }
+
+    // 문항 원점수가 1~5 사이인지 검증하는 기능입니다.
+    private int validateAnswerScore(Integer score, String label) {
+        if (score == null || score < 1 || score > 5) {
+            throw new IllegalArgumentException(label + " 문항 점수는 1~5 사이여야 합니다.");
+        }
+
+        return score;
+    }
+
+    // 항목별 평균 점수가 0~5 사이인지 검증하는 기능입니다.
+    private int validateCategoryScore(Integer score, String label) {
+        int safeScore = score == null ? 0 : score;
+        if (safeScore < 0 || safeScore > 5) {
+            throw new IllegalArgumentException(label + " 점수는 0~5 사이여야 합니다.");
+        }
+
+        return safeScore;
+    }
+
+    // 빈 문자열을 제거하고 중복 없는 목록으로 정리하는 기능입니다.
     private List<String> cleanDistinct(List<String> values) {
         Set<String> cleaned = new LinkedHashSet<>();
         for (String value : safeList(values)) {
@@ -267,6 +342,7 @@ public class UserService {
         return List.copyOf(cleaned);
     }
 
+    // null 목록을 빈 목록으로 바꾸는 기능입니다.
     private List<String> safeList(List<String> values) {
         return values == null ? Collections.emptyList() : values;
     }

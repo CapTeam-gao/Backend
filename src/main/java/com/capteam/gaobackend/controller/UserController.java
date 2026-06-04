@@ -19,31 +19,34 @@ public class UserController {
 
     private final UserService userService;
 
-    // GET /api/user/me/profile - 내 프로필 조회
+    // 로그인한 사용자의 마이페이지 프로필 정보를 조회하는 기능입니다.
     @GetMapping("/me/profile")
     public ResponseEntity<ApiResponse<UserMeResponseDto>> getMyProfile() {
         UserMeResponseDto dto = userService.getMyProfile();
         return ApiResponse.ok(dto);
     }
 
-    // PUT /api/user/me/profile - 내 프로필 수정
+    // 로그인한 사용자의 마이페이지 프로필 정보를 수정하는 기능입니다.
     @PutMapping("/me/profile")
     public ResponseEntity<ApiResponse<UserMeResponseDto>> updateMyProfile(@RequestBody UserProfileUpdateRequestDto dto) {
         UserMeResponseDto result = userService.updateMyProfile(dto);
         return ApiResponse.ok(result);
     }
 
+    // 로그인한 사용자의 설문 저장 결과를 조회하는 기능입니다.
     @GetMapping("/survey")
     public ResponseEntity<ApiResponse<UserSurveyResponseDto>> getMySurvey() {
         return ApiResponse.ok(userService.getMySurvey());
     }
 
+    // 로그인한 사용자의 설문 응답과 성향 점수를 저장하는 기능입니다.
     @PostMapping("/survey")
     public ResponseEntity<ApiResponse<UserSurveyResponseDto>> submitMySurvey(@RequestBody UserSurveyRequestDto dto) {
         return ApiResponse.ok(userService.submitMySurvey(dto));
     }
 
 
+    // 헤더 영역에 표시할 로그인 사용자 기본 정보를 조회하는 기능입니다.
     @GetMapping("/header")
     public ResponseEntity<HeaderUserResponseDto> getHeaderUser(Authentication authentication) {
         String userId = authentication.getName();

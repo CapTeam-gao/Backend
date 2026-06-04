@@ -19,31 +19,27 @@ public class AdminTeamRecommendationController {
 
     private final AdminTeamRecommendationService adminTeamRecommendationService;
 
-    // AI 팀 추천 요청
-    // POST /api/admin/team-recommendations
+    // 관리자가 특정 학년의 AI 팀 추천안을 생성하는 기능입니다.
     @PostMapping
     public ResponseEntity<ApiResponse<TeamRecommendationResponseDto>> createRecommendation(
             @RequestBody @Valid TeamRecommendationRequestDto dto) {
         return ApiResponse.ok(adminTeamRecommendationService.createRecommendation(dto));
     }
 
-    // 추천 목록 조회
-    // GET /api/admin/team-recommendations
+    // 관리자가 생성된 팀 추천안 목록을 조회하는 기능입니다.
     @GetMapping
     public ResponseEntity<ApiResponse<List<TeamRecommendationResponseDto>>> getRecommendationList() {
         return ApiResponse.ok(adminTeamRecommendationService.getRecommendationList());
     }
 
-    // 추천 상세 조회
-    // GET /api/admin/team-recommendations/{recommendationId}
+    // 관리자가 특정 팀 추천안의 멤버와 배정 이유를 상세 조회하는 기능입니다.
     @GetMapping("/{recommendationId}")
     public ResponseEntity<ApiResponse<TeamRecommendationDetailResponseDto>> getRecommendationDetail(
             @PathVariable Long recommendationId) {
         return ApiResponse.ok(adminTeamRecommendationService.getRecommendationDetail(recommendationId));
     }
 
-    // 추천 수락 → 팀 생성
-    // POST /api/admin/team-recommendations/{recommendationId}/accept
+    // 관리자가 특정 추천안을 수락해 실제 팀과 팀원을 생성하는 기능입니다.
     @PostMapping("/{recommendationId}/accept")
     public ResponseEntity<ApiResponse<Void>> acceptRecommendation(@PathVariable Long recommendationId) {
         adminTeamRecommendationService.acceptRecommendation(recommendationId);

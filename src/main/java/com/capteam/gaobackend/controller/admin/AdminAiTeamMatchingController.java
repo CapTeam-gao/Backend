@@ -17,13 +17,13 @@ public class AdminAiTeamMatchingController {
 
     private final AiTeamMatchingService aiTeamMatchingService;
 
-    // FastAPI GET /teams/summary 결과를 조회합니다.
+    // 현재 생성된 팀 요약 또는 AI 서버의 팀 요약 결과를 조회하는 기능입니다.
     @GetMapping("/teams/summary")
     public ResponseEntity<ApiResponse<AiTeamSummaryResponseDto>> getTeamSummary() {
         return ApiResponse.ok(aiTeamMatchingService.getTeamSummary());
     }
 
-    // FastAPI POST /matching/run 결과를 반환합니다. AI 쪽 API가 완성되면 바로 사용할 수 있습니다.
+    // 학생 프로필 기반 팀 자동 매칭을 실행하고 결과 요약을 반환하는 기능입니다.
     @PostMapping("/matching/run")
     public ResponseEntity<ApiResponse<AiTeamSummaryResponseDto>> runMatching() {
         return ApiResponse.ok(aiTeamMatchingService.runMatching());

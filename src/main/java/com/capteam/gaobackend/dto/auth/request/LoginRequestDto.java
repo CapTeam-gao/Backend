@@ -12,8 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginRequestDto {
+    // 로그인할 사용자 id를 받는 필드입니다. 예: stu2107
     @NotBlank
-    private String userId;  // stu2107
+    private String userId;
+
+    // 로그인 비밀번호를 받는 필드입니다. 최초 기본값은 1234입니다.
     @NotBlank
-    private String password;    //1234
+    private String password;
 }
