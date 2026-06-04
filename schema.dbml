@@ -1,0 +1,214 @@
+// ──────────────────────────────────────
+// 사용자 / 인증
+// ──────────────────────────────────────
+
+Table users {
+  user_id varchar [pk]
+  name varchar [not null]
+  password varchar [not null]
+  password_encoded boolean [not null]
+  account_role varchar [not null]   // STUDENT | ADMIN
+  student_role varchar              // BACKEND | FRONTEND | AI | APP | DESIGN
+  grade varchar                     // GRADE_2 | GRADE_3
+  wants_leader boolean
+  survey_completed boolean [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table user_skill {
+  user_user_id varchar [ref: > users.user_id]
+  skill varchar
+}
+
+Table user_experience {
+  user_user_id varchar [ref: > users.user_id]
+  experience varchar
+}
+
+Table user_preferred_teammates {
+  user_user_id varchar [ref: > users.user_id]
+  preferred_teammates varchar       // 최대 3개
+}
+
+Table user_personality_scores {
+  user_user_id varchar [ref: > users.user_id]
+  personality_scores int            // 1~5
+}
+
+Table user_development_scores {
+  user_user_id varchar [ref: > users.user_id]
+  development_scores int            // 1~5
+}
+
+Table user_analysis {
+  user_id varchar [pk, ref: - users.user_id]
+  analysis_result longtext
+  student_level varchar             // UPPER | MIDDLE | LOWER
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ──────────────────────────────────────
+// 팀
+// ──────────────────────────────────────
+
+Table teams {
+  id bigint [pk, increment]
+  team_name varchar [not null]
+  grade varchar [not null]          // GRADE_2 | GRADE_3
+  status varchar [not null]         // PENDING | APPROVED
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table team_members {
+  id bigint [pk, increment]
+  team_id bigint [ref: > teams.id]
+  user_id varchar [ref: > users.user_id]
+  student_role varchar [not null]   // BACKEND | FRONTEND | AI | APP | DESIGN
+  leader_role varchar [not null]    // LEADER | MEMBER
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table team_projects {
+  id bigint [pk, increment]
+  team_id bigint [ref: - teams.id]  // 팀당 1개 (1:1)
+  team_name varchar [not null]
+  service_name varchar [not null]
+  service_intro text [not null]
+  main_features text [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ──────────────────────────────────────
+// AI 팀 추천
+// ──────────────────────────────────────
+
+Table team_recommendations {
+  id bigint [pk, increment]
+  grade varchar [not null]          // GRADE_2 | GRADE_3
+  status varchar [not null]         // PENDING | ACCEPTED
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table team_recommendation_members {
+  id bigint [pk, increment]
+  recommendation_id bigint [ref: > team_recommendations.id]
+  user_id varchar [ref: > users.user_id]
+  student_role varchar [not null]
+  is_recommended_leader boolean
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table recommendation_reasons {
+  id bigint [pk, increment]
+  recommendation_id bigint [ref: > team_recommendations.id]
+  title varchar [not null]
+  description text [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ──────────────────────────────────────
+// 공지사항
+// ──────────────────────────────────────
+
+Table notices {
+  id bigint [pk, increment]
+  title varchar [not null]
+  content text [not null]
+  writer_id varchar [ref: > users.user_id]
+  important varchar                 // enum
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table notice_reads {
+  id bigint [pk, increment]
+  notice_id bigint [ref: > notices.id]
+  user_id varchar [ref: > users.user_id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ──────────────────────────────────────
+// 일지
+// ──────────────────────────────────────
+
+Table journals {
+  id bigint [pk, increment]
+  team_id bigint [ref: > teams.id]
+  title varchar [not null]
+  date date [not null]
+  status varchar [not null]         // IN_PROGRESS | COMPLETED
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table journal_entries {
+  id bigint [pk, increment]
+  journal_id bigint [ref: > journals.id]
+  writer_id varchar [ref: > users.user_id]
+  today_activity_content text [not null]
+  activity_content text [not null]
+  next_plan_content text [not null]
+  reflection_content text [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+
+// ──────────────────────────────────────
+// 채팅
+// ──────────────────────────────────────
+
+Table chat_rooms {
+  id bigint [pk, increment]
+  team_id bigint [ref: - teams.id]  // 팀당 1개 (1:1)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table chat_channels {
+  id bigint [pk, increment]
+  chat_room_id bigint [ref: > chat_rooms.id]
+  channel_name varchar [not null]
+  created_by varchar [ref: > users.user_id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table chat_messages {
+  id bigint [pk, increment]
+  channel_id bigint [ref: > chat_channels.id]
+  sender_id varchar [ref: > users.user_id]
+  message text
+  file_url text
+  file_name varchar
+  file_type varchar
+  file_size bigint
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table chat_read_status {
+  id bigint [pk, increment]
+  channel_id bigint [ref: > chat_channels.id]
+  user_id varchar [ref: > users.user_id]
+  last_read_at timestamp
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (channel_id, user_id) [unique]
+  }
+}
