@@ -64,23 +64,23 @@ public class UserSurveyResponseDto {
     public static class PersonalityScoresDto {
 
         // 소통 성향 점수를 내려주는 필드입니다.
-        private Integer communication;
+        private Double communication;
 
         // 책임감 성향 점수를 내려주는 필드입니다.
-        private Integer responsibility;
+        private Double responsibility;
 
         // 협업 성향 점수를 내려주는 필드입니다.
-        private Integer collaboration;
+        private Double collaboration;
 
         // 유연성 성향 점수를 내려주는 필드입니다.
-        private Integer flexibility;
+        private Double flexibility;
 
         // 감정 안정성 점수를 내려주는 필드입니다.
-        private Integer emotionalStability;
+        private Double emotionalStability;
 
         // 성격 성향 엔티티 값을 응답 DTO로 변환하는 기능입니다.
         public static PersonalityScoresDto from(UserPersonalityScore score) {
-            UserPersonalityScore safeScore = score == null ? new UserPersonalityScore(0, 0, 0, 0, 0) : score;
+            UserPersonalityScore safeScore = score == null ? new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0) : score;
             return PersonalityScoresDto.builder()
                     .communication(safeScore.getCommunication())
                     .responsibility(safeScore.getResponsibility())
@@ -96,23 +96,23 @@ public class UserSurveyResponseDto {
     public static class DevelopmentScoresDto {
 
         // 리더십 성향 점수를 내려주는 필드입니다.
-        private Integer leadership;
+        private Double leadership;
 
         // 문제 해결력 점수를 내려주는 필드입니다.
-        private Integer problemSolving;
+        private Double problemSolving;
 
         // 구현 실행력 점수를 내려주는 필드입니다.
-        private Integer implementation;
+        private Double implementation;
 
         // 학습 성장성 점수를 내려주는 필드입니다.
-        private Integer learningAbility;
+        private Double learningAbility;
 
         // 기획 정리력 점수를 내려주는 필드입니다.
-        private Integer planning;
+        private Double planning;
 
         // 개발 성향 엔티티 값을 응답 DTO로 변환하는 기능입니다.
         public static DevelopmentScoresDto from(UserDevelopmentScore score) {
-            UserDevelopmentScore safeScore = score == null ? new UserDevelopmentScore(0, 0, 0, 0, 0) : score;
+            UserDevelopmentScore safeScore = score == null ? new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0) : score;
             return DevelopmentScoresDto.builder()
                     .leadership(safeScore.getLeadership())
                     .problemSolving(safeScore.getProblemSolving())

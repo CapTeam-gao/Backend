@@ -81,7 +81,7 @@ public class User extends BaseTimeEntity {
             @AttributeOverride(name = "emotionalStability", column = @Column(name = "personality_emotional_stability"))
     })
     // 성격 성향 항목별 점수를 저장하는 필드입니다.
-    private UserPersonalityScore personalityScores = new UserPersonalityScore(0, 0, 0, 0, 0);
+    private UserPersonalityScore personalityScores = new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0);
 
     @Embedded
     @AttributeOverrides({
@@ -92,7 +92,7 @@ public class User extends BaseTimeEntity {
             @AttributeOverride(name = "planning", column = @Column(name = "development_planning"))
     })
     // 개발 성향 항목별 점수를 저장하는 필드입니다.
-    private UserDevelopmentScore developmentScores = new UserDevelopmentScore(0, 0, 0, 0, 0);
+    private UserDevelopmentScore developmentScores = new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0);
 
     // 비밀번호를 암호화된 값으로 변경하는 기능입니다.
     public void updatePassword(String encodedPassword) {
