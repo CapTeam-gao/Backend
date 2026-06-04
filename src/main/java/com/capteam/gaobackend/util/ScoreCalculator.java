@@ -50,7 +50,7 @@ public class ScoreCalculator {
         return avg * 2.0; // 1~5점 평균 → 2~10점으로 환산
     }
 
-    private static double safeScore(Integer score) {
+    private static double safeScore(Double score) {
         return score == null ? 0 : score;
     }
 
@@ -58,4 +58,3 @@ public class ScoreCalculator {
         return list == null ? List.of() : list.stream().filter(Objects::nonNull).toList();
     }
 }
-

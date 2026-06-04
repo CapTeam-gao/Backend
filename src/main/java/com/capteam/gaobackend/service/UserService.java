@@ -256,13 +256,13 @@ public class UserService {
     // 성격 성향 점수를 항목별 엔티티 값으로 변환하는 기능입니다.
     private UserPersonalityScore resolvePersonalityScores(UserSurveyRequestDto dto) {
         if (dto.getPersonalityScoreAnswers() != null) {
-            List<Integer> scores = calculateTwoQuestionScores(dto.getPersonalityScoreAnswers(), "성격 성향");
+            List<Double> scores = calculateTwoQuestionScores(dto.getPersonalityScoreAnswers(), "성격 성향");
             return new UserPersonalityScore(scores.get(0), scores.get(1), scores.get(2), scores.get(3), scores.get(4));
         }
 
         UserSurveyRequestDto.PersonalityScoresDto scores = dto.getPersonalityScores();
         if (scores == null) {
-            return new UserPersonalityScore(0, 0, 0, 0, 0);
+            return new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
         return new UserPersonalityScore(
@@ -277,14 +277,14 @@ public class UserService {
     // 개발 성향 점수를 항목별 엔티티 값으로 변환하는 기능입니다.
     private UserDevelopmentScore resolveDevelopmentScores(UserSurveyRequestDto dto) {
         if (dto.getDevelopmentScoreAnswers() != null) {
-            List<Integer> scores = calculateTwoQuestionScores(dto.getDevelopmentScoreAnswers(), "개발 성향");
+            List<Double> scores = calculateTwoQuestionScores(dto.getDevelopmentScoreAnswers(), "개발 성향");
             return new UserDevelopmentScore(scores.get(0), scores.get(1), scores.get(2), scores.get(3), scores.get(4));
         }
 
         UserSurveyRequestDto.DevelopmentScoresDto scores =
                 dto.getDevelopmentScores() != null ? dto.getDevelopmentScores() : dto.getDevScores();
         if (scores == null) {
-            return new UserDevelopmentScore(0, 0, 0, 0, 0);
+            return new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0);
         }
 
         return new UserDevelopmentScore(
@@ -297,16 +297,16 @@ public class UserService {
     }
 
     // 10개 문항 원점수를 2문항씩 묶어 5개 항목 평균 점수로 계산하는 기능입니다.
-    private List<Integer> calculateTwoQuestionScores(List<Integer> answers, String label) {
+    private List<Double> calculateTwoQuestionScores(List<Integer> answers, String label) {
         if (answers.size() != 10) {
             throw new IllegalArgumentException(label + " 문항 점수는 10개가 필요합니다.");
         }
 
-        List<Integer> scores = new ArrayList<>();
+        List<Double> scores = new ArrayList<>();
         for (int index = 0; index < answers.size(); index += 2) {
             int firstScore = validateAnswerScore(answers.get(index), label);
             int secondScore = validateAnswerScore(answers.get(index + 1), label);
-            scores.add(Math.round((firstScore + secondScore) / 2.0f));
+            scores.add((firstScore + secondScore) / 2.0);
         }
 
         return scores;
@@ -322,8 +322,8 @@ public class UserService {
     }
 
     // 항목별 평균 점수가 0~5 사이인지 검증하는 기능입니다.
-    private int validateCategoryScore(Integer score, String label) {
-        int safeScore = score == null ? 0 : score;
+    private double validateCategoryScore(Double score, String label) {
+        double safeScore = score == null ? 0.0 : score;
         if (safeScore < 0 || safeScore > 5) {
             throw new IllegalArgumentException(label + " 점수는 0~5 사이여야 합니다.");
         }

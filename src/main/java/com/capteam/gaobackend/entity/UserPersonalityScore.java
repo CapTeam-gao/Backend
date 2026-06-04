@@ -11,23 +11,23 @@ import lombok.NoArgsConstructor;
 public class UserPersonalityScore {
 
     // 소통 성향 점수를 저장하는 필드입니다.
-    private Integer communication = 0;
+    private Double communication = 0.0;
 
     // 책임감 성향 점수를 저장하는 필드입니다.
-    private Integer responsibility = 0;
+    private Double responsibility = 0.0;
 
     // 협업 성향 점수를 저장하는 필드입니다.
-    private Integer collaboration = 0;
+    private Double collaboration = 0.0;
 
     // 유연성 성향 점수를 저장하는 필드입니다.
-    private Integer flexibility = 0;
+    private Double flexibility = 0.0;
 
     // 감정 안정성 점수를 저장하는 필드입니다.
-    private Integer emotionalStability = 0;
+    private Double emotionalStability = 0.0;
 
     // 성격 성향 항목별 점수 객체를 생성하는 기능입니다.
-    public UserPersonalityScore(Integer communication, Integer responsibility, Integer collaboration,
-                                Integer flexibility, Integer emotionalStability) {
+    public UserPersonalityScore(Double communication, Double responsibility, Double collaboration,
+                                Double flexibility, Double emotionalStability) {
         this.communication = communication;
         this.responsibility = responsibility;
         this.collaboration = collaboration;
