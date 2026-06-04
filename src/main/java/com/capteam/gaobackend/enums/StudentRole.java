@@ -5,5 +5,9 @@ public enum StudentRole {
     FRONTEND,
     AI,
     APP,
-    DESIGN
+    DESIGN,
+    DEVOPS,
+    GAME,
+    FULLSTACK,
+    SECURITY
 }
