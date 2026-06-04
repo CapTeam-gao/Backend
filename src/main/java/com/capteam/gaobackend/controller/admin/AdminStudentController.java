@@ -2,6 +2,7 @@ package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.admin.AdminStudentDetailResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListPageResponseDto;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.service.admin.AdminStudentService;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +22,11 @@ public class AdminStudentController {
     public ResponseEntity<AdminStudentListPageResponseDto> getAllStudent(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String userId,
-            @RequestParam(required = false) StudentRole studentRole
+            @RequestParam(required = false) StudentRole studentRole,
+            @RequestParam(required = false) Grade grade,
+            @RequestParam(required = false) Boolean surveyCompleted
     ) {
-        return ResponseEntity.ok(adminStudentService.getAllStudents(name, userId, studentRole));
+        return ResponseEntity.ok(adminStudentService.getAllStudents(name, userId, studentRole, grade, surveyCompleted));
     }
 
 

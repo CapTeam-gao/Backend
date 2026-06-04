@@ -47,7 +47,8 @@ public class AdminTeamRecommendationService {
     // 해당 학년 미배정 학생을 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
-    private static final int TEAM_SIZE = 5;
+    // 한 팀에 배정할 수 있는 최대 학생 수입니다.
+    private static final int MAX_TEAM_MEMBER_COUNT = 5;
 
     // ──────────────────────────────────────────
     // 팀 추천안 생성
@@ -70,11 +71,16 @@ public class AdminTeamRecommendationService {
                 .map(tu -> tu.getUser().getUserId())
                 .collect(Collectors.toSet());
 
-        // 해당 학년 미배정 학생만 추출 후 스코어 계산
-        List<ScoredStudent> candidates = userRepository.findByAccountRoleAndGrade(AccountRole.STUDENT, grade)
+        // 해당 학년 미배정 학생만 추출합니다. 설문 미완료자가 있으면 팀 생성을 막습니다.
+        List<User> unassignedStudents = userRepository.findByAccountRoleAndGrade(AccountRole.STUDENT, grade)
                 .stream()
                 .filter(u -> !assignedUserIds.contains(u.getUserId()))
                 .sorted(Comparator.comparing(User::getUserId))
+                .toList();
+        validateAllStudentsSurveyCompleted(unassignedStudents);
+
+        // 설문 완료 학생만 팀 추천 후보로 사용하고 스코어를 계산합니다.
+        List<ScoredStudent> candidates = unassignedStudents.stream()
                 .map(u -> new ScoredStudent(u, resolveRole(u), ScoreCalculator.calculate(u)))
                 .toList();
 
@@ -86,7 +92,7 @@ public class AdminTeamRecommendationService {
         analyzeAndSave(candidates);
 
         // 팀 수 계산 후 역할별 라운드로빈 배분
-        int teamCount = (int) Math.ceil((double) candidates.size() / TEAM_SIZE);
+        int teamCount = (int) Math.ceil((double) candidates.size() / MAX_TEAM_MEMBER_COUNT);
         List<List<ScoredStudent>> groups = distributeByRole(candidates, teamCount);
 
         // 각 그룹을 추천안으로 저장
@@ -118,6 +124,20 @@ public class AdminTeamRecommendationService {
         }
 
         return result;
+    }
+
+    // 팀 생성 대상 학년의 미배정 학생 전원이 설문을 완료했는지 검증하는 기능입니다.
+    private void validateAllStudentsSurveyCompleted(List<User> students) {
+        List<User> notCompletedStudents = students.stream()
+                .filter(user -> !user.isSurveyCompleted())
+                .toList();
+
+        if (!notCompletedStudents.isEmpty()) {
+            String names = notCompletedStudents.stream()
+                    .map(user -> user.getName() + "(" + user.getUserId() + ")")
+                    .collect(Collectors.joining(", "));
+            throw new IllegalStateException("설문 미완료 학생이 있어 팀을 생성할 수 없습니다: " + names);
+        }
     }
 
     // 스코어 기준으로 상/중/하 등급을 분류하고 UserAnalysis에 저장하는 기능입니다.
@@ -261,6 +281,13 @@ public class AdminTeamRecommendationService {
         TeamRecommendation recommendation = recommendationRepository.findById(recommendationId)
                 .orElseThrow(() -> new RuntimeException("추천안을 찾을 수 없습니다."));
 
+        validatePendingRecommendation(recommendation);
+
+        // 추천 멤버를 먼저 조회하고 설문 완료 여부와 최대 인원 수를 검증한 뒤 실제 팀을 생성합니다.
+        List<TeamRecommendationMember> recommendedMembers =
+                recommendationMemberRepository.findByRecommendationId(recommendationId);
+        validateRecommendedMembers(recommendedMembers);
+
         // 해당 학년에서 몇 번째 팀인지 계산해서 팀 이름 자동 생성 (1팀, 2팀...)
         long teamCount = teamRepository.countByGrade(recommendation.getGrade());
         String teamName = (teamCount + 1) + "팀";
@@ -274,9 +301,6 @@ public class AdminTeamRecommendationService {
         teamRepository.save(team);
 
         // 추천 멤버들을 실제 팀원으로 등록
-        List<TeamRecommendationMember> recommendedMembers =
-                recommendationMemberRepository.findByRecommendationId(recommendationId);
-
         for (TeamRecommendationMember recommendedMember : recommendedMembers) {
             TeamUser teamUser = TeamUser.builder()
                     .team(team)
@@ -305,6 +329,35 @@ public class AdminTeamRecommendationService {
 
         // 추천안 상태 수락으로 변경 (더티 체킹)
         recommendation.accept();
+    }
+
+    // 승인 대기 상태인 추천안만 실제 팀으로 전환할 수 있게 검증하는 기능입니다.
+    private void validatePendingRecommendation(TeamRecommendation recommendation) {
+        if (recommendation.getStatus() != RecommendationStatus.PENDING) {
+            throw new IllegalArgumentException("이미 승인된 추천안입니다.");
+        }
+    }
+
+    // 추천 멤버 수와 설문 완료 여부를 검증해 잘못된 팀 생성을 막는 기능입니다.
+    private void validateRecommendedMembers(List<TeamRecommendationMember> recommendedMembers) {
+        if (recommendedMembers.isEmpty()) {
+            throw new IllegalArgumentException("추천안에 팀원이 없습니다.");
+        }
+
+        if (recommendedMembers.size() > MAX_TEAM_MEMBER_COUNT) {
+            throw new IllegalArgumentException("팀 인원은 최대 5명까지 가능합니다.");
+        }
+
+        List<User> notCompletedStudents = recommendedMembers.stream()
+                .map(TeamRecommendationMember::getUser)
+                .filter(user -> !user.isSurveyCompleted())
+                .toList();
+        if (!notCompletedStudents.isEmpty()) {
+            String names = notCompletedStudents.stream()
+                    .map(user -> user.getName() + "(" + user.getUserId() + ")")
+                    .collect(Collectors.joining(", "));
+            throw new IllegalStateException("설문 미완료 학생이 있어 팀을 생성할 수 없습니다: " + names);
+        }
     }
 
     // ──────────────────────────────────────────
