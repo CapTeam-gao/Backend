@@ -1,6 +1,6 @@
 package com.capteam.gaobackend.dto.admin;
 
-import com.capteam.gaobackend.entity.TeamUser;
+import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.Grade;
 import lombok.Builder;
 import lombok.Getter;
@@ -26,9 +26,9 @@ public class AdminStudentListPageResponseDto {
     // 검색 조건이 반영된 학생 목록을 내려주는 필드입니다.
     private List<AdminStudentListResponseDto> students;
 
-    // 전체 TeamUser 목록과 검색된 학생 목록을 관리자 학생 관리 화면 응답 DTO로 변환하는 기능입니다.
+    // 전체 학생 목록과 검색된 학생 목록을 관리자 학생 관리 화면 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentListPageResponseDto of(
-            List<TeamUser> allStudents,
+            List<User> allStudents,
             List<AdminStudentListResponseDto> filteredStudents
     ) {
         return AdminStudentListPageResponseDto.builder()
@@ -36,16 +36,16 @@ public class AdminStudentListPageResponseDto {
                 .grade2StudentCount(countByGrade(allStudents, Grade.GRADE_2))
                 .grade3StudentCount(countByGrade(allStudents, Grade.GRADE_3))
                 .surveyNotSubmittedCount(allStudents.stream()
-                        .filter(teamUser -> !teamUser.getUser().isSurveyCompleted())
+                        .filter(user -> !user.isSurveyCompleted())
                         .count())
                 .students(filteredStudents)
                 .build();
     }
 
     // 특정 학년에 해당하는 학생 수를 계산하는 기능입니다.
-    private static long countByGrade(List<TeamUser> students, Grade grade) {
+    private static long countByGrade(List<User> students, Grade grade) {
         return students.stream()
-                .filter(teamUser -> teamUser.getUser().getGrade() == grade)
+                .filter(user -> user.getGrade() == grade)
                 .count();
     }
 }

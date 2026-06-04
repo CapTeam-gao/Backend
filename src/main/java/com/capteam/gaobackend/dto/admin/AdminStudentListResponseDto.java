@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.dto.admin;
 
 import com.capteam.gaobackend.entity.TeamUser;
+import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.LeaderRole;
@@ -49,16 +50,21 @@ public class AdminStudentListResponseDto {
 
     // TeamUser와 UserAnalysis 엔티티를 관리자 학생 목록 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentListResponseDto from(TeamUser teamUser, UserAnalysis userAnalysis) {
+        return from(teamUser.getUser(), teamUser, userAnalysis);
+    }
+
+    // User와 선택적인 팀원/AI 분석 정보를 관리자 학생 목록 응답 DTO로 변환하는 기능입니다.
+    public static AdminStudentListResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis) {
         return AdminStudentListResponseDto.builder()
-                .userId(teamUser.getUser().getUserId())
-                .name(teamUser.getUser().getName())
-                .grade(teamUser.getUser().getGrade())
-                .teamName(teamUser.getTeam().getTeamName())
-                .studentRole(teamUser.getStudentRole())
-                .leaderRole(teamUser.getLeaderRole())
+                .userId(user.getUserId())
+                .name(user.getName())
+                .grade(user.getGrade())
+                .teamName(teamUser == null ? "미배정" : teamUser.getTeam().getTeamName())
+                .studentRole(teamUser == null ? user.getStudentRole() : teamUser.getStudentRole())
+                .leaderRole(teamUser == null ? null : teamUser.getLeaderRole())
                 .studentLevel(userAnalysis == null ? null : userAnalysis.getStudentLevel())
-                .skill(teamUser.getUser().getSkill())
-                .surveyCompleted(teamUser.getUser().isSurveyCompleted())
+                .skill(user.getSkill())
+                .surveyCompleted(user.isSurveyCompleted())
                 .build();
     }
 }
