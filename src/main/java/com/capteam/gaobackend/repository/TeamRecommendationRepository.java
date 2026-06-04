@@ -12,6 +12,9 @@ public interface TeamRecommendationRepository extends JpaRepository<TeamRecommen
     // 특정 학년의 추천안 목록 조회
     List<TeamRecommendation> findByGrade(Grade grade);
 
-    // 특정 상태의 추천안 목록 조회 (PENDING, ACCEPTED)
+    // 특정 학년 + 특정 상태의 추천안 목록 조회
+    List<TeamRecommendation> findByGradeAndStatus(Grade grade, RecommendationStatus status);
+
+    // 특정 상태의 추천안 목록 조회
     List<TeamRecommendation> findByStatus(RecommendationStatus status);
 }

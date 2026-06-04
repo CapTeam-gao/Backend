@@ -9,4 +9,7 @@ public interface TeamRecommendationReasonRepository extends JpaRepository<TeamRe
 
     // 특정 추천안의 모든 배정 이유 조회
     List<TeamRecommendationReason> findByRecommendationId(Long recommendationId);
+
+    // 특정 추천안의 배정 이유 전체 삭제 (추천안 재생성 시 사용)
+    void deleteByRecommendationId(Long recommendationId);
 }
