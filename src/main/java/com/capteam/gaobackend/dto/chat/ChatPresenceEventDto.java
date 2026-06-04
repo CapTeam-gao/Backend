@@ -10,6 +10,7 @@ public class ChatPresenceEventDto {
     // 상태가 바뀐 사용자입니다.
     private String userId;
 
+    // 상태가 바뀐 사용자 이름입니다.
     private String name;
 
     // true면 온라인, false면 오프라인입니다.

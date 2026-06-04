@@ -18,22 +18,39 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 @Builder
 public class AdminTeamListResponseDto {
+    // 팀 고유 id를 내려주는 필드입니다.
     private Long teamId;
+
+    // 팀 이름을 내려주는 필드입니다.
     private String teamName;
-    private Grade grade;    //학년
+
+    // 팀 학년을 내려주는 필드입니다.
+    private Grade grade;
+
+    // 팀 프로젝트 서비스 이름을 내려주는 필드입니다.
     private String serviceName;
-    private Map<StudentRole, Long> roleCount;   //역할별 인원수 예시) {FRONTEND=1, BACKEND=2}
-    private List<TeamMemberDto> members;    //멤버 카드 목록 div같은걸로 묶어 놓은데 데이터 넣을거임
+
+    // 역할별 인원 수를 내려주는 필드입니다. 예: {FRONTEND=1, BACKEND=2}
+    private Map<StudentRole, Long> roleCount;
+
+    // 팀 목록 카드에 표시할 멤버 요약 목록을 내려주는 필드입니다.
+    private List<TeamMemberDto> members;
 
     @Getter
     @AllArgsConstructor
     @Builder
     public static class TeamMemberDto { //div안에 넣을 정보들
+        // 팀원 이름을 내려주는 필드입니다.
         private String name;
+
+        // 팀원의 개발 역할을 내려주는 필드입니다.
         private StudentRole studentRole;
+
+        // 팀원의 팀장/팀원 역할을 내려주는 필드입니다.
         private LeaderRole leaderRole;
     }
 
+    // Team, TeamProject, TeamUser 목록을 관리자 팀 목록 응답 DTO로 변환하는 기능입니다.
     public static AdminTeamListResponseDto from(Team team, TeamProject teamProject, List<TeamUser> teamUsers) {
         return AdminTeamListResponseDto.builder()
                 .teamId(team.getId())

@@ -17,8 +17,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true) // 기본적으로 읽기 전용, 데이터 변경 메서드는 @Transactional 따로 붙임
 public class AdminNoticeService {
 
+    // 공지 목록/상세/생성/수정/삭제에 사용하는 Repository 필드입니다.
     private final NoticeRepository noticeRepository;
+
+    // 공지 삭제 시 읽음 기록과의 관계를 관리하기 위해 주입된 Repository 필드입니다.
     private final NoticeReadRepository noticeReadRepository;
+
+    // 공지 작성자로 현재 로그인한 관리자를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
     // ──────────────────────────────────────────

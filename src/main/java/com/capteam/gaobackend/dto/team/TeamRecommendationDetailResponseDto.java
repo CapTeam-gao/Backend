@@ -19,23 +19,44 @@ import java.util.stream.Collectors;
 @Builder
 public class TeamRecommendationDetailResponseDto {
 
+    // 팀 추천안 고유 id를 내려주는 필드입니다.
     private Long id;
+
+    // 추천 대상 학년을 내려주는 필드입니다.
     private Grade grade;
+
+    // 추천안 승인 상태를 내려주는 필드입니다.
     private RecommendationStatus status;
-    private List<MemberDto> members;  // 추천된 팀원 목록
-    private List<ReasonDto> reasons;  // AI 배정 이유 카드 목록
+
+    // 추천된 팀원 목록을 내려주는 필드입니다.
+    private List<MemberDto> members;
+
+    // AI 배정 이유 카드 목록을 내려주는 필드입니다.
+    private List<ReasonDto> reasons;
 
     // 추천 팀원 정보
     @Getter
     @Builder
     public static class MemberDto {
+        // 추천 팀원 userId를 내려주는 필드입니다.
         private String userId;
-        private String name;
-        private StudentRole studentRole;     // AI가 배정한 역할
-        private boolean isRecommendedLeader; // AI가 추천한 팀장 여부
-        private String skill;                // 대표 기술스택 (User.skill 첫 번째)
-        private StudentLevel studentLevel;   // AI가 분석한 실력 (상/중/하), 어드민만 조회 가능
 
+        // 추천 팀원 이름을 내려주는 필드입니다.
+        private String name;
+
+        // AI가 배정한 개발 역할을 내려주는 필드입니다.
+        private StudentRole studentRole;
+
+        // AI가 해당 학생을 팀장으로 추천했는지 내려주는 필드입니다.
+        private boolean isRecommendedLeader;
+
+        // 대표 기술 스택을 내려주는 필드입니다. User.skill의 첫 번째 값을 사용합니다.
+        private String skill;
+
+        // AI가 분석한 실력 수준을 내려주는 필드입니다.
+        private StudentLevel studentLevel;
+
+        // TeamRecommendationMember 엔티티를 추천 팀원 응답 DTO로 변환하는 기능입니다.
         public static MemberDto from(TeamRecommendationMember member, StudentLevel studentLevel) {
             List<String> skills = member.getUser().getSkill();
             return MemberDto.builder()
@@ -53,9 +74,13 @@ public class TeamRecommendationDetailResponseDto {
     @Getter
     @Builder
     public static class ReasonDto {
+        // AI 배정 이유 카드 제목을 내려주는 필드입니다.
         private String title;
+
+        // AI 배정 이유 상세 설명을 내려주는 필드입니다.
         private String description;
 
+        // TeamRecommendationReason 엔티티를 배정 이유 응답 DTO로 변환하는 기능입니다.
         public static ReasonDto from(TeamRecommendationReason reason) {
             return ReasonDto.builder()
                     .title(reason.getTitle())
@@ -64,7 +89,8 @@ public class TeamRecommendationDetailResponseDto {
         }
     }
 
-    // levelMap: userId → studentLevel (서비스에서 UserAnalysis 조회 후 전달)
+    // 추천안 엔티티와 멤버/이유 목록을 추천 상세 응답 DTO로 변환하는 기능입니다.
+    // levelMap은 userId를 key로 하고 AI 분석 실력 수준을 value로 가지는 맵입니다.
     public static TeamRecommendationDetailResponseDto from(
             TeamRecommendation recommendation,
             List<TeamRecommendationMember> members,

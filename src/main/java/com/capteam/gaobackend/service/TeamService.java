@@ -22,10 +22,16 @@ import java.util.Set;
 @Transactional(readOnly = true)
 public class TeamService {
 
+    // 선호 팀원 userId 검증과 사용자 이름 확인에 사용하는 Repository 필드입니다.
     private final UserRepository userRepository;
+
+    // 관리자 팀원 이동 시 대상 팀을 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
+
+    // 학생이 소속된 팀원 정보를 조회하거나 수정하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
 
+    // 사용자가 등록한 선호 팀원 목록을 상세 정보로 조회하는 기능입니다.
     public PreferredTeammateResponseDto getPreferences(String userId) {
         User user = findUser(userId);
         List<String> preferredIds = user.getPreferredTeammates() == null ? List.of() : user.getPreferredTeammates();
@@ -38,6 +44,7 @@ public class TeamService {
                 .build();
     }
 
+    // 선호 팀원 목록을 최대 3명까지 검증하고 사용자 프로필에 저장하는 기능입니다.
     @Transactional
     public PreferredTeammateResponseDto updatePreferences(String userId, PreferredTeammateRequestDto request) {
         User user = findUser(userId);
@@ -74,6 +81,7 @@ public class TeamService {
         return getPreferences(userId);
     }
 
+    // 관리자가 특정 학생을 다른 팀으로 이동시키고 역할/팀장 여부를 수정하는 기능입니다.
     @Transactional
     public void updateTeamMember(TeamMemberUpdateRequestDto request) {
         TeamUser teamUser = teamUserRepository.findByUserUserId(request.getUserId())
@@ -88,6 +96,7 @@ public class TeamService {
         );
     }
 
+    // userId로 사용자를 조회하고 없으면 예외를 발생시키는 기능입니다.
     private User findUser(String userId) {
         return userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));

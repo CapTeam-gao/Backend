@@ -15,10 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class NoticeService {
 
+    // 전체 공지 개수를 확인하고 공지 엔티티를 조회하는 Repository 필드입니다.
     private final NoticeRepository noticeRepository;
+
+    // 사용자별 공지 읽음 기록을 조회/저장하는 Repository 필드입니다.
     private final NoticeReadRepository noticeReadRepository;
+
+    // 공지 읽음 처리 대상 사용자를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
+    // 특정 사용자가 특정 공지를 읽음 처리하는 기능입니다.
     @Transactional
     public void markAsRead(Long noticeId, String userId) {
         if (noticeReadRepository.existsByNoticeIdAndUserUserId(noticeId, userId)) {
@@ -36,6 +42,7 @@ public class NoticeService {
                 .build());
     }
 
+    // 전체 공지 수와 사용자의 읽음 기록 수를 비교해 읽지 않은 공지가 있는지 확인하는 기능입니다.
     public boolean hasUnreadNotice(String userId) {
         long noticeCount = noticeRepository.count();
         if (noticeCount == 0) {

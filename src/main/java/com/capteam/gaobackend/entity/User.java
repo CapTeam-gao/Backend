@@ -17,20 +17,26 @@ public class User extends BaseTimeEntity {
 
     @Id
     @Column(nullable = false, name = "user_id")
+    // 로그인 ID로 사용하는 학생/관리자 고유 식별자를 저장하는 필드입니다.
     private String userId;
 
     @Column(nullable = false)
+    // 사용자 이름을 저장하는 필드입니다.
     private String name;
 
     @Column(nullable = false)
+    // 로그인 비밀번호를 저장하는 필드입니다. 최초 기본값은 1234입니다.
     private String password = "1234";
 
-    private boolean passwordEncoded = false;    // 최초 로그인 시 암호화 여부
+    // 최초 로그인 비밀번호가 암호화되었는지 저장하는 필드입니다.
+    private boolean passwordEncoded = false;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    // 학생/관리자 권한을 구분하는 필드입니다.
     private AccountRole accountRole;
 
+    // 사용자 기본 계정을 생성하는 기능입니다.
     @Builder
     public User(String userId, String name, AccountRole accountRole) {
         this.userId = userId;
@@ -39,39 +45,62 @@ public class User extends BaseTimeEntity {
         this.accountRole = accountRole;
     }
 
-    //    여기부터 프로필(마이페이지)에서 직접 값 넣기
     @Enumerated(EnumType.STRING)
-    private StudentRole studentRole;            // 희망 역할 (마이페이지에서 설정)
+    // 학생이 희망하는 개발 역할을 저장하는 필드입니다.
+    private StudentRole studentRole;
 
     @ElementCollection
-    private List<String> skill;                 // 기술스택
+    // 학생이 보유한 기술 스택을 저장하는 필드입니다.
+    private List<String> skill;
 
     @ElementCollection
-    private List<String> experience;            // 경험
+    // 학생의 구현 경험을 저장하는 필드입니다.
+    private List<String> experience;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    // 학생 학년을 저장하는 필드입니다.
     private Grade grade;
 
-    private boolean wantsLeader;                // 팀장 희망 여부
+    // 학생의 팀장 희망 여부를 저장하는 필드입니다.
+    private boolean wantsLeader;
 
     @ElementCollection
-    private List<String> preferredTeammates;    // 선호 팀원 userId 최대 3명
+    // 학생이 선호하는 팀원 userId를 최대 3명까지 저장하는 필드입니다.
+    private List<String> preferredTeammates;
 
+    // 학생이 설문을 완료했는지 저장하는 필드입니다.
     private boolean surveyCompleted = false;
 
-    @ElementCollection
-    private List<Integer> personalityScores;
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "communication", column = @Column(name = "personality_communication")),
+            @AttributeOverride(name = "responsibility", column = @Column(name = "personality_responsibility")),
+            @AttributeOverride(name = "collaboration", column = @Column(name = "personality_collaboration")),
+            @AttributeOverride(name = "flexibility", column = @Column(name = "personality_flexibility")),
+            @AttributeOverride(name = "emotionalStability", column = @Column(name = "personality_emotional_stability"))
+    })
+    // 성격 성향 항목별 점수를 저장하는 필드입니다.
+    private UserPersonalityScore personalityScores = new UserPersonalityScore(0, 0, 0, 0, 0);
 
-    @ElementCollection
-    private List<Integer> developmentScores;
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "leadership", column = @Column(name = "development_leadership")),
+            @AttributeOverride(name = "problemSolving", column = @Column(name = "development_problem_solving")),
+            @AttributeOverride(name = "implementation", column = @Column(name = "development_implementation")),
+            @AttributeOverride(name = "learningAbility", column = @Column(name = "development_learning_ability")),
+            @AttributeOverride(name = "planning", column = @Column(name = "development_planning"))
+    })
+    // 개발 성향 항목별 점수를 저장하는 필드입니다.
+    private UserDevelopmentScore developmentScores = new UserDevelopmentScore(0, 0, 0, 0, 0);
 
-    //    업데이트 메서드
+    // 비밀번호를 암호화된 값으로 변경하는 기능입니다.
     public void updatePassword(String encodedPassword) {
         this.password = encodedPassword;
         this.passwordEncoded = true;
     }
 
+    // 마이페이지 프로필 정보를 변경하는 기능입니다.
     public void updateProfile(StudentRole studentRole, List<String> skill, List<String> experience,
                               boolean wantsLeader, List<String> preferredTeammates) {
         this.studentRole = studentRole;
@@ -81,9 +110,10 @@ public class User extends BaseTimeEntity {
         this.preferredTeammates = preferredTeammates;
     }
 
+    // 설문 결과와 성향 점수를 저장하고 설문 완료 상태로 변경하는 기능입니다.
     public void completeSurvey(StudentRole studentRole, List<String> skill, List<String> experience,
                                boolean wantsLeader, List<String> preferredTeammates,
-                               List<Integer> personalityScores, List<Integer> developmentScores) {
+                               UserPersonalityScore personalityScores, UserDevelopmentScore developmentScores) {
         updateProfile(studentRole, skill, experience, wantsLeader, preferredTeammates);
         this.personalityScores = personalityScores;
         this.developmentScores = developmentScores;

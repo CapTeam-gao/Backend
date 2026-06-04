@@ -18,6 +18,10 @@ public class ChatMessageRequestDto {
     // 파일 URL만 있으면 화면에 파일명/용량 표시가 어렵습니다.
     // 업로드 API 응답값을 그대로 넣어 보내면 채팅 메시지에도 같이 저장됩니다.
     private String fileName;
+
+    // 첨부 파일의 MIME 타입을 저장하기 위해 받는 필드입니다.
     private String fileType;
+
+    // 첨부 파일 크기를 byte 단위로 저장하기 위해 받는 필드입니다.
     private Long fileSize;
 }

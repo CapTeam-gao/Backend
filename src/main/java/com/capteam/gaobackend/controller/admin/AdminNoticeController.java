@@ -17,30 +17,16 @@ public class AdminNoticeController {
 
     private final AdminNoticeService adminNoticeService;
 
-//    // 공지 목록 조회
-//    // GET /api/admin/notices
-//    @GetMapping
-//    public ResponseEntity<ApiResponse<List<NoticeResponseDto>>> getNoticeList() {
-//        return ApiResponse.ok(adminNoticeService.getNoticeList());
-//    }
-//
-//    // 공지 상세 조회
-//    // GET /api/admin/notices/{noticeId}
-//    @GetMapping("/{noticeId}")
-//    public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> getNoticeDetail(@PathVariable Long noticeId) {
-//        return ApiResponse.ok(adminNoticeService.getNoticeDetail(noticeId));
-//    }
 
-    // 공지 생성
-    // POST /api/admin/notices
+
+    // 관리자가 새 공지를 생성하는 기능입니다.
     @PostMapping
     public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> createNotice(
             @RequestBody @Valid NoticeCreateRequestDto dto) {
         return ApiResponse.ok(adminNoticeService.createNotice(dto));
     }
 
-    // 공지 수정
-    // PUT /api/admin/notices/{noticeId}
+    // 관리자가 특정 공지 제목/내용/중요 여부를 수정하는 기능입니다.
     @PutMapping("/{noticeId}")
     public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> updateNotice(
             @PathVariable Long noticeId,
@@ -48,8 +34,7 @@ public class AdminNoticeController {
         return ApiResponse.ok(adminNoticeService.updateNotice(noticeId, dto));
     }
 
-    // 공지 삭제
-    // DELETE /api/admin/notices/{noticeId}
+    // 관리자가 특정 공지를 삭제하는 기능입니다.
     @DeleteMapping("/{noticeId}")
     public ResponseEntity<ApiResponse<Void>> deleteNotice(@PathVariable Long noticeId) {
         adminNoticeService.deleteNotice(noticeId);

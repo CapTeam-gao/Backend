@@ -20,8 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 @Transactional(readOnly = true)
 public class ChatPresenceService {
 
+    // 팀원 목록을 조회해 온라인 멤버 수와 presence 응답을 구성하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // WebSocket 구독자에게 온라인/오프라인 이벤트를 발행하는 필드입니다.
     private final SimpMessagingTemplate messagingTemplate;
+
+    // presence 조회 시 채널 접근 권한을 확인하는 Service 필드입니다.
     private final ChatAccessService chatAccessService;
 
     // userId -> 현재 접속 중인 WebSocket sessionId 목록입니다.
@@ -32,6 +37,7 @@ public class ChatPresenceService {
     // DISCONNECT 이벤트에는 user 정보가 불안정할 수 있어서 sessionId로 사용자를 다시 찾습니다.
     private final ConcurrentHashMap<String, String> sessionUsers = new ConcurrentHashMap<>();
 
+    // WebSocket 연결 시 사용자 세션을 온라인 상태로 등록하는 기능입니다.
     public void connect(String sessionId, String userId) {
         Set<String> sessions = userSessions.computeIfAbsent(userId, key -> ConcurrentHashMap.newKeySet());
         boolean wasOffline = sessions.isEmpty();
@@ -46,7 +52,7 @@ public class ChatPresenceService {
         }
     }
 
-
+    // WebSocket 연결 종료 시 세션을 제거하고 마지막 세션이면 오프라인 처리하는 기능입니다.
     public void disconnect(String sessionId) {
         String userId = sessionUsers.remove(sessionId);
         if (userId == null) {
@@ -67,11 +73,13 @@ public class ChatPresenceService {
         }
     }
 
+    // 특정 사용자가 현재 온라인인지 확인하는 기능입니다.
     public boolean isOnline(String userId) {
         Set<String> sessions = userSessions.get(userId);
         return sessions != null && !sessions.isEmpty();
     }
 
+    // 특정 팀에 속한 온라인 팀원 수를 계산하는 기능입니다.
     public long countOnlineMembersByTeamId(Long teamId) {
         return teamUserRepository.findByTeamId(teamId)
                 .stream()
@@ -79,6 +87,7 @@ public class ChatPresenceService {
                 .count();
     }
 
+    // 특정 채널이 속한 팀의 팀원별 온라인 상태 목록을 조회하는 기능입니다.
     public ChatChannelPresenceResponseDto findChannelPresence(Long channelId, String userId) {
         // 온라인 목록도 팀 정보이므로 채널 접근 권한을 확인하고 내려줍니다.
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
@@ -99,6 +108,7 @@ public class ChatPresenceService {
                 .build();
     }
 
+    // 사용자의 온라인/오프라인 변경 이벤트를 해당 팀 presence 구독 주소로 발행하는 기능입니다.
     private void publishPresence(String userId, boolean online) {
         // 현재 프로젝트에서는 학생은 하나의 팀에 속한다고 보고 팀 채팅 상태를 broadcast 합니다.
         // 팀이 없는 관리자나 아직 팀 배정 전 학생은 presence 이벤트를 보낼 팀이 없으므로 무시합니다.
@@ -109,6 +119,7 @@ public class ChatPresenceService {
                 ));
     }
 
+    // TeamUser와 온라인 여부를 WebSocket 이벤트 DTO로 변환하는 기능입니다.
     private ChatPresenceEventDto buildEvent(TeamUser teamUser, boolean online) {
         return ChatPresenceEventDto.builder()
                 .userId(teamUser.getUser().getUserId())

@@ -19,6 +19,9 @@ public class ChatFileUploadResponseDto {
     // 서버 저장소 안에서 충돌을 피하려고 UUID를 붙인 실제 저장 파일명입니다.
     private String storedFileName;
 
+    // 업로드된 파일의 MIME 타입을 내려주는 필드입니다.
     private String contentType;
+
+    // 업로드된 파일 크기를 byte 단위로 내려주는 필드입니다.
     private long size;
 }

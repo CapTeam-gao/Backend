@@ -20,13 +20,17 @@ import java.util.UUID;
 public class ChatFileStorageService {
 
     @Value("${chat.file.upload-dir}")
+    // 채팅 첨부 파일을 실제 디스크에 저장할 서버 폴더 경로입니다.
     private String uploadDir;
 
     @Value("${chat.file.public-path}")
+    // 저장된 채팅 첨부 파일을 브라우저에서 접근할 때 사용할 공개 URL prefix입니다.
     private String publicPath;
 
+    // 파일 업로드 전에 사용자가 해당 채널에 접근 가능한지 검사하는 Service 필드입니다.
     private final ChatAccessService chatAccessService;
 
+    // 채팅 채널 접근 권한을 검사한 뒤 첨부 파일을 디스크에 저장하고 접근 URL을 반환하는 기능입니다.
     public ChatFileUploadResponseDto upload(Long channelId, String userId, MultipartFile file) {
         // 파일 업로드 전에 채널 접근 권한을 먼저 확인합니다.
         // 학생이 다른 팀 채널에 파일 URL을 만들어 붙이는 상황을 막기 위함입니다.
@@ -66,6 +70,7 @@ public class ChatFileStorageService {
         }
     }
 
+    // 공개 URL로 요청된 채팅 첨부 파일을 서버 디스크에서 읽어 Resource로 반환하는 기능입니다.
     public Resource loadFile(String storedFileName) {
         try {
             Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
@@ -87,6 +92,7 @@ public class ChatFileStorageService {
         }
     }
 
+    // 원본 파일명에서 경로와 위험 문자를 제거해 저장 가능한 파일명으로 바꾸는 기능입니다.
     private String getSafeFileName(String originalFileName) {
         // 브라우저나 OS에 따라 파일명에 경로가 섞여 들어오는 경우가 있어 파일명만 분리합니다.
         String fileName = originalFileName == null ? "file" : Paths.get(originalFileName).getFileName().toString();
@@ -100,6 +106,7 @@ public class ChatFileStorageService {
         return fileName.replaceAll("[\\\\/:*?\"<>|]", "_");
     }
 
+    // 저장 파일명을 프론트에서 접근할 수 있는 공개 URL로 변환하는 기능입니다.
     private String buildFileUrl(String storedFileName) {
         String normalizedPublicPath = publicPath.endsWith("/")
                 ? publicPath.substring(0, publicPath.length() - 1)

@@ -31,25 +31,38 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class ChatService {
 
+    // 채팅 메시지 저장, 조회, unread 계산에 사용하는 Repository 필드입니다.
     private final ChatMessageRepository chatMessageRepository;
+
+    // 채팅방 안의 채널 생성, 수정, 삭제, 목록 조회에 사용하는 Repository 필드입니다.
     private final ChatChannelRepository chatChannelRepository;
+
+    // 팀별 채팅방 생성, 조회, 삭제에 사용하는 Repository 필드입니다.
     private final ChatRoomRepository chatRoomRepository;
+
+    // 사용자별 채널 마지막 읽음 시간을 저장/조회하는 Repository 필드입니다.
     private final ChatReadStatusRepository chatReadStatusRepository;
+
+    // 채팅방/채널 접근 권한과 사용자 조회를 담당하는 Service 필드입니다.
     private final ChatAccessService chatAccessService;
+
+    // 관리자 채팅방 생성 시 대상 팀을 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
 
 
-
+    // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
     public ChatRoomResponseDto getMyChatRoom(String userId) {
         ChatRoom room = chatAccessService.getMyChatRoom(userId);
         return buildRoomResponse(room);
     }
 
+    // 특정 채팅방을 조회하되 학생은 자기 팀 채팅방만 접근 가능하게 검사하는 기능입니다.
     public ChatRoomResponseDto getRoom(Long roomId, String userId) {
         ChatRoom room = chatAccessService.getAccessibleRoom(roomId, userId);
         return buildRoomResponse(room);
     }
 
+    // 내 팀 채팅방의 채널별 마지막 메시지와 읽지 않은 메시지 수를 조회하는 기능입니다.
     public List<ChatChannelSummaryResponseDto> getMyChannelSummaries(String userId) {
         ChatRoom room = chatAccessService.getMyChatRoom(userId);
 
@@ -61,6 +74,7 @@ public class ChatService {
                 .toList();
     }
 
+    // 관리자가 전체 팀 채팅방과 채널 목록을 조회하는 기능입니다.
     public List<ChatRoomResponseDto> getAdminRooms() {
         // 관리자 화면에서는 모든 팀 채팅방을 한 번에 볼 수 있어야 합니다.
         // 각 방마다 채널 목록까지 같이 담아 내려줍니다.
@@ -70,6 +84,7 @@ public class ChatService {
                 .toList();
     }
 
+    // 관리자가 특정 채팅방 상세를 조회하는 기능입니다.
     public ChatRoomResponseDto getAdminRoom(Long roomId) {
         ChatRoom room = chatRoomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
@@ -77,6 +92,7 @@ public class ChatService {
         return buildRoomResponse(room);
     }
 
+    // 관리자가 특정 팀에 연결된 채팅방을 조회하는 기능입니다.
     public ChatRoomResponseDto getAdminTeamRoom(Long teamId) {
         ChatRoom room = chatRoomRepository.findByTeamId(teamId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 팀의 채팅방이 없습니다."));
@@ -84,6 +100,7 @@ public class ChatService {
         return buildRoomResponse(room);
     }
 
+    // 관리자가 특정 팀에 채팅방과 기본 채널을 생성하는 기능입니다.
     @Transactional
     public ChatRoomResponseDto createAdminRoom(Long teamId, String channelName, String creatorId) {
         Team team = teamRepository.findById(teamId)
@@ -106,6 +123,7 @@ public class ChatService {
         return buildRoomResponse(room);
     }
 
+    // 관리자가 채팅방을 삭제하면서 하위 채널/메시지/읽음 상태도 함께 삭제하는 기능입니다.
     @Transactional
     public void deleteAdminRoom(Long roomId) {
         ChatRoom room = chatRoomRepository.findById(roomId)
@@ -120,6 +138,7 @@ public class ChatService {
         chatRoomRepository.delete(room);
     }
 
+    // 팀원이 자기 팀 채팅방 안에 새 채널을 생성하는 기능입니다.
     @Transactional
     public ChatChannelResponseDto createChannel(Long roomId, String userId, ChatChannelRequestDto request) {
         ChatRoom room = chatAccessService.getAccessibleRoom(roomId, userId);
@@ -141,6 +160,7 @@ public class ChatService {
         return ChatChannelResponseDto.from(chatChannelRepository.save(channel));
     }
 
+    // 팀원이 자기 팀 채널 이름을 수정하는 기능입니다.
     @Transactional
     public ChatChannelResponseDto updateChannel(Long channelId, String userId, ChatChannelRequestDto request) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
@@ -154,6 +174,7 @@ public class ChatService {
         return ChatChannelResponseDto.from(channel);
     }
 
+    // 팀원이 자기 팀 채널과 해당 채널 메시지/읽음 상태를 삭제하는 기능입니다.
     @Transactional
     public void deleteChannel(Long channelId, String userId) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
@@ -165,6 +186,7 @@ public class ChatService {
         chatChannelRepository.delete(channel);
     }
 
+    // 채널 접근 권한을 검사한 뒤 텍스트 또는 파일 메시지를 DB에 저장하는 기능입니다.
     @Transactional
     public ChatMessageResponseDto saveMessage(Long channelId, String senderId, ChatMessageRequestDto request) {
         // WebSocket에서는 Principal에서 userId만 받을 수 있습니다.
@@ -194,6 +216,7 @@ public class ChatService {
         return ChatMessageResponseDto.from(chatMessageRepository.save(chatMessage));
     }
 
+    // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
     @Transactional
     public void markAsRead(Long channelId, String userId) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
@@ -212,6 +235,7 @@ public class ChatService {
         chatReadStatusRepository.save(readStatus);
     }
 
+    // 특정 채널 메시지를 최신순 페이지로 조회하는 기능입니다.
     public Page<ChatMessageResponseDto> findMessages(Long channelId, String userId, Pageable pageable) {
         // 메시지가 많아지면 전체 조회는 느려집니다.
         // 그래서 최신순 페이지로 가져오고, 프론트에서 필요할 때 다음 페이지를 요청하게 합니다.
@@ -222,7 +246,7 @@ public class ChatService {
     }
 
 
-    //채팅을 로드하는 공통 메서드
+    // 채팅방 엔티티와 채널 목록을 묶어 응답 DTO로 만드는 기능입니다.
     private ChatRoomResponseDto buildRoomResponse(ChatRoom room) {
         return ChatRoomResponseDto.from(
                 room,
@@ -230,6 +254,7 @@ public class ChatService {
         );
     }
 
+    // 채널 정보, 마지막 메시지, unreadCount를 묶어 채널 요약 DTO로 만드는 기능입니다.
     private ChatChannelSummaryResponseDto buildChannelSummary(ChatChannel channel, String userId) {
         ChatMessageResponseDto lastMessage = chatMessageRepository.findTopByChannelIdOrderByCreatedAtDesc(channel.getId())
                 .map(ChatMessageResponseDto::from)
@@ -250,10 +275,12 @@ public class ChatService {
                 .build();
     }
 
+    // null 문자열을 빈 문자열로 바꾸고 앞뒤 공백을 제거하는 기능입니다.
     private String normalize(String value) {
         return value == null ? "" : value.trim();
     }
 
+    // 빈 문자열은 null로 바꿔 DB에 값 없음으로 저장하게 하는 기능입니다.
     private String normalizeToNull(String value) {
         String normalized = normalize(value);
         return normalized.isEmpty() ? null : normalized;

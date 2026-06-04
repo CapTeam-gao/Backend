@@ -9,13 +9,25 @@ import java.time.LocalDateTime;
 @Builder
 public class ChatChannelResponseDto {
 
+    // 채널 고유 id를 내려주는 필드입니다.
     private Long id;
+
+    // 채널이 속한 채팅방 id를 내려주는 필드입니다.
     private Long roomId;
+
+    // 화면에 표시할 채널 이름을 내려주는 필드입니다.
     private String channelName;
+
+    // 채널을 만든 사용자 id를 내려주는 필드입니다.
     private String createdByUserId;
+
+    // 채널을 만든 사용자 이름을 내려주는 필드입니다.
     private String createdByName;
+
+    // 채널 생성 시각을 내려주는 필드입니다.
     private LocalDateTime createdAt;
 
+    // ChatChannel 엔티티를 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatChannelResponseDto from(ChatChannel channel) {
         return ChatChannelResponseDto.builder()
                 .id(channel.getId())

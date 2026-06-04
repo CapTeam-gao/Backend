@@ -14,14 +14,23 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class StudentListResponseDto {    // 학생 전체 조회
+    // 학생 이름을 내려주는 필드입니다.
     private String name;
+
+    // 학생 학년을 내려주는 필드입니다.
     private Grade grade;
+
+    // 학생의 팀 내 개발 역할을 내려주는 필드입니다.
     private StudentRole studentRole;
+
+    // 학생의 기술 스택 목록을 내려주는 필드입니다.
     private List<String> skill;
+
+    // 학생이 소속된 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
 
-    // 새 객체로 만들어서 리턴
+    // TeamUser 엔티티를 학생 목록 응답 DTO로 변환하는 기능입니다.
     public  static StudentListResponseDto from(TeamUser teamUser) {
         return StudentListResponseDto.builder()
                 .name(teamUser.getUser().getName())
