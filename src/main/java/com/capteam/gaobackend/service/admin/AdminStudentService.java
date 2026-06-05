@@ -81,13 +81,15 @@ public class AdminStudentService {
 
     // 관리자가 특정 학생 상세 정보를 조회하는 기능입니다.
     public AdminStudentDetailResponseDto getStudentDetail(String userId) {
-        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+        User user = userRepository.findByUserId(userId)
                 .orElseThrow(UserNotFoundException::new);
+        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+                .orElse(null);
 
         UserAnalysis userAnalysis = userAnalysisRepository.findByUserUserId(userId)
                 .orElse(null);
 
-        return AdminStudentDetailResponseDto.from(teamUser, userAnalysis);
+        return AdminStudentDetailResponseDto.from(user, teamUser, userAnalysis);
     }
 
     // 이름 검색어가 비어 있으면 전체 허용하고, 값이 있으면 학생 이름에 포함되는지 확인하는 기능입니다.
