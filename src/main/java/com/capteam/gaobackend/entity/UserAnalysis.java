@@ -27,6 +27,7 @@ public class UserAnalysis extends BaseTimeEntity {
 
     @Builder
     public UserAnalysis(User user, String analysisResult, StudentLevel studentLevel) {
+        this.userId = user.getUserId();
         this.user = user;
         this.analysisResult = analysisResult;
         this.studentLevel = studentLevel;
