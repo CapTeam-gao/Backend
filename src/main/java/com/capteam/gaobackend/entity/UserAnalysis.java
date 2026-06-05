@@ -16,7 +16,7 @@ public class UserAnalysis extends BaseTimeEntity {
 
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false, insertable = false, updatable = false)
     private User user;
 
     @Column(columnDefinition = "LONGTEXT")
@@ -27,6 +27,9 @@ public class UserAnalysis extends BaseTimeEntity {
 
     @Builder
     public UserAnalysis(User user, String analysisResult, StudentLevel studentLevel) {
+        if (user == null || user.getUserId() == null) {
+            throw new IllegalArgumentException("분석 대상 사용자가 필요합니다.");
+        }
         this.userId = user.getUserId();
         this.user = user;
         this.analysisResult = analysisResult;
