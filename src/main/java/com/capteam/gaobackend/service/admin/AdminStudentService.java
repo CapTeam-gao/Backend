@@ -86,7 +86,7 @@ public class AdminStudentService {
         TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
                 .orElse(null);
 
-        UserAnalysis userAnalysis = userAnalysisRepository.findByUserUserId(userId)
+        UserAnalysis userAnalysis = userAnalysisRepository.findById(userId)
                 .orElse(null);
 
         return AdminStudentDetailResponseDto.from(user, teamUser, userAnalysis);
