@@ -50,6 +50,9 @@ public class AdminTeamRecommendationService {
     // 한 팀에 배정할 수 있는 최대 학생 수입니다.
     private static final int MAX_TEAM_MEMBER_COUNT = 5;
 
+    // 재생성 시 이전 추천안과 같은 조합이 반복되지 않도록 다시 섞는 최대 횟수입니다.
+    private static final int MAX_REGENERATE_ATTEMPTS = 10;
+
     // ──────────────────────────────────────────
     // 팀 추천안 생성
     // 해당 학년 미배정 학생을 역할별 라운드로빈으로 팀에 배분하고 추천안으로 저장합니다.
@@ -60,6 +63,7 @@ public class AdminTeamRecommendationService {
 
         // 재생성 시 해당 학년의 기존 PENDING 추천안 전부 삭제
         List<TeamRecommendation> existing = recommendationRepository.findByGradeAndStatus(grade, RecommendationStatus.PENDING);
+        Set<String> previousTeamSignatures = collectTeamSignatures(existing);
         for (TeamRecommendation rec : existing) {
             recommendationReasonRepository.deleteByRecommendationId(rec.getId());
             recommendationMemberRepository.deleteByRecommendationId(rec.getId());
@@ -93,7 +97,7 @@ public class AdminTeamRecommendationService {
 
         // 팀 수 계산 후 역할별 라운드로빈 배분
         int teamCount = (int) Math.ceil((double) candidates.size() / MAX_TEAM_MEMBER_COUNT);
-        List<List<ScoredStudent>> groups = distributeByRole(candidates, teamCount);
+        List<List<ScoredStudent>> groups = createBalancedGroups(candidates, teamCount, !existing.isEmpty(), previousTeamSignatures);
 
         // 각 그룹을 추천안으로 저장
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
@@ -124,6 +128,15 @@ public class AdminTeamRecommendationService {
         }
 
         return result;
+    }
+
+    // 기존 PENDING 추천안의 팀원 조합을 userId 정렬 문자열로 저장하는 기능입니다.
+    private Set<String> collectTeamSignatures(List<TeamRecommendation> recommendations) {
+        return recommendations.stream()
+                .map(recommendation -> recommendationMemberRepository.findByRecommendationId(recommendation.getId()))
+                .filter(members -> !members.isEmpty())
+                .map(this::toTeamSignature)
+                .collect(Collectors.toSet());
     }
 
     // 팀 생성 대상 학년의 미배정 학생 전원이 설문을 완료했는지 검증하는 기능입니다.
@@ -160,10 +173,10 @@ public class AdminTeamRecommendationService {
             String analysis = "%s 역할 희망, 스킬 %d개, 경험 %d개 기준 %s 등급으로 분석되었습니다."
                     .formatted(s.role().name(), safeSize(s.user().getSkill()), safeSize(s.user().getExperience()), toKorean(level));
 
-            userAnalysisRepository.findByUserUserId(s.user().getUserId())
+            userAnalysisRepository.findById(s.user().getUserId())
                     .ifPresentOrElse(
                             ua -> ua.updateAnalysisResult(analysis, level),
-                            () -> userAnalysisRepository.save(UserAnalysis.builder()
+                            () -> userAnalysisRepository.saveAndFlush(UserAnalysis.builder()
                                     .user(s.user())
                                     .analysisResult(analysis)
                                     .studentLevel(level)
@@ -172,19 +185,36 @@ public class AdminTeamRecommendationService {
         }
     }
 
+    // 최초 생성은 안정적으로, 재생성은 균형을 유지하면서 이전과 다른 조합이 나오도록 배분하는 기능입니다.
+    private List<List<ScoredStudent>> createBalancedGroups(
+            List<ScoredStudent> candidates,
+            int teamCount,
+            boolean regenerate,
+            Set<String> previousTeamSignatures
+    ) {
+        List<List<ScoredStudent>> groups = List.of();
+        int attempts = regenerate ? MAX_REGENERATE_ATTEMPTS : 1;
+
+        for (int attempt = 0; attempt < attempts; attempt++) {
+            Random random = regenerate ? new Random(System.nanoTime() + attempt) : null;
+            groups = distributeByRole(candidates, teamCount, random);
+            if (!regenerate || !hasSameTeamCombination(groups, previousTeamSignatures)) {
+                return groups;
+            }
+        }
+
+        return groups;
+    }
+
     // 역할별 라운드로빈으로 팀 수만큼 그룹에 배분하는 기능입니다.
-    private List<List<ScoredStudent>> distributeByRole(List<ScoredStudent> candidates, int teamCount) {
+    private List<List<ScoredStudent>> distributeByRole(List<ScoredStudent> candidates, int teamCount, Random random) {
         List<List<ScoredStudent>> groups = new ArrayList<>();
         for (int i = 0; i < teamCount; i++) groups.add(new ArrayList<>());
 
         Map<StudentRole, Queue<ScoredStudent>> roleQueues = new EnumMap<>(StudentRole.class);
         candidates.stream()
                 .collect(Collectors.groupingBy(ScoredStudent::role, () -> new EnumMap<>(StudentRole.class), Collectors.toList()))
-                .forEach((role, list) -> roleQueues.put(role,
-                        new ArrayDeque<>(list.stream()
-                                .sorted(Comparator.comparingDouble(ScoredStudent::score).reversed()
-                                        .thenComparing(s -> s.user().getUserId()))
-                                .toList())));
+                .forEach((role, list) -> roleQueues.put(role, new ArrayDeque<>(sortAndMaybeShuffleSimilarScores(list, random))));
 
         List<StudentRole> roleOrder = List.of(
                 StudentRole.BACKEND, StudentRole.FRONTEND, StudentRole.AI, StudentRole.APP, StudentRole.DESIGN
@@ -199,6 +229,64 @@ public class AdminTeamRecommendationService {
             }
         }
         return groups;
+    }
+
+    // 같은 역할 안에서는 점수 순서를 유지하되 재생성 시 비슷한 점수대끼리만 섞는 기능입니다.
+    private List<ScoredStudent> sortAndMaybeShuffleSimilarScores(List<ScoredStudent> students, Random random) {
+        List<ScoredStudent> sorted = students.stream()
+                .sorted(Comparator.comparingDouble(ScoredStudent::score).reversed()
+                        .thenComparing(s -> s.user().getUserId()))
+                .toList();
+
+        if (random == null) {
+            return sorted;
+        }
+
+        TreeMap<Integer, List<ScoredStudent>> scoreBuckets = sorted.stream()
+                .collect(Collectors.groupingBy(
+                        student -> scoreBucket(student.score()),
+                        TreeMap::new,
+                        Collectors.toCollection(ArrayList::new)
+                ));
+
+        List<ScoredStudent> shuffled = new ArrayList<>();
+        scoreBuckets.descendingMap().values().forEach(bucket -> {
+            Collections.shuffle(bucket, random);
+            shuffled.addAll(bucket);
+        });
+        return shuffled;
+    }
+
+    // 점수 차이가 크지 않은 학생끼리만 섞기 위해 5점 단위 점수 구간을 계산하는 기능입니다.
+    private int scoreBucket(double score) {
+        return (int) Math.floor(score / 5.0);
+    }
+
+    // 새로 만든 팀 중 기존 추천안과 완전히 같은 팀원 조합이 있는지 확인하는 기능입니다.
+    private boolean hasSameTeamCombination(List<List<ScoredStudent>> groups, Set<String> previousTeamSignatures) {
+        if (previousTeamSignatures.isEmpty()) {
+            return false;
+        }
+
+        return groups.stream()
+                .map(this::toScoredTeamSignature)
+                .anyMatch(previousTeamSignatures::contains);
+    }
+
+    // 추천 멤버 목록을 정렬된 userId 조합 문자열로 변환하는 기능입니다.
+    private String toTeamSignature(List<TeamRecommendationMember> members) {
+        return members.stream()
+                .map(member -> member.getUser().getUserId())
+                .sorted()
+                .collect(Collectors.joining("|"));
+    }
+
+    // 점수 계산된 팀원 목록을 정렬된 userId 조합 문자열로 변환하는 기능입니다.
+    private String toScoredTeamSignature(List<ScoredStudent> members) {
+        return members.stream()
+                .map(member -> member.user().getUserId())
+                .sorted()
+                .collect(Collectors.joining("|"));
     }
 
     // 팀장 희망자 중 점수 최고, 없으면 전체 중 점수 최고를 팀장으로 선정하는 기능입니다.
@@ -265,7 +353,7 @@ public class AdminTeamRecommendationService {
         Map<String, StudentLevel> levelMap = members.stream()
                 .collect(Collectors.toMap(
                         m -> m.getUser().getUserId(),
-                        m -> userAnalysisRepository.findByUserUserId(m.getUser().getUserId())
+                        m -> userAnalysisRepository.findById(m.getUser().getUserId())
                                 .map(UserAnalysis::getStudentLevel)
                                 .orElse(null)
                 ));
@@ -373,7 +461,7 @@ public class AdminTeamRecommendationService {
                     Map<String, StudentLevel> levelMap = members.stream()
                             .collect(Collectors.toMap(
                                     m -> m.getUser().getUserId(),
-                                    m -> userAnalysisRepository.findByUserUserId(m.getUser().getUserId())
+                                    m -> userAnalysisRepository.findById(m.getUser().getUserId())
                                             .map(UserAnalysis::getStudentLevel)
                                             .orElse(null)
                             ));
