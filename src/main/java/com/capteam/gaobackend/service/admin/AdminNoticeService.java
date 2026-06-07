@@ -5,6 +5,7 @@ import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,9 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true) // 기본적으로 읽기 전용, 데이터 변경 메서드는 @Transactional 따로 붙임
 public class AdminNoticeService {
 
+    // 새 공지 생성 이벤트를 실시간으로 구독자에게 발행할 WebSocket 대상 경로입니다.
+    private static final String NOTICE_CREATED_DESTINATION = "/sub/notices";
+
     // 공지 목록/상세/생성/수정/삭제에 사용하는 Repository 필드입니다.
     private final NoticeRepository noticeRepository;
 
@@ -25,6 +29,9 @@ public class AdminNoticeService {
 
     // 공지 작성자로 현재 로그인한 관리자를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
+
+    // 공지 생성 완료 후 사용자 대시보드에 실시간 알림 이벤트를 보내는 WebSocket 발행 필드입니다.
+    private final SimpMessagingTemplate messagingTemplate;
 
     // ──────────────────────────────────────────
     // 공지 목록 조회 (최신순)
@@ -46,7 +53,7 @@ public class AdminNoticeService {
     }
 
     // ──────────────────────────────────────────
-    // 공지 생성
+    // 공지를 저장하고 새 공지 WebSocket 이벤트를 발행하는 기능입니다.
     // ──────────────────────────────────────────
     @Transactional // 데이터를 저장하므로 쓰기 트랜잭션 필요
     public NoticeDetailResponseDto createNotice(NoticeCreateRequestDto dto) {
@@ -62,7 +69,9 @@ public class AdminNoticeService {
 
         noticeRepository.save(notice); // DB에 저장
 
-        return NoticeDetailResponseDto.from(notice);
+        NoticeDetailResponseDto response = NoticeDetailResponseDto.from(notice);
+        publishNoticeCreatedEvent(notice);
+        return response;
     }
 
     // ──────────────────────────────────────────
@@ -100,5 +109,13 @@ public class AdminNoticeService {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
+    }
+
+    // 새 공지 생성 사실을 /sub/notices 구독자에게 알려 사용자 대시보드 N 표시를 즉시 갱신하는 기능입니다.
+    private void publishNoticeCreatedEvent(Notice notice) {
+        messagingTemplate.convertAndSend(
+                NOTICE_CREATED_DESTINATION,
+                NoticeCreatedEventDto.from(notice)
+        );
     }
 }

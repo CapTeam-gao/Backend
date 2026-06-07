@@ -23,7 +23,14 @@ public class AdminAiTeamMatchingController {
         return ApiResponse.ok(aiTeamMatchingService.getTeamSummary());
     }
 
-    // 학생 프로필 기반 팀 자동 매칭을 실행하고 결과 요약을 반환하는 기능입니다.
+    // 학생 원본 데이터를 AI 서버에서 분석 결과로 생성하도록 요청하는 기능입니다.
+    @PostMapping("/analysis/run")
+    public ResponseEntity<ApiResponse<Void>> runAnalysis() {
+        aiTeamMatchingService.runAnalysis();
+        return ApiResponse.ok(null);
+    }
+
+    // 학생 분석을 먼저 실행한 뒤 최신 분석 결과 기반 팀 자동 매칭을 실행하고 결과 요약을 반환하는 기능입니다.
     @PostMapping("/matching/run")
     public ResponseEntity<ApiResponse<AiTeamSummaryResponseDto>> runMatching() {
         return ApiResponse.ok(aiTeamMatchingService.runMatching());
