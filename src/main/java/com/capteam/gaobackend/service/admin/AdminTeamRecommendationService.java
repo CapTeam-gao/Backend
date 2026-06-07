@@ -1,24 +1,33 @@
 package com.capteam.gaobackend.service.admin;
 
+import com.capteam.gaobackend.ai.AiClient;
+import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
+import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.dto.team.SwapRecommendationMembersRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationDetailResponseDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.*;
+import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.*;
 import com.capteam.gaobackend.util.ScoreCalculator;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminTeamRecommendationService {
+
+    // AI 서버를 호출하는 클라이언트 필드입니다.
+    private final AiClient aiClient;
 
     // 팀 추천안 생성/목록/상세/승인 상태 변경에 사용하는 Repository 필드입니다.
     private final TeamRecommendationRepository recommendationRepository;
@@ -54,52 +63,165 @@ public class AdminTeamRecommendationService {
     private static final int MAX_REGENERATE_ATTEMPTS = 10;
 
     // ──────────────────────────────────────────
-    // 팀 추천안 생성
-    // 해당 학년 미배정 학생을 역할별 라운드로빈으로 팀에 배분하고 추천안으로 저장합니다.
+    // 팀 추천안 생성 (AI 기반)
+    // AI 서버에서 팀 매칭 결과를 받아와 해당 학년 학생이 포함된 팀만 추천안으로 저장합니다.
     // ──────────────────────────────────────────
     @Transactional
     public List<TeamRecommendationResponseDto> createRecommendation(TeamRecommendationRequestDto dto) {
         Grade grade = dto.getGrade();
 
-        // 재생성 시 해당 학년의 기존 PENDING 추천안 전부 삭제
+        // 해당 학년 학생 이름 → User 맵 (AI는 이름으로 팀원을 식별하기 때문)
+        Set<String> assignedUserIds = teamUserRepository.findAll().stream()
+                .map(tu -> tu.getUser().getUserId())
+                .collect(Collectors.toSet());
+
+        List<User> gradeStudents = userRepository.findByAccountRoleAndGrade(AccountRole.STUDENT, grade)
+                .stream()
+                .filter(u -> !assignedUserIds.contains(u.getUserId()))
+                .toList();
+
+        validateAllStudentsSurveyCompleted(gradeStudents);
+
+        if (gradeStudents.isEmpty()) {
+            throw new IllegalStateException("배정할 미배정 학생이 없습니다.");
+        }
+
+        // 이름 → User 맵 (중복 이름 있을 경우 grade로 이미 필터된 상태)
+        Map<String, User> nameToUser = gradeStudents.stream()
+                .collect(Collectors.toMap(User::getName, u -> u, (a, b) -> a));
+
+        // 기존 PENDING 추천안 삭제
         List<TeamRecommendation> existing = recommendationRepository.findByGradeAndStatus(grade, RecommendationStatus.PENDING);
-        Set<String> previousTeamSignatures = collectTeamSignatures(existing);
         for (TeamRecommendation rec : existing) {
             recommendationReasonRepository.deleteByRecommendationId(rec.getId());
             recommendationMemberRepository.deleteByRecommendationId(rec.getId());
             recommendationRepository.delete(rec);
         }
 
-        // 이미 팀에 배정된 학생 userId 목록
-        Set<String> assignedUserIds = teamUserRepository.findAll().stream()
-                .map(tu -> tu.getUser().getUserId())
-                .collect(Collectors.toSet());
-
-        // 해당 학년 미배정 학생만 추출합니다. 설문 미완료자가 있으면 팀 생성을 막습니다.
-        List<User> unassignedStudents = userRepository.findByAccountRoleAndGrade(AccountRole.STUDENT, grade)
-                .stream()
-                .filter(u -> !assignedUserIds.contains(u.getUserId()))
-                .sorted(Comparator.comparing(User::getUserId))
+        // 백엔드 학생 데이터를 AI 전송용 DTO로 변환
+        List<AiStudentPayloadDto> studentPayloads = gradeStudents.stream()
+                .map(AiStudentPayloadDto::from)
                 .toList();
-        validateAllStudentsSurveyCompleted(unassignedStudents);
 
-        // 설문 완료 학생만 팀 추천 후보로 사용하고 스코어를 계산합니다.
-        List<ScoredStudent> candidates = unassignedStudents.stream()
+        // AI 서버 호출: /matching/run 내부에서 분석까지 처리하므로 runMatching만 호출
+        AiTeamSummaryResponseDto aiResult;
+        try {
+            aiResult = aiClient.runMatching(studentPayloads);
+        } catch (AiServerException e) {
+            log.error("AI 서버 호출 실패. 자체 알고리즘으로 폴백합니다.", e);
+            return createRecommendationFallback(grade, gradeStudents);
+        }
+
+        // AI 팀 중 해당 학년 학생이 1명 이상 포함된 팀만 추출
+        List<AiTeamSummaryResponseDto.TeamDto> targetTeams = aiResult.getTeams().stream()
+                .filter(team -> team.getMembers().stream()
+                        .anyMatch(m -> nameToUser.containsKey(m.getName())))
+                .toList();
+
+        if (targetTeams.isEmpty()) {
+            log.warn("AI 결과에서 해당 학년({}) 학생이 포함된 팀이 없습니다. 폴백 실행.", grade);
+            return createRecommendationFallback(grade, gradeStudents);
+        }
+
+        // AI 팀 결과를 추천안으로 저장
+        List<TeamRecommendationResponseDto> result = new ArrayList<>();
+        for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
+
+            // 해당 학년 학생만 필터
+            List<AiTeamSummaryResponseDto.MemberDto> validMembers = aiTeam.getMembers().stream()
+                    .filter(m -> nameToUser.containsKey(m.getName()))
+                    .toList();
+
+            if (validMembers.isEmpty()) continue;
+
+            TeamRecommendation recommendation = recommendationRepository.save(
+                    TeamRecommendation.builder().grade(grade).build()
+            );
+
+            String leaderName = aiTeam.getLeader();
+            for (AiTeamSummaryResponseDto.MemberDto m : validMembers) {
+                User user = nameToUser.get(m.getName());
+                recommendationMemberRepository.save(TeamRecommendationMember.builder()
+                        .recommendation(recommendation)
+                        .user(user)
+                        .studentRole(parseRoleGroup(m.getRoleGroup()))
+                        .isRecommendedLeader(m.getName().equals(leaderName))
+                        .build());
+
+                // UserAnalysis 저장 (AI skill_level 기반)
+                StudentLevel level = parseSkillLevel(m.getSkillLevel());
+                userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
+                        ua -> ua.updateAnalysisResult(m.getSkillLevel(), level),
+                        () -> userAnalysisRepository.save(UserAnalysis.builder()
+                                .user(user)
+                                .analysisResult(m.getSkillLevel())
+                                .studentLevel(level)
+                                .build())
+                );
+            }
+
+            // AI가 생성한 팀별 고유 이유 저장
+            String description = buildAiDescription(aiTeam);
+            recommendationReasonRepository.save(TeamRecommendationReason.builder()
+                    .recommendation(recommendation)
+                    .title("AI 팀 배정 이유")
+                    .description(description)
+                    .build());
+
+            result.add(TeamRecommendationResponseDto.from(recommendation));
+        }
+
+        return result;
+    }
+
+    // AI 역할군 문자열을 StudentRole enum으로 변환하는 기능입니다.
+    private StudentRole parseRoleGroup(String roleGroup) {
+        if (roleGroup == null) return StudentRole.BACKEND;
+        return switch (roleGroup.toLowerCase()) {
+            case "frontend" -> StudentRole.FRONTEND;
+            case "ai_data" -> StudentRole.AI;
+            case "app" -> StudentRole.APP;
+            case "game" -> StudentRole.GAME;
+            default -> StudentRole.BACKEND;
+        };
+    }
+
+    // AI skill_level 문자열을 StudentLevel enum으로 변환하는 기능입니다.
+    private StudentLevel parseSkillLevel(String skillLevel) {
+        if (skillLevel == null) return StudentLevel.MIDDLE;
+        return switch (skillLevel) {
+            case "상", "높음" -> StudentLevel.UPPER;
+            case "하", "낮음" -> StudentLevel.LOWER;
+            default -> StudentLevel.MIDDLE;
+        };
+    }
+
+    // AI 팀 결과로 배정 이유 설명 문자열을 생성하는 기능입니다.
+    private String buildAiDescription(AiTeamSummaryResponseDto.TeamDto aiTeam) {
+        StringBuilder sb = new StringBuilder();
+        if (aiTeam.getMatchingReason() != null && !aiTeam.getMatchingReason().isBlank()) {
+            sb.append(aiTeam.getMatchingReason());
+        }
+        if (aiTeam.getStrengths() != null && !aiTeam.getStrengths().isBlank()) {
+            sb.append("\n\n[강점] ").append(aiTeam.getStrengths());
+        }
+        if (aiTeam.getWeaknesses() != null && !aiTeam.getWeaknesses().isBlank()) {
+            sb.append("\n\n[보완점] ").append(aiTeam.getWeaknesses());
+        }
+        return sb.toString().trim();
+    }
+
+    // AI 서버 호출 실패 시 기존 자체 알고리즘으로 팀을 생성하는 폴백 기능입니다.
+    private List<TeamRecommendationResponseDto> createRecommendationFallback(Grade grade, List<User> students) {
+        List<ScoredStudent> candidates = students.stream()
                 .map(u -> new ScoredStudent(u, resolveRole(u), ScoreCalculator.calculate(u)))
                 .toList();
 
-        if (candidates.isEmpty()) {
-            throw new IllegalStateException("배정할 미배정 학생이 없습니다.");
-        }
-
-        // 실력 등급 분류 후 UserAnalysis 저장
         analyzeAndSave(candidates);
 
-        // 팀 수 계산 후 역할별 라운드로빈 배분
         int teamCount = (int) Math.ceil((double) candidates.size() / MAX_TEAM_MEMBER_COUNT);
-        List<List<ScoredStudent>> groups = createBalancedGroups(candidates, teamCount, !existing.isEmpty(), previousTeamSignatures);
+        List<List<ScoredStudent>> groups = createBalancedGroups(candidates, teamCount, false, Set.of());
 
-        // 각 그룹을 추천안으로 저장
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (List<ScoredStudent> group : groups) {
             if (group.isEmpty()) continue;
