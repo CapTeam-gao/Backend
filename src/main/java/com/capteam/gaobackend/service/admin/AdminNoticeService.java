@@ -9,6 +9,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -70,7 +72,7 @@ public class AdminNoticeService {
         noticeRepository.save(notice); // DB에 저장
 
         NoticeDetailResponseDto response = NoticeDetailResponseDto.from(notice);
-        publishNoticeCreatedEvent(notice);
+        publishNoticeCreatedEventAfterCommit(response);
         return response;
     }
 
@@ -111,11 +113,27 @@ public class AdminNoticeService {
                 .orElseThrow(() -> new UserNotFoundException("사용자를 찾을 수 없습니다."));
     }
 
-    // 새 공지 생성 사실을 /sub/notices 구독자에게 알려 사용자 대시보드 N 표시를 즉시 갱신하는 기능입니다.
-    private void publishNoticeCreatedEvent(Notice notice) {
+    // 공지 저장 트랜잭션이 정상 커밋된 뒤 /sub/notices 구독자에게 새 공지 이벤트를 발행하는 기능입니다.
+    private void publishNoticeCreatedEventAfterCommit(NoticeDetailResponseDto response) {
+        NoticeCreatedEventDto event = NoticeCreatedEventDto.from(response);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sendNoticeCreatedEvent(event);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendNoticeCreatedEvent(event);
+            }
+        });
+    }
+
+    // 새 공지 생성 사실을 /sub/notices 구독자에게 보내 사용자 대시보드 N 표시를 즉시 갱신하는 기능입니다.
+    private void sendNoticeCreatedEvent(NoticeCreatedEventDto event) {
         messagingTemplate.convertAndSend(
                 NOTICE_CREATED_DESTINATION,
-                NoticeCreatedEventDto.from(notice)
+                event
         );
     }
 }

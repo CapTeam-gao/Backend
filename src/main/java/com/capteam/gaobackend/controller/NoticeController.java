@@ -26,9 +26,12 @@ public class NoticeController {
         return ApiResponse.ok(adminNoticeService.getNoticeList());
     }
 
-    // 특정 공지 상세 내용을 조회하는 기능입니다.
+    // 특정 공지 상세 내용을 조회하고 현재 로그인한 사용자 기준으로 읽음 처리하는 기능입니다.
     @GetMapping("/{noticeId}")
-    public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> getNoticeDetail(@PathVariable Long noticeId) {
+    public ResponseEntity<ApiResponse<NoticeDetailResponseDto>> getNoticeDetail(
+            @PathVariable Long noticeId,
+            Authentication authentication) {
+        noticeService.markAsRead(noticeId, authentication.getName());
         return ApiResponse.ok(adminNoticeService.getNoticeDetail(noticeId));
     }
 

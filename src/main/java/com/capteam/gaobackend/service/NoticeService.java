@@ -42,13 +42,8 @@ public class NoticeService {
                 .build());
     }
 
-    // 전체 공지 수와 사용자의 읽음 기록 수를 비교해 읽지 않은 공지가 있는지 확인하는 기능입니다.
+    // 사용자가 아직 읽지 않은 공지가 하나라도 있는지 확인하는 기능입니다.
     public boolean hasUnreadNotice(String userId) {
-        long noticeCount = noticeRepository.count();
-        if (noticeCount == 0) {
-            return false;
-        }
-
-        return noticeReadRepository.countByUserUserId(userId) < noticeCount;
+        return noticeReadRepository.existsUnreadNoticeByUserId(userId);
     }
 }

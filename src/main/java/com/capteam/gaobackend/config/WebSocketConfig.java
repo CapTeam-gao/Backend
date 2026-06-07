@@ -65,6 +65,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // 브라우저가 처음 WebSocket 또는 SockJS 연결을 여는 HTTP endpoint 입니다.
         // 실제 STOMP 메시지 송수신 주소가 아니라, 연결을 시작하는 입구라고 보면 됩니다.
         registry.addEndpoint("/ws")
+                // StompJS가 native WebSocket으로 ws://localhost:8080/ws 에 직접 붙는 경우를 지원합니다.
+                .setAllowedOriginPatterns(allowedOrigins);
+
+        registry.addEndpoint("/ws")
                 // 프론트엔드 개발 서버 주소를 허용합니다. 운영에서는 "*" 대신 실제 도메인만 열어두는 것이 좋습니다.
                 .setAllowedOriginPatterns(allowedOrigins)
                 // WebSocket을 못 쓰는 환경에서도 polling 등으로 fallback 할 수 있게 SockJS를 켭니다.
