@@ -12,4 +12,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     Optional<User> findByUserId(String userId);
     long countByAccountRole(AccountRole accountRole);
     List<User> findByAccountRoleAndGrade(AccountRole accountRole, Grade grade);
+    Optional<User> findByNameAndGrade(String name, Grade grade);
+    List<User> findByGrade(Grade grade);
 }
