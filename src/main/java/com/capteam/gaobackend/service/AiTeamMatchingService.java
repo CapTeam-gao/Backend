@@ -17,8 +17,14 @@ public class AiTeamMatchingService {
         return aiClient.getTeamSummary();
     }
 
-    // 외부 AI 서버에 팀 매칭 실행을 요청하는 기능입니다.
+    // 외부 AI 서버에 학생 분석 실행을 요청하는 기능입니다.
+    public void runAnalysis() {
+        aiClient.runAnalysis();
+    }
+
+    // 외부 AI 서버에 학생 분석을 먼저 실행한 뒤 최신 분석 결과로 팀 매칭을 요청하는 기능입니다.
     public AiTeamSummaryResponseDto runMatching() {
+        aiClient.runAnalysis();
         return aiClient.runMatching();
     }
 }
