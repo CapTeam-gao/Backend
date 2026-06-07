@@ -299,13 +299,48 @@ public class AdminTeamRecommendationService {
                         .orElseThrow());
     }
 
-    // 팀 배정 이유 문자열을 생성하는 기능입니다.
+    // 팀 구성 특성을 반영한 배정 이유 문자열을 생성하는 기능입니다.
     private String buildReason(List<ScoredStudent> group, ScoredStudent leader) {
+        // 역할 분포
         String roles = group.stream()
-                .map(s -> s.role().name())
+                .map(s -> toKoreanRole(s.role()))
                 .distinct()
                 .collect(Collectors.joining(", "));
-        return roles + " 역할을 균형 있게 배치하고, " + leader.user().getName() + "을(를) 팀장으로 추천합니다.";
+
+        // 팀 내 대표 기술 스택 최대 3개
+        String topSkills = group.stream()
+                .flatMap(s -> safeList(s.user().getSkill()).stream())
+                .distinct()
+                .limit(3)
+                .collect(Collectors.joining(", "));
+
+        // 팀장 희망 여부
+        String leaderNote = leader.user().isWantsLeader()
+                ? leader.user().getName() + "(팀장 희망)"
+                : leader.user().getName() + "(점수 최고)";
+
+        return roles + " 역할로 구성되었으며, " +
+                (topSkills.isEmpty() ? "" : topSkills + " 기술을 보유한 팀입니다. ") +
+                leaderNote + "을(를) 팀장으로 추천합니다.";
+    }
+
+    // StudentRole enum을 한국어로 변환하는 기능입니다.
+    private String toKoreanRole(StudentRole role) {
+        return switch (role) {
+            case BACKEND -> "백엔드";
+            case FRONTEND -> "프론트엔드";
+            case AI -> "AI";
+            case APP -> "앱";
+            case DESIGN -> "디자인";
+            case DEVOPS -> "DevOps";
+            case GAME -> "게임개발";
+            case FULLSTACK -> "풀스택";
+            case SECURITY -> "보안";
+        };
+    }
+
+    private List<String> safeList(List<String> list) {
+        return list == null ? List.of() : list;
     }
 
     // User의 희망 역할을 반환하며 미설정 시 BACKEND로 기본 처리하는 기능입니다.
