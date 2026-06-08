@@ -22,7 +22,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -167,7 +166,7 @@ public class AdminTeamRecommendationService {
             String description = buildAiDescription(aiTeam);
             recommendationReasonRepository.save(TeamRecommendationReason.builder()
                     .recommendation(recommendation)
-                    .title("AI 팀 배정 이유")
+                    .title("팀 배정 이유")
                     .description(description)
                     .build());
 
@@ -229,17 +228,13 @@ public class AdminTeamRecommendationService {
 
     // AI 팀 결과로 배정 이유 설명 문자열을 생성하는 기능입니다.
     private String buildAiDescription(AiTeamSummaryResponseDto.TeamDto aiTeam) {
-        StringBuilder sb = new StringBuilder();
-        if (aiTeam.getMatchingReason() != null && !aiTeam.getMatchingReason().isBlank()) {
-            sb.append(aiTeam.getMatchingReason());
+        if (aiTeam.getMatchingReason() == null || aiTeam.getMatchingReason().isBlank()) {
+            return "";
         }
-        if (aiTeam.getStrengths() != null && !aiTeam.getStrengths().isBlank()) {
-            sb.append("\n\n[강점] ").append(aiTeam.getStrengths());
-        }
-        if (aiTeam.getWeaknesses() != null && !aiTeam.getWeaknesses().isBlank()) {
-            sb.append("\n\n[보완점] ").append(aiTeam.getWeaknesses());
-        }
-        return sb.toString().trim();
+
+        return aiTeam.getMatchingReason()
+                .split("\\s*\\[(강점|보완점|약점|리스크)]", 2)[0]
+                .trim();
     }
 
     // 팀 생성 대상 학년의 미배정 학생 전원이 설문을 완료했는지 검증하는 기능입니다.
