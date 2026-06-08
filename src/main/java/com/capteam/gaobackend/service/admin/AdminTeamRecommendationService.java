@@ -11,13 +11,17 @@ import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.*;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.*;
-import com.capteam.gaobackend.util.ScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -56,11 +60,7 @@ public class AdminTeamRecommendationService {
     // 해당 학년 미배정 학생을 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
-    // 한 팀에 배정할 수 있는 최대 학생 수입니다.
     private static final int MAX_TEAM_MEMBER_COUNT = 5;
-
-    // 재생성 시 이전 추천안과 같은 조합이 반복되지 않도록 다시 섞는 최대 횟수입니다.
-    private static final int MAX_REGENERATE_ATTEMPTS = 10;
 
     // ──────────────────────────────────────────
     // 팀 추천안 생성 (AI 기반)
@@ -108,8 +108,8 @@ public class AdminTeamRecommendationService {
         try {
             aiResult = aiClient.runMatching(studentPayloads);
         } catch (AiServerException e) {
-            log.error("AI 서버 호출 실패. 자체 알고리즘으로 폴백합니다.", e);
-            return createRecommendationFallback(grade, gradeStudents);
+            log.error("AI 서버 호출 실패.", e);
+            throw new IllegalStateException("AI 서버 호출에 실패했습니다. AI 서버 상태를 확인해주세요.", e);
         }
 
         // AI 팀 중 해당 학년 학생이 1명 이상 포함된 팀만 추출
@@ -119,8 +119,11 @@ public class AdminTeamRecommendationService {
                 .toList();
 
         if (targetTeams.isEmpty()) {
-            log.warn("AI 결과에서 해당 학년({}) 학생이 포함된 팀이 없습니다. 폴백 실행.", grade);
-            return createRecommendationFallback(grade, gradeStudents);
+            log.warn("AI 결과에서 해당 학년({}) 학생 이름이 매칭되지 않았습니다. AI 반환 이름: {}, 백엔드 이름: {}",
+                    grade,
+                    aiResult.getTeams().stream().flatMap(t -> t.getMembers().stream()).map(AiTeamSummaryResponseDto.MemberDto::getName).toList(),
+                    nameToUser.keySet());
+            throw new IllegalStateException("AI 매칭 결과와 백엔드 학생 이름이 일치하지 않습니다. AI 서버 로그를 확인해주세요.");
         }
 
         // AI 팀 결과를 추천안으로 저장
@@ -239,56 +242,6 @@ public class AdminTeamRecommendationService {
         return sb.toString().trim();
     }
 
-    // AI 서버 호출 실패 시 기존 자체 알고리즘으로 팀을 생성하는 폴백 기능입니다.
-    private List<TeamRecommendationResponseDto> createRecommendationFallback(Grade grade, List<User> students) {
-        List<ScoredStudent> candidates = students.stream()
-                .map(u -> new ScoredStudent(u, resolveRole(u), ScoreCalculator.calculate(u)))
-                .toList();
-
-        analyzeAndSave(candidates);
-
-        int teamCount = (int) Math.ceil((double) candidates.size() / MAX_TEAM_MEMBER_COUNT);
-        List<List<ScoredStudent>> groups = createBalancedGroups(candidates, teamCount, false, Set.of());
-
-        List<TeamRecommendationResponseDto> result = new ArrayList<>();
-        for (List<ScoredStudent> group : groups) {
-            if (group.isEmpty()) continue;
-
-            TeamRecommendation recommendation = recommendationRepository.save(
-                    TeamRecommendation.builder().grade(grade).build()
-            );
-
-            ScoredStudent leader = chooseLeader(group);
-            for (ScoredStudent s : group) {
-                recommendationMemberRepository.save(TeamRecommendationMember.builder()
-                        .recommendation(recommendation)
-                        .user(s.user())
-                        .studentRole(s.role())
-                        .isRecommendedLeader(s == leader)
-                        .build());
-            }
-
-            recommendationReasonRepository.save(TeamRecommendationReason.builder()
-                    .recommendation(recommendation)
-                    .title("역할 균형 배치")
-                    .description(buildReason(group, leader))
-                    .build());
-
-            result.add(TeamRecommendationResponseDto.from(recommendation));
-        }
-
-        return result;
-    }
-
-    // 기존 PENDING 추천안의 팀원 조합을 userId 정렬 문자열로 저장하는 기능입니다.
-    private Set<String> collectTeamSignatures(List<TeamRecommendation> recommendations) {
-        return recommendations.stream()
-                .map(recommendation -> recommendationMemberRepository.findByRecommendationId(recommendation.getId()))
-                .filter(members -> !members.isEmpty())
-                .map(this::toTeamSignature)
-                .collect(Collectors.toSet());
-    }
-
     // 팀 생성 대상 학년의 미배정 학생 전원이 설문을 완료했는지 검증하는 기능입니다.
     private void validateAllStudentsSurveyCompleted(List<User> students) {
         List<User> notCompletedStudents = students.stream()
@@ -302,215 +255,6 @@ public class AdminTeamRecommendationService {
             throw new IllegalStateException("설문 미완료 학생이 있어 팀을 생성할 수 없습니다: " + names);
         }
     }
-
-    // 스코어 기준으로 상/중/하 등급을 분류하고 UserAnalysis에 저장하는 기능입니다.
-    private void analyzeAndSave(List<ScoredStudent> candidates) {
-        List<ScoredStudent> sorted = candidates.stream()
-                .sorted(Comparator.comparingDouble(ScoredStudent::score).reversed()
-                        .thenComparing(s -> s.user().getUserId()))
-                .toList();
-
-        int upperCount = (int) Math.ceil(sorted.size() * 0.2);
-        int lowerStart = Math.max(sorted.size() - upperCount, upperCount);
-
-        for (int i = 0; i < sorted.size(); i++) {
-            StudentLevel level;
-            if (i < upperCount) level = StudentLevel.UPPER;
-            else if (i >= lowerStart) level = StudentLevel.LOWER;
-            else level = StudentLevel.MIDDLE;
-
-            ScoredStudent s = sorted.get(i);
-            String analysis = "%s 역할 희망, 스킬 %d개, 경험 %d개 기준 %s 등급으로 분석되었습니다."
-                    .formatted(s.role().name(), safeSize(s.user().getSkill()), safeSize(s.user().getExperience()), toKorean(level));
-
-            userAnalysisRepository.findById(s.user().getUserId())
-                    .ifPresentOrElse(
-                            ua -> ua.updateAnalysisResult(analysis, level),
-                            () -> userAnalysisRepository.saveAndFlush(UserAnalysis.builder()
-                                    .user(s.user())
-                                    .analysisResult(analysis)
-                                    .studentLevel(level)
-                                    .build())
-                    );
-        }
-    }
-
-    // 최초 생성은 안정적으로, 재생성은 균형을 유지하면서 이전과 다른 조합이 나오도록 배분하는 기능입니다.
-    private List<List<ScoredStudent>> createBalancedGroups(
-            List<ScoredStudent> candidates,
-            int teamCount,
-            boolean regenerate,
-            Set<String> previousTeamSignatures
-    ) {
-        List<List<ScoredStudent>> groups = List.of();
-        int attempts = regenerate ? MAX_REGENERATE_ATTEMPTS : 1;
-
-        for (int attempt = 0; attempt < attempts; attempt++) {
-            Random random = regenerate ? new Random(System.nanoTime() + attempt) : null;
-            groups = distributeByRole(candidates, teamCount, random);
-            if (!regenerate || !hasSameTeamCombination(groups, previousTeamSignatures)) {
-                return groups;
-            }
-        }
-
-        return groups;
-    }
-
-    // 역할별 라운드로빈으로 팀 수만큼 그룹에 배분하는 기능입니다.
-    private List<List<ScoredStudent>> distributeByRole(List<ScoredStudent> candidates, int teamCount, Random random) {
-        List<List<ScoredStudent>> groups = new ArrayList<>();
-        for (int i = 0; i < teamCount; i++) groups.add(new ArrayList<>());
-
-        Map<StudentRole, Queue<ScoredStudent>> roleQueues = new EnumMap<>(StudentRole.class);
-        candidates.stream()
-                .collect(Collectors.groupingBy(ScoredStudent::role, () -> new EnumMap<>(StudentRole.class), Collectors.toList()))
-                .forEach((role, list) -> roleQueues.put(role, new ArrayDeque<>(sortAndMaybeShuffleSimilarScores(list, random))));
-
-        List<StudentRole> roleOrder = List.of(
-                StudentRole.BACKEND, StudentRole.FRONTEND, StudentRole.AI, StudentRole.APP, StudentRole.DESIGN
-        );
-
-        int idx = 0;
-        for (StudentRole role : roleOrder) {
-            Queue<ScoredStudent> queue = roleQueues.getOrDefault(role, new ArrayDeque<>());
-            while (!queue.isEmpty()) {
-                groups.get(idx % teamCount).add(queue.poll());
-                idx++;
-            }
-        }
-        return groups;
-    }
-
-    // 같은 역할 안에서는 점수 순서를 유지하되 재생성 시 비슷한 점수대끼리만 섞는 기능입니다.
-    private List<ScoredStudent> sortAndMaybeShuffleSimilarScores(List<ScoredStudent> students, Random random) {
-        List<ScoredStudent> sorted = students.stream()
-                .sorted(Comparator.comparingDouble(ScoredStudent::score).reversed()
-                        .thenComparing(s -> s.user().getUserId()))
-                .toList();
-
-        if (random == null) {
-            return sorted;
-        }
-
-        TreeMap<Integer, List<ScoredStudent>> scoreBuckets = sorted.stream()
-                .collect(Collectors.groupingBy(
-                        student -> scoreBucket(student.score()),
-                        TreeMap::new,
-                        Collectors.toCollection(ArrayList::new)
-                ));
-
-        List<ScoredStudent> shuffled = new ArrayList<>();
-        scoreBuckets.descendingMap().values().forEach(bucket -> {
-            Collections.shuffle(bucket, random);
-            shuffled.addAll(bucket);
-        });
-        return shuffled;
-    }
-
-    // 점수 차이가 크지 않은 학생끼리만 섞기 위해 5점 단위 점수 구간을 계산하는 기능입니다.
-    private int scoreBucket(double score) {
-        return (int) Math.floor(score / 5.0);
-    }
-
-    // 새로 만든 팀 중 기존 추천안과 완전히 같은 팀원 조합이 있는지 확인하는 기능입니다.
-    private boolean hasSameTeamCombination(List<List<ScoredStudent>> groups, Set<String> previousTeamSignatures) {
-        if (previousTeamSignatures.isEmpty()) {
-            return false;
-        }
-
-        return groups.stream()
-                .map(this::toScoredTeamSignature)
-                .anyMatch(previousTeamSignatures::contains);
-    }
-
-    // 추천 멤버 목록을 정렬된 userId 조합 문자열로 변환하는 기능입니다.
-    private String toTeamSignature(List<TeamRecommendationMember> members) {
-        return members.stream()
-                .map(member -> member.getUser().getUserId())
-                .sorted()
-                .collect(Collectors.joining("|"));
-    }
-
-    // 점수 계산된 팀원 목록을 정렬된 userId 조합 문자열로 변환하는 기능입니다.
-    private String toScoredTeamSignature(List<ScoredStudent> members) {
-        return members.stream()
-                .map(member -> member.user().getUserId())
-                .sorted()
-                .collect(Collectors.joining("|"));
-    }
-
-    // 팀장 희망자 중 점수 최고, 없으면 전체 중 점수 최고를 팀장으로 선정하는 기능입니다.
-    private ScoredStudent chooseLeader(List<ScoredStudent> group) {
-        return group.stream()
-                .filter(s -> s.user().isWantsLeader())
-                .max(Comparator.comparingDouble(ScoredStudent::score))
-                .orElseGet(() -> group.stream()
-                        .max(Comparator.comparingDouble(ScoredStudent::score))
-                        .orElseThrow());
-    }
-
-    // 팀 구성 특성을 반영한 배정 이유 문자열을 생성하는 기능입니다.
-    private String buildReason(List<ScoredStudent> group, ScoredStudent leader) {
-        // 역할 분포
-        String roles = group.stream()
-                .map(s -> toKoreanRole(s.role()))
-                .distinct()
-                .collect(Collectors.joining(", "));
-
-        // 팀 내 대표 기술 스택 최대 3개
-        String topSkills = group.stream()
-                .flatMap(s -> safeList(s.user().getSkill()).stream())
-                .distinct()
-                .limit(3)
-                .collect(Collectors.joining(", "));
-
-        // 팀장 희망 여부
-        String leaderNote = leader.user().isWantsLeader()
-                ? leader.user().getName() + "(팀장 희망)"
-                : leader.user().getName() + "(점수 최고)";
-
-        return roles + " 역할로 구성되었으며, " +
-                (topSkills.isEmpty() ? "" : topSkills + " 기술을 보유한 팀입니다. ") +
-                leaderNote + "을(를) 팀장으로 추천합니다.";
-    }
-
-    // StudentRole enum을 한국어로 변환하는 기능입니다.
-    private String toKoreanRole(StudentRole role) {
-        return switch (role) {
-            case BACKEND -> "백엔드";
-            case FRONTEND -> "프론트엔드";
-            case AI -> "AI";
-            case APP -> "앱";
-            case DESIGN -> "디자인";
-            case DEVOPS -> "DevOps";
-            case GAME -> "게임개발";
-            case FULLSTACK -> "풀스택";
-            case SECURITY -> "보안";
-        };
-    }
-
-    private List<String> safeList(List<String> list) {
-        return list == null ? List.of() : list;
-    }
-
-    // User의 희망 역할을 반환하며 미설정 시 BACKEND로 기본 처리하는 기능입니다.
-    private StudentRole resolveRole(User user) {
-        return user.getStudentRole() != null ? user.getStudentRole() : StudentRole.BACKEND;
-    }
-
-    private int safeSize(List<?> list) {
-        return list == null ? 0 : list.size();
-    }
-
-    private String toKorean(StudentLevel level) {
-        return switch (level) {
-            case UPPER -> "상";
-            case MIDDLE -> "중";
-            case LOWER -> "하";
-        };
-    }
-
-    private record ScoredStudent(User user, StudentRole role, double score) {}
 
     // ──────────────────────────────────────────
     // 추천 목록 조회
