@@ -144,7 +144,7 @@ public class AdminTeamRecommendationService {
                 recommendationMemberRepository.save(TeamRecommendationMember.builder()
                         .recommendation(recommendation)
                         .user(user)
-                        .studentRole(parseRoleGroup(m.getRoleGroup()))
+                        .studentRole(parseRoleGroup(m.getRoleGroup(), m.getRole()))
                         .isRecommendedLeader(m.getName().equals(leaderName))
                         .build());
 
@@ -175,15 +175,43 @@ public class AdminTeamRecommendationService {
     }
 
     // AI 역할군 문자열을 StudentRole enum으로 변환하는 기능입니다.
-    private StudentRole parseRoleGroup(String roleGroup) {
-        if (roleGroup == null) return StudentRole.BACKEND;
-        return switch (roleGroup.toLowerCase()) {
+    private StudentRole parseRoleGroup(String roleGroup, String role) {
+        String normalizedRoleGroup = roleGroup == null ? "" : roleGroup.toLowerCase(Locale.ROOT);
+        StudentRole parsed = switch (normalizedRoleGroup) {
             case "frontend" -> StudentRole.FRONTEND;
             case "ai_data" -> StudentRole.AI;
             case "app" -> StudentRole.APP;
             case "game" -> StudentRole.GAME;
-            default -> StudentRole.BACKEND;
+            case "backend" -> StudentRole.BACKEND;
+            default -> null;
         };
+        if (parsed != null) {
+            return parsed;
+        }
+
+        String normalizedRole = role == null ? "" : role.toLowerCase(Locale.ROOT);
+        if (containsAny(normalizedRole, "frontend", "front", "프론트", "react", "vue")) {
+            return StudentRole.FRONTEND;
+        }
+        if (containsAny(normalizedRole, "ai", "데이터", "머신러닝", "ml", "pytorch", "tensorflow", "langchain")) {
+            return StudentRole.AI;
+        }
+        if (containsAny(normalizedRole, "app", "android", "ios", "flutter", "모바일", "앱")) {
+            return StudentRole.APP;
+        }
+        if (containsAny(normalizedRole, "design", "figma", "ui/ux", "uiux", "디자인")) {
+            return StudentRole.DESIGN;
+        }
+        return StudentRole.BACKEND;
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // AI skill_level 문자열을 StudentLevel enum으로 변환하는 기능입니다.
