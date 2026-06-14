@@ -3,16 +3,12 @@ package com.capteam.gaobackend.service.admin;
 import com.capteam.gaobackend.dto.admin.AdminStudentDetailResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListPageResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListResponseDto;
-import com.capteam.gaobackend.entity.TeamUser;
-import com.capteam.gaobackend.entity.User;
-import com.capteam.gaobackend.entity.UserAnalysis;
+import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
-import com.capteam.gaobackend.repository.TeamUserRepository;
-import com.capteam.gaobackend.repository.UserAnalysisRepository;
-import com.capteam.gaobackend.repository.UserRepository;
+import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,7 +85,13 @@ public class AdminStudentService {
         UserAnalysis userAnalysis = userAnalysisRepository.findById(userId)
                 .orElse(null);
 
-        return AdminStudentDetailResponseDto.from(user, teamUser, userAnalysis);
+        UserDevelopmentScore userDevelopmentScore = user.getDevelopmentScores();
+
+
+        UserPersonalityScore userPersonalityScore = user.getPersonalityScores();
+
+
+        return AdminStudentDetailResponseDto.from(user, teamUser, userAnalysis,userDevelopmentScore,userPersonalityScore);
     }
 
     // 이름 검색어가 비어 있으면 전체 허용하고, 값이 있으면 학생 이름에 포함되는지 확인하는 기능입니다.
