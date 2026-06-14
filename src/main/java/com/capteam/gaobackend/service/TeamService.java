@@ -2,10 +2,16 @@ package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.dto.team.PreferredTeammateRequestDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateResponseDto;
+import com.capteam.gaobackend.dto.team.MyTeamResponseDto;
+import com.capteam.gaobackend.dto.team.TeamDetailResponseDto;
 import com.capteam.gaobackend.dto.team.TeamMemberUpdateRequestDto;
+import com.capteam.gaobackend.dto.team.TeamProjectRequestDto;
+import com.capteam.gaobackend.dto.team.TeamSummaryResponseDto;
 import com.capteam.gaobackend.entity.Team;
+import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
@@ -30,6 +36,9 @@ public class TeamService {
 
     // 학생이 소속된 팀원 정보를 조회하거나 수정하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // 팀 프로젝트 기획서를 조회하거나 저장하는 Repository 필드입니다.
+    private final TeamProjectRepository teamProjectRepository;
 
     // 사용자가 등록한 선호 팀원 목록을 상세 정보로 조회하는 기능입니다.
     public PreferredTeammateResponseDto getPreferences(String userId) {
@@ -81,6 +90,76 @@ public class TeamService {
         return getPreferences(userId);
     }
 
+    // 로그인한 학생의 소속 팀 상세 정보를 조회하는 기능입니다.
+    public MyTeamResponseDto getMyTeam(String userId) {
+        TeamUser myTeamUser = findMyTeamUser(userId);
+        Team team = myTeamUser.getTeam();
+        TeamProject teamProject = teamProjectRepository.findByTeamId(team.getId()).orElse(null);
+        List<TeamUser> teamUsers = teamUserRepository.findByTeamId(team.getId());
+
+        return MyTeamResponseDto.from(team, teamProject, myTeamUser, teamUsers);
+    }
+
+    // 로그인한 학생이 소속된 팀의 요약 정보를 조회하는 기능입니다.
+    public TeamSummaryResponseDto getMyTeamSummary(String userId) {
+        TeamUser myTeamUser = findMyTeamUser(userId);
+        Team team = myTeamUser.getTeam();
+        TeamProject teamProject = teamProjectRepository.findByTeamId(team.getId()).orElse(null);
+        List<TeamUser> teamUsers = teamUserRepository.findByTeamId(team.getId());
+
+        return TeamSummaryResponseDto.from(team, teamProject, teamUsers);
+    }
+
+    // 로그인한 학생이 소속된 특정 팀의 상세 정보를 조회하는 기능입니다.
+    public TeamDetailResponseDto getTeamDetail(String userId, Long teamId) {
+        TeamUser myTeamUser = findMyTeamUser(userId);
+        if (!myTeamUser.getTeam().getId().equals(teamId)) {
+            throw new IllegalArgumentException("본인이 소속된 팀만 조회할 수 있습니다.");
+        }
+
+        Team team = myTeamUser.getTeam();
+        TeamProject teamProject = teamProjectRepository.findByTeamId(team.getId()).orElse(null);
+        List<TeamUser> teamUsers = teamUserRepository.findByTeamId(team.getId());
+
+        return TeamDetailResponseDto.from(team, teamProject, teamUsers);
+    }
+
+    // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 조회하는 기능입니다.
+    public MyTeamResponseDto.TeamProjectDto getMyTeamProject(String userId) {
+        TeamUser myTeamUser = findMyTeamUser(userId);
+
+        return teamProjectRepository.findByTeamId(myTeamUser.getTeam().getId())
+                .map(MyTeamResponseDto.TeamProjectDto::from)
+                .orElse(null);
+    }
+
+    // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 생성하거나 수정하는 기능입니다.
+    @Transactional
+    public MyTeamResponseDto.TeamProjectDto upsertMyTeamProject(String userId, TeamProjectRequestDto request) {
+        TeamUser myTeamUser = findMyTeamUser(userId);
+        Team team = myTeamUser.getTeam();
+
+        String teamName = normalizeRequiredText(request.getTeamName(), "팀명");
+        String serviceName = normalizeRequiredText(request.getServiceName(), "서비스명");
+        String serviceIntro = normalizeRequiredText(request.getServiceIntro(), "서비스 소개");
+        String mainFeatures = normalizeRequiredText(request.getMainFeatures(), "주요 기능");
+
+        TeamProject teamProject = teamProjectRepository.findByTeamId(team.getId())
+                .map(existingProject -> {
+                    existingProject.update(teamName, serviceName, serviceIntro, mainFeatures);
+                    return existingProject;
+                })
+                .orElseGet(() -> teamProjectRepository.save(TeamProject.builder()
+                        .team(team)
+                        .teamName(teamName)
+                        .serviceName(serviceName)
+                        .serviceIntro(serviceIntro)
+                        .mainFeatures(mainFeatures)
+                        .build()));
+
+        return MyTeamResponseDto.TeamProjectDto.from(teamProject);
+    }
+
     // 관리자가 특정 학생을 다른 팀으로 이동시키고 역할/팀장 여부를 수정하는 기능입니다.
     @Transactional
     public void updateTeamMember(TeamMemberUpdateRequestDto request) {
@@ -100,5 +179,22 @@ public class TeamService {
     private User findUser(String userId) {
         return userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+    }
+
+    // 로그인한 학생의 TeamUser 정보를 조회하고 팀 미배정이면 예외를 발생시키는 기능입니다.
+    private TeamUser findMyTeamUser(String userId) {
+        findUser(userId);
+
+        return teamUserRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("아직 소속된 팀이 없습니다."));
+    }
+
+    // 필수 문자열 입력값의 앞뒤 공백을 제거하고 비어 있으면 예외를 발생시키는 기능입니다.
+    private String normalizeRequiredText(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + "은(는) 필수입니다.");
+        }
+
+        return value.trim();
     }
 }

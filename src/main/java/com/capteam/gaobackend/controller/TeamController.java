@@ -1,8 +1,12 @@
 package com.capteam.gaobackend.controller;
 
 import com.capteam.gaobackend.dto.common.ApiResponse;
+import com.capteam.gaobackend.dto.team.MyTeamResponseDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateRequestDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateResponseDto;
+import com.capteam.gaobackend.dto.team.TeamDetailResponseDto;
+import com.capteam.gaobackend.dto.team.TeamProjectRequestDto;
+import com.capteam.gaobackend.dto.team.TeamSummaryResponseDto;
 import com.capteam.gaobackend.service.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,5 +33,47 @@ public class TeamController {
             @RequestBody @Valid PreferredTeammateRequestDto request,
             Authentication authentication) {
         return ApiResponse.ok(teamService.updatePreferences(authentication.getName(), request));
+    }
+
+    // 로그인한 학생의 소속 팀 상세 정보를 조회하는 기능입니다.
+    @GetMapping("/my-team")
+    public ResponseEntity<ApiResponse<MyTeamResponseDto>> getMyTeam(Authentication authentication) {
+        return ApiResponse.ok(teamService.getMyTeam(authentication.getName()));
+    }
+
+    // 로그인한 학생의 소속 팀 요약 정보를 조회하는 기능입니다.
+    @GetMapping("/my-team/summary")
+    public ResponseEntity<ApiResponse<TeamSummaryResponseDto>> getMyTeamSummary(Authentication authentication) {
+        return ApiResponse.ok(teamService.getMyTeamSummary(authentication.getName()));
+    }
+
+    // 로그인한 학생이 소속된 특정 팀 상세 정보를 조회하는 기능입니다.
+    @GetMapping("/{teamId}")
+    public ResponseEntity<ApiResponse<TeamDetailResponseDto>> getTeamDetail(
+            @PathVariable Long teamId,
+            Authentication authentication) {
+        return ApiResponse.ok(teamService.getTeamDetail(authentication.getName(), teamId));
+    }
+
+    // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 조회하는 기능입니다.
+    @GetMapping("/project")
+    public ResponseEntity<ApiResponse<MyTeamResponseDto.TeamProjectDto>> getMyTeamProject(Authentication authentication) {
+        return ApiResponse.ok(teamService.getMyTeamProject(authentication.getName()));
+    }
+
+    // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 생성하거나 수정하는 기능입니다.
+    @PostMapping("/project")
+    public ResponseEntity<ApiResponse<MyTeamResponseDto.TeamProjectDto>> createMyTeamProject(
+            @RequestBody @Valid TeamProjectRequestDto request,
+            Authentication authentication) {
+        return ApiResponse.ok(teamService.upsertMyTeamProject(authentication.getName(), request));
+    }
+
+    // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 생성하거나 수정하는 기능입니다.
+    @PutMapping("/project")
+    public ResponseEntity<ApiResponse<MyTeamResponseDto.TeamProjectDto>> upsertMyTeamProject(
+            @RequestBody @Valid TeamProjectRequestDto request,
+            Authentication authentication) {
+        return ApiResponse.ok(teamService.upsertMyTeamProject(authentication.getName(), request));
     }
 }
