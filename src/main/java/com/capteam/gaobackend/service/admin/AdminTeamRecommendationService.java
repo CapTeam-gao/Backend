@@ -323,24 +323,32 @@ public class AdminTeamRecommendationService {
             teamUserRepository.save(teamUser);
         }
 
-        // TODO: 프론트 채팅 개발 완료 후 주석 해제
-//        User channelCreator = recommendedMembers.stream()
-//                .filter(m -> m.isRecommendedLeader())
-//                .findFirst()
-//                .map(TeamRecommendationMember::getUser)
-//                .orElse(recommendedMembers.get(0).getUser());
-//
-//        ChatRoom chatRoom = chatRoomRepository.save(ChatRoom.builder()
-//                .team(team)
-//                .build());
-//        chatChannelRepository.save(ChatChannel.builder()
-//                .chatRoom(chatRoom)
-//                .channelName("공통")
-//                .createdBy(channelCreator)
-//                .build());
+        createTeamChatRoomWithDefaultChannel(team, recommendedMembers);
 
         // 추천안 상태 수락으로 변경 (더티 체킹)
         recommendation.accept();
+    }
+
+    // 팀 생성 완료 후 팀 채팅방과 기본 공통 채널을 생성하는 기능입니다.
+    private void createTeamChatRoomWithDefaultChannel(Team team, List<TeamRecommendationMember> recommendedMembers) {
+        if (chatRoomRepository.findByTeamId(team.getId()).isPresent()) {
+            return;
+        }
+
+        User channelCreator = recommendedMembers.stream()
+                .filter(TeamRecommendationMember::isRecommendedLeader)
+                .findFirst()
+                .map(TeamRecommendationMember::getUser)
+                .orElseGet(() -> recommendedMembers.get(0).getUser());
+
+        ChatRoom chatRoom = chatRoomRepository.save(ChatRoom.builder()
+                .team(team)
+                .build());
+        chatChannelRepository.save(ChatChannel.builder()
+                .chatRoom(chatRoom)
+                .channelName("공통")
+                .createdBy(channelCreator)
+                .build());
     }
 
     // 승인 대기 상태인 추천안만 실제 팀으로 전환할 수 있게 검증하는 기능입니다.
