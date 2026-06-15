@@ -1,0 +1,33 @@
+package com.capteam.gaobackend.dto.team;
+
+import com.capteam.gaobackend.entity.MatchingJob;
+import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.MatchingJobStatus;
+import lombok.Builder;
+import lombok.Getter;
+
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+public class MatchingJobResponseDto {
+
+    // 프론트가 상태 조회와 취소 요청에 사용하는 작업 식별자입니다.
+    private String jobId;
+    private Grade grade;
+    private MatchingJobStatus status;
+    private String errorMessage;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    public static MatchingJobResponseDto from(MatchingJob job) {
+        return MatchingJobResponseDto.builder()
+                .jobId(job.getId())
+                .grade(job.getGrade())
+                .status(job.getStatus())
+                .errorMessage(job.getErrorMessage())
+                .createdAt(job.getCreatedAt())
+                .updatedAt(job.getUpdatedAt())
+                .build();
+    }
+}
