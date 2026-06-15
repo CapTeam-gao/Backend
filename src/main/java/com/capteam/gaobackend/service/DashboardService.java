@@ -62,13 +62,19 @@ public class DashboardService {
     // 관리자 대시보드에 필요한 팀/채팅/일지/학생/공지 통계를 조회하는 기능입니다.
     public AdminDashboardResponseDto getAdminDashboard(String userId) {
         long totalTeamCount = teamRepository.count();
+        long grade2TeamCount = teamRepository.countByGrade(Grade.GRADE_2);
+        long grade3TeamCount = teamRepository.countByGrade(Grade.GRADE_3);
+        boolean grade2TeamCreated = grade2TeamCount > 0;
+        boolean grade3TeamCreated = grade3TeamCount > 0;
         long submittedTeamCount = journalRepository.countDistinctTeamByDate(today());
 
         return AdminDashboardResponseDto.builder()
-                .teamCreated(totalTeamCount > 0)
+                .teamCreated(grade2TeamCreated && grade3TeamCreated)
+                .grade2TeamCreated(grade2TeamCreated)
+                .grade3TeamCreated(grade3TeamCreated)
                 .totalTeamCount(totalTeamCount)
-                .grade2TeamCount(teamRepository.countByGrade(Grade.GRADE_2))
-                .grade3TeamCount(teamRepository.countByGrade(Grade.GRADE_3))
+                .grade2TeamCount(grade2TeamCount)
+                .grade3TeamCount(grade3TeamCount)
                 .activeChatRoomCount(totalTeamCount > 0 ? chatRoomRepository.count() : 0)
                 .journalNotSubmittedTeamCount(totalTeamCount > 0 ? Math.max(totalTeamCount - submittedTeamCount, 0) : 0)
                 .totalStudentCount(userRepository.countByAccountRole(AccountRole.STUDENT))

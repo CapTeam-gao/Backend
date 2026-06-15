@@ -7,8 +7,14 @@ import lombok.Getter;
 @Builder
 public class AdminDashboardResponseDto {
 
-    // 팀이 1개 이상 생성되었는지 알려주는 필드입니다.
+    // 2학년과 3학년 팀이 모두 생성되었는지 알려주는 하위 호환 필드입니다.
     private boolean teamCreated;
+
+    // 2학년 팀이 1개 이상 생성되었는지 알려주는 필드입니다.
+    private boolean grade2TeamCreated;
+
+    // 3학년 팀이 1개 이상 생성되었는지 알려주는 필드입니다.
+    private boolean grade3TeamCreated;
 
     // 전체 팀 개수를 내려주는 필드입니다.
     private long totalTeamCount;

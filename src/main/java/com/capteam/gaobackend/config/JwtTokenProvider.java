@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 @Component
@@ -32,7 +33,7 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-token.expiration}")
     private long refreshTokenExpiration;    //리프레시 토큰 기간 가져오기   엑세스 끝나면 사용
 
-    private final Map<String, String> refreshTokenStore = new HashMap<>();
+    private final Map<String, String> refreshTokenStore = new ConcurrentHashMap<>();
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));  //서명키 생성
@@ -47,6 +48,11 @@ public class JwtTokenProvider {
         var token = createToken(user,refreshTokenExpiration);
         refreshTokenStore.put(user.getUserId().toString(),token);   //토큰에다 유저 아이디 넣기
         return token;
+    }
+
+    // refresh token 쿠키의 Max-Age를 JWT 만료 시간과 동일하게 설정할 때 사용합니다.
+    public long getRefreshTokenExpirationSeconds() {
+        return refreshTokenExpiration / 1000;
     }
 
 

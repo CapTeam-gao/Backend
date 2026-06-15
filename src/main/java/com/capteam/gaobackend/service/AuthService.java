@@ -9,6 +9,7 @@ import com.capteam.gaobackend.dto.auth.response.AuthResponse;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.UserRepository;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -83,9 +84,25 @@ public class AuthService {
     @Transactional(readOnly = true)
     // refresh token을 검증하고 새 access/refresh token을 재발급하는 기능입니다.
     public AuthResponse refreshToken(RefreshRequest dto) {
-        var refreshToken = dto.refreshToken();
+        if (dto == null) {
+            throw new BadCredentialsException("리프레시 토큰이 필요합니다.");
+        }
+        return refreshToken(dto.refreshToken());
+    }
 
-        var userId = jwtTokenProvider.extractUserId(refreshToken);
+    // HttpOnly Cookie에서 전달된 refresh token을 검증하고 토큰을 재발급하는 기능입니다.
+    @Transactional(readOnly = true)
+    public AuthResponse refreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new BadCredentialsException("리프레시 토큰이 필요합니다.");
+        }
+
+        final String userId;
+        try {
+            userId = jwtTokenProvider.extractUserId(refreshToken);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new BadCredentialsException("유효하지 않은 리프레시 토큰입니다.", e);
+        }
 
         if(!jwtTokenProvider.validateRefreshToken(userId,refreshToken)) {
             throw new BadCredentialsException("유효하지 않은 리프레시 토큰입니다.");

@@ -83,10 +83,10 @@ public class AdminTeamRecommendationPersistenceService {
 
                 StudentLevel level = parseSkillLevel(member.getSkillLevel());
                 userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
-                        analysis -> analysis.updateAnalysisResult(member.getSkillLevel(), level),
+                        analysis -> analysis.updateAnalysisResult(member.getStrength(), level),
                         () -> userAnalysisRepository.save(UserAnalysis.builder()
                                 .user(user)
-                                .analysisResult(member.getSkillLevel())
+                                .analysisResult(member.getStrength())
                                 .studentLevel(level)
                                 .build())
                 );

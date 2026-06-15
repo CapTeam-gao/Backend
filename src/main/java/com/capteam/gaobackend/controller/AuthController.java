@@ -5,9 +5,13 @@ import com.capteam.gaobackend.dto.auth.request.LoginRequestDto;
 import com.capteam.gaobackend.dto.auth.request.RefreshRequest;
 import com.capteam.gaobackend.dto.auth.response.AuthResponse;
 import com.capteam.gaobackend.dto.common.ApiResponse;
+import com.capteam.gaobackend.config.JwtTokenProvider;
 import com.capteam.gaobackend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,12 +25,21 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtTokenProvider jwtTokenProvider;
+
+    private static final String REFRESH_TOKEN_COOKIE = "refreshToken";
+
+    @Value("${jwt.refresh-cookie.secure:false}")
+    private boolean refreshCookieSecure;
+
+    @Value("${jwt.refresh-cookie.same-site:Lax}")
+    private String refreshCookieSameSite;
 
     // 로그인 요청을 받아 비밀번호를 검증하고 JWT 토큰을 발급하는 기능입니다.
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> doLogin(@Valid @RequestBody LoginRequestDto dto) {
         AuthResponse authResponse = authService.doLogin(dto);
-        return ResponseEntity.ok(authResponse);
+        return withRefreshTokenCookie(authResponse);
     }
 
     // 현재 로그인한 사용자의 비밀번호 변경 요청을 처리하는 기능입니다.
@@ -54,5 +67,30 @@ public class AuthController {
     @PostMapping("/refresh")
     public AuthResponse refresh(@RequestBody RefreshRequest dto) {
         return authService.refreshToken(dto);
+    }
+
+    // HttpOnly Cookie의 refresh token으로 access token과 refresh token을 재발급하는 기능입니다.
+    @PostMapping("/reissue")
+    public ResponseEntity<AuthResponse> reissue(
+            @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        AuthResponse authResponse = authService.refreshToken(refreshToken);
+        return withRefreshTokenCookie(authResponse);
+    }
+
+    private ResponseEntity<AuthResponse> withRefreshTokenCookie(AuthResponse authResponse) {
+        ResponseCookie refreshTokenCookie = ResponseCookie.from(
+                        REFRESH_TOKEN_COOKIE,
+                        authResponse.refreshToken()
+                )
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .sameSite(refreshCookieSameSite)
+                .path("/api/auth")
+                .maxAge(jwtTokenProvider.getRefreshTokenExpirationSeconds())
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
+                .body(authResponse);
     }
 }

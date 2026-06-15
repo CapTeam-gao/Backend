@@ -32,7 +32,12 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))  //corsConfigurationSource 사용
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/me", "/api/auth/refresh").permitAll()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/me",
+                                "/api/auth/refresh",
+                                "/api/auth/reissue"
+                        ).permitAll()
                         // 실제 인증은 STOMP CONNECT 프레임에서 JwtChannelInterceptor가 Authorization 헤더를 검사합니다.
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         // 채팅 파일 URL은 이미지 태그나 다운로드 링크로 바로 접근할 수 있어야 하므로 읽기 요청은 열어둡니다.
