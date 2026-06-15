@@ -88,6 +88,8 @@ public class AdminStudentDetailResponseDto {
 
     // User와 선택적인 팀원/AI 분석 정보를 관리자 학생 상세 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentDetailResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis, UserDevelopmentScore userDevelopmentScore, UserPersonalityScore userPersonalityScore) {
+
+
         return AdminStudentDetailResponseDto.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
@@ -100,7 +102,7 @@ public class AdminStudentDetailResponseDto {
                 .experience(user.getExperience())
                 .preferredTeammates(user.getPreferredTeammates())
                 .wantsLeader(user.isWantsLeader())
-                .analysisResult(userAnalysis == null ? null : userAnalysis.getAnalysisResult())
+                .analysisResult(resolveAnalysisResult(userAnalysis))
                 .leadership(userDevelopmentScore.getLeadership())
                 .problemSolving(userDevelopmentScore.getProblemSolving())
                 .implementation(userDevelopmentScore.getImplementation())
@@ -112,5 +114,18 @@ public class AdminStudentDetailResponseDto {
                 .flexibility(userPersonalityScore.getFlexibility())
                 .emotionalStability(userPersonalityScore.getEmotionalStability())
                 .build();
+    }
+
+    // 과거 매칭 로직이 실력 등급을 분석 설명에 저장한 데이터는 화면에 노출하지 않습니다.
+    private static String resolveAnalysisResult(UserAnalysis userAnalysis) {
+        if (userAnalysis == null || userAnalysis.getAnalysisResult() == null) {
+            return null;
+        }
+
+        String analysisResult = userAnalysis.getAnalysisResult().trim();
+        return switch (analysisResult) {
+            case "상", "중", "하", "높음", "낮음" -> null;
+            default -> analysisResult;
+        };
     }
 }

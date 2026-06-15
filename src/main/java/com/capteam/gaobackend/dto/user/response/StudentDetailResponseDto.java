@@ -42,8 +42,21 @@ public class StudentDetailResponseDto {
                 .skill(teamUser.getUser().getSkill())
                 .experience(teamUser.getUser().getExperience())
                 .teamName(teamUser.getTeam().getTeamName() != null ? teamUser.getTeam().getTeamName() : null)
-                .analysisResult(userAnalysis.getAnalysisResult() != null ? userAnalysis.getAnalysisResult() : null)
+                .analysisResult(resolveAnalysisResult(userAnalysis))
                 .studentLevel(userAnalysis.getStudentLevel())
                 .build();
+    }
+
+    // 과거 매칭 로직이 실력 등급을 분석 설명에 저장한 데이터는 화면에 노출하지 않습니다.
+    private static String resolveAnalysisResult(UserAnalysis userAnalysis) {
+        if (userAnalysis == null || userAnalysis.getAnalysisResult() == null) {
+            return null;
+        }
+
+        String analysisResult = userAnalysis.getAnalysisResult().trim();
+        return switch (analysisResult) {
+            case "상", "중", "하", "높음", "낮음" -> null;
+            default -> analysisResult;
+        };
     }
 }
