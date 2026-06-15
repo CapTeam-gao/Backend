@@ -65,17 +65,9 @@ public class AdminTeamService {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(TeamNotFoundException::new);
 
-        TeamProject teamProject = teamProjectRepository.findAll()
-                .stream()
-                .filter(project -> project.getTeam().getId().equals(teamId)) //Stream내에서 특정 조건을 지닌 값들만 필터링하는 메소드이다.
-                .findFirst()// 오름차순 정렬
-                .orElse(null);  //아니면 null
-
-
-        List<TeamUser> teamUsers = teamUserRepository.findAll()
-                .stream()
-                .filter(teamUser -> teamUser.getTeam().getId().equals(teamId))  //같은 팀 유저끼리 모아주기 같은 팀 아이디 모아서
-                .toList();
+        TeamProject teamProject = teamProjectRepository.findByTeamId(teamId)
+                .orElse(null);
+        List<TeamUser> teamUsers = teamUserRepository.findByTeamId(teamId);
 
         return AdminTeamDetailResponseDto.from(team, teamProject, teamUsers);
     }

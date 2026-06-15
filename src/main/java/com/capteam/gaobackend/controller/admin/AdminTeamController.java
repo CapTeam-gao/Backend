@@ -32,9 +32,8 @@ public class AdminTeamController {
 
     // 관리자가 특정 팀의 상세 정보와 팀원 목록을 조회하는 기능입니다.
     @GetMapping("/{teamId}")
-    public ResponseEntity<AdminTeamDetailResponseDto> getTeamDetail(@PathVariable Long teamId) {
-        var response = adminTeamService.getTeamDetail(teamId);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ApiResponse<AdminTeamDetailResponseDto>> getTeamDetail(@PathVariable Long teamId) {
+        return ApiResponse.ok(adminTeamService.getTeamDetail(teamId));
     }
 
     // 관리자가 특정 팀의 팀원 역할과 팀장 여부를 수정하는 기능입니다.
