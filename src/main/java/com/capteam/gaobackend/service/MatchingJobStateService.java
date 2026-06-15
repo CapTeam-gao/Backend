@@ -21,6 +21,11 @@ public class MatchingJobStateService {
     // 같은 학년의 중복 매칭 실행으로 추천안이 서로 덮어쓰이는 것을 방지합니다.
     @Transactional
     public synchronized MatchingJobResponseDto create(Grade grade) {
+        return create(grade, null);
+    }
+
+    @Transactional
+    public synchronized MatchingJobResponseDto create(Grade grade, String regenerationPrompt) {
         boolean activeJobExists = matchingJobRepository.existsByGradeAndStatusIn(
                 grade,
                 List.of(MatchingJobStatus.QUEUED, MatchingJobStatus.RUNNING, MatchingJobStatus.COMPLETING)
@@ -28,7 +33,7 @@ public class MatchingJobStateService {
         if (activeJobExists) {
             throw new IllegalStateException("해당 학년의 팀 매칭 작업이 이미 진행 중입니다.");
         }
-        MatchingJob job = new MatchingJob(UUID.randomUUID().toString(), grade);
+        MatchingJob job = new MatchingJob(UUID.randomUUID().toString(), grade, regenerationPrompt);
         return MatchingJobResponseDto.from(matchingJobRepository.save(job));
     }
 

@@ -2,6 +2,7 @@ package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.ai.AiClient;
 import com.capteam.gaobackend.dto.team.MatchingJobResponseDto;
+import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.MatchingJobStatus;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -30,15 +31,30 @@ public class MatchingJobService {
     }
 
     public MatchingJobResponseDto start(Grade grade) {
+        return start(grade, null);
+    }
+
+    public MatchingJobResponseDto start(TeamRecommendationRequestDto request) {
+        return start(request.getGrade(), normalizePrompt(request.getRegenerationPrompt()));
+    }
+
+    public MatchingJobResponseDto start(Grade grade, String regenerationPrompt) {
         // 작업을 먼저 DB에 등록한 뒤 즉시 jobId를 반환할 수 있도록 비동기로 실행합니다.
-        MatchingJobResponseDto job = matchingJobStateService.create(grade);
+        MatchingJobResponseDto job = matchingJobStateService.create(grade, regenerationPrompt);
         try {
-            matchingJobExecutor.execute(() -> matchingJobWorker.run(job.getJobId(), grade));
+            matchingJobExecutor.execute(() -> matchingJobWorker.run(job.getJobId(), grade, regenerationPrompt));
         } catch (RuntimeException e) {
             matchingJobStateService.fail(job.getJobId(), "팀 매칭 작업 실행 대기열이 가득 찼습니다.");
             throw e;
         }
         return job;
+    }
+
+    private String normalizePrompt(String regenerationPrompt) {
+        if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
+            return null;
+        }
+        return regenerationPrompt.trim();
     }
 
     public MatchingJobResponseDto get(String jobId) {

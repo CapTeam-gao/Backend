@@ -41,4 +41,11 @@ class MatchingJobTest {
         assertThat(job.getStatus()).isEqualTo(MatchingJobStatus.CANCELLED);
         assertThat(job.getErrorMessage()).isNull();
     }
+
+    @Test
+    void storesRegenerationPromptForJobHistory() {
+        MatchingJob job = new MatchingJob("job-id", Grade.GRADE_2, "백엔드 역할을 강화해줘");
+
+        assertThat(job.getRegenerationPrompt()).isEqualTo("백엔드 역할을 강화해줘");
+    }
 }

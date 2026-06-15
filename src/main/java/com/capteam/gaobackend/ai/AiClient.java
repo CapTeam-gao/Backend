@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.ai;
 
+import com.capteam.gaobackend.dto.ai.AiMatchingRequestDto;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.exception.AiServerException;
@@ -73,11 +74,15 @@ public class AiClient {
 
     // 백엔드 학생 데이터를 JSON으로 AI 서버에 전달해 팀 매칭을 실행하는 기능입니다.
     public AiTeamSummaryResponseDto runMatching(List<AiStudentPayloadDto> students) {
+        return runMatchingWithPrompt(students, null);
+    }
+
+    public AiTeamSummaryResponseDto runMatchingWithPrompt(List<AiStudentPayloadDto> students, String regenerationPrompt) {
         try {
             var request = restClient.post()
                     .uri("/matching/run")
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            if (students != null) request.body(students);
+            request.body(buildMatchingRequestBody(students, regenerationPrompt));
             AiTeamSummaryResponseDto response = request.retrieve().body(AiTeamSummaryResponseDto.class);
             if (response == null) throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 응답이 비어 있습니다.");
             return response;
@@ -89,6 +94,10 @@ public class AiClient {
     }
 
     public AiTeamSummaryResponseDto runMatching(List<AiStudentPayloadDto> students, String jobId) {
+        return runMatching(students, jobId, null);
+    }
+
+    public AiTeamSummaryResponseDto runMatching(List<AiStudentPayloadDto> students, String jobId, String regenerationPrompt) {
         // 실행기가 AI 요청을 보내기 전에 이미 취소된 작업이면 외부 호출을 시작하지 않습니다.
         if (cancelledMatchingJobs.remove(jobId)) {
             throw new MatchingJobCancelledException(jobId);
@@ -100,7 +109,7 @@ public class AiClient {
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
                 .header("X-Matching-Job-Id", jobId)
-                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students)))
+                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, regenerationPrompt)))
                 .build();
 
         CompletableFuture<HttpResponse<String>> responseFuture = cancellableHttpClient.sendAsync(
@@ -152,12 +161,20 @@ public class AiClient {
                 .exceptionally(ignored -> null);
     }
 
-    private String writeJson(List<AiStudentPayloadDto> students) {
+    private String writeJson(List<AiStudentPayloadDto> students, String regenerationPrompt) {
         try {
-            return objectMapper.writeValueAsString(students == null ? List.of() : students);
+            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, regenerationPrompt));
         } catch (JsonProcessingException e) {
             throw new AiServerException("AI 팀 매칭 요청 데이터를 생성하지 못했습니다.", e);
         }
+    }
+
+    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+        List<AiStudentPayloadDto> safeStudents = students == null ? List.of() : students;
+        if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
+            return safeStudents;
+        }
+        return AiMatchingRequestDto.of(safeStudents, regenerationPrompt);
     }
 
     // AI 서버에서 현재 생성된 팀 요약 결과를 조회하는 기능입니다.
