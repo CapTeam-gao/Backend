@@ -3,6 +3,7 @@ package com.capteam.gaobackend.service.admin;
 import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
@@ -36,6 +37,28 @@ class AdminTeamServiceTest {
                 teamProjectRepository,
                 teamRepository
         );
+    }
+
+    @Test
+    void includesProjectTeamNameInTeamList() {
+        Team team = org.mockito.Mockito.mock(Team.class);
+        TeamProject teamProject = org.mockito.Mockito.mock(TeamProject.class);
+        when(teamRepository.findAll()).thenReturn(List.of(team));
+        when(teamUserRepository.findAll()).thenReturn(List.of());
+        when(teamProjectRepository.findAll()).thenReturn(List.of(teamProject));
+        when(team.getId()).thenReturn(1L);
+        when(team.getTeamName()).thenReturn("2팀");
+        when(team.getGrade()).thenReturn(Grade.GRADE_2);
+        when(teamProject.getTeam()).thenReturn(team);
+        when(teamProject.getTeamName()).thenReturn("Gao");
+        when(teamProject.getServiceName()).thenReturn("CapTeam");
+
+        var response = adminTeamService.getTeamList();
+
+        assertThat(response).hasSize(1);
+        assertThat(response.get(0).getTeamName()).isEqualTo("2팀");
+        assertThat(response.get(0).getProjectTeamName()).isEqualTo("Gao");
+        assertThat(response.get(0).getServiceName()).isEqualTo("CapTeam");
     }
 
     @Test
