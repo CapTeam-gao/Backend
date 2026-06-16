@@ -3,21 +3,14 @@ package com.capteam.gaobackend.service;
 import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
 import com.capteam.gaobackend.dto.user.request.UserSurveyRequestDto;
-import com.capteam.gaobackend.dto.user.response.StudentDetailResponseDto;
-import com.capteam.gaobackend.dto.user.response.StudentListResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserSurveyResponseDto;
-import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
-import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.entity.UserDevelopmentScore;
 import com.capteam.gaobackend.entity.UserPersonalityScore;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
-import com.capteam.gaobackend.repository.TeamUserRepository;
-import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import com.capteam.gaobackend.repository.UserRepository;
-//import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -29,7 +22,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,6 +31,7 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final UserSurveyAnalysisService userSurveyAnalysisService;
     private static final Pattern PREFERRED_MEMBER_PATTERN = Pattern.compile("^(?:stu)?(\\d{4})\\s+(.+)$", Pattern.CASE_INSENSITIVE);
 
 
@@ -103,6 +96,8 @@ public class UserService {
                 personalityScores,
                 developmentScores
         );
+
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
 
         return UserSurveyResponseDto.from(user);
     }
