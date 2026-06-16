@@ -23,9 +23,17 @@ public class TeamRecommendation extends BaseTimeEntity {
     @Column(nullable = false)
     private RecommendationStatus status;
 
+    @Column(columnDefinition = "TEXT")
+    private String strengths;
+
+    @Column(columnDefinition = "TEXT")
+    private String weaknesses;
+
     @Builder
-    public TeamRecommendation(Grade grade) {
+    public TeamRecommendation(Grade grade, String strengths, String weaknesses) {
         this.grade = grade;
+        this.strengths = strengths;
+        this.weaknesses = weaknesses;
         this.status = RecommendationStatus.PENDING;
     }
 

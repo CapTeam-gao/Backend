@@ -64,7 +64,11 @@ public class AdminTeamRecommendationPersistenceService {
             }
 
             TeamRecommendation recommendation = recommendationRepository.save(
-                    TeamRecommendation.builder().grade(grade).build()
+                    TeamRecommendation.builder()
+                            .grade(grade)
+                            .strengths(aiTeam.getStrengths())
+                            .weaknesses(aiTeam.getWeaknesses())
+                            .build()
             );
 
             String leaderName = aiTeam.getLeader();

@@ -65,6 +65,8 @@ class AdminTeamRecommendationPersistenceServiceTest {
         AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
         team.setMembers(List.of(member));
         team.setLeader("홍길동");
+        team.setStrengths("프론트엔드와 백엔드 역할이 균형 있게 구성되었습니다.");
+        team.setWeaknesses("AI 역할 인원이 적어 분석 로직이 특정 학생에게 집중될 수 있습니다.");
 
         when(userRepository.findAllById(any())).thenReturn(List.of(user));
         when(recommendationRepository.findByGradeAndStatus(any(), any())).thenReturn(List.of());
@@ -77,6 +79,13 @@ class AdminTeamRecommendationPersistenceServiceTest {
                 Map.of("홍길동", "stu2301"),
                 List.of(team)
         );
+
+        ArgumentCaptor<TeamRecommendation> recommendationCaptor = ArgumentCaptor.forClass(TeamRecommendation.class);
+        verify(recommendationRepository).save(recommendationCaptor.capture());
+        assertThat(recommendationCaptor.getValue().getStrengths())
+                .isEqualTo("프론트엔드와 백엔드 역할이 균형 있게 구성되었습니다.");
+        assertThat(recommendationCaptor.getValue().getWeaknesses())
+                .isEqualTo("AI 역할 인원이 적어 분석 로직이 특정 학생에게 집중될 수 있습니다.");
 
         ArgumentCaptor<UserAnalysis> analysisCaptor = ArgumentCaptor.forClass(UserAnalysis.class);
         verify(userAnalysisRepository).save(analysisCaptor.capture());

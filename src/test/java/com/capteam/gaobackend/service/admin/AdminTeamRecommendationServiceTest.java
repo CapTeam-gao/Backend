@@ -4,7 +4,15 @@ import com.capteam.gaobackend.ai.AiClient;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
+import com.capteam.gaobackend.entity.Team;
+import com.capteam.gaobackend.entity.TeamRecommendation;
+import com.capteam.gaobackend.entity.TeamRecommendationMember;
+import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.entity.UserDevelopmentScore;
+import com.capteam.gaobackend.entity.UserPersonalityScore;
+import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationMemberRepository;
@@ -16,12 +24,16 @@ import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,5 +99,49 @@ class AdminTeamRecommendationServiceTest {
         verify(aiClient).runMatchingWithPrompt(studentPayloads, prompt);
         verify(recommendationPersistenceService)
                 .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
+    }
+
+    @Test
+    void copiesRecommendationStrengthsAndWeaknessesToAcceptedTeam() {
+        TeamRecommendation recommendation = TeamRecommendation.builder()
+                .grade(Grade.GRADE_2)
+                .strengths("프론트엔드와 백엔드 역할이 균형 있게 구성되었습니다.")
+                .weaknesses("AI 역할 인원이 적어 분석 로직이 특정 학생에게 집중될 수 있습니다.")
+                .build();
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        user.completeSurvey(
+                StudentRole.BACKEND,
+                List.of("Java"),
+                List.of("Spring 프로젝트"),
+                false,
+                List.of(),
+                new UserPersonalityScore(3.0, 3.0, 3.0, 3.0, 3.0),
+                new UserDevelopmentScore(3.0, 3.0, 3.0, 3.0, 3.0)
+        );
+        TeamRecommendationMember member = TeamRecommendationMember.builder()
+                .recommendation(recommendation)
+                .user(user)
+                .studentRole(StudentRole.BACKEND)
+                .isRecommendedLeader(true)
+                .build();
+
+        when(recommendationRepository.findById(1L)).thenReturn(Optional.of(recommendation));
+        when(recommendationMemberRepository.findByRecommendationId(1L)).thenReturn(List.of(member));
+        when(teamRepository.countByGrade(Grade.GRADE_2)).thenReturn(1L);
+        when(chatRoomRepository.findByTeamId(any())).thenReturn(Optional.empty());
+
+        adminTeamRecommendationService.acceptRecommendation(1L);
+
+        ArgumentCaptor<Team> teamCaptor = ArgumentCaptor.forClass(Team.class);
+        verify(teamRepository).save(teamCaptor.capture());
+        assertThat(teamCaptor.getValue().getTeamName()).isEqualTo("2팀");
+        assertThat(teamCaptor.getValue().getStrengths())
+                .isEqualTo("프론트엔드와 백엔드 역할이 균형 있게 구성되었습니다.");
+        assertThat(teamCaptor.getValue().getWeaknesses())
+                .isEqualTo("AI 역할 인원이 적어 분석 로직이 특정 학생에게 집중될 수 있습니다.");
     }
 }
