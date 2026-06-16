@@ -24,6 +24,9 @@ public class AdminTeamListResponseDto {
     // 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 프로젝트 기획서에 작성한 팀명을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 팀 학년을 내려주는 필드입니다.
     private Grade grade;
 
@@ -55,6 +58,7 @@ public class AdminTeamListResponseDto {
         return AdminTeamListResponseDto.builder()
                 .teamId(team.getId())
                 .teamName(team.getTeamName())
+                .projectTeamName(teamProject != null ? teamProject.getTeamName() : null)
                 .grade(team.getGrade())
                 .serviceName(teamProject != null ? teamProject.getServiceName() : null)
                 .roleCount(teamUsers.stream()
