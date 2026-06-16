@@ -41,13 +41,13 @@ class MatchingJobWorkerTest {
         when(matchingJobStateService.start(jobId)).thenReturn(true);
         when(matchingJobStateService.beginCompletion(jobId)).thenReturn(true);
         doAnswer(invocation -> {
-            BooleanSupplier beginCompletion = invocation.getArgument(2);
+            BooleanSupplier beginCompletion = invocation.getArgument(3);
             beginCompletion.getAsBoolean();
             return null;
         }).when(adminTeamRecommendationService)
-                .createRecommendation(eq(Grade.GRADE_2), eq(jobId), any(BooleanSupplier.class));
+                .createRecommendation(eq(Grade.GRADE_2), eq("백엔드 역할을 강화해줘"), eq(jobId), any(BooleanSupplier.class));
 
-        matchingJobWorker.run(jobId, Grade.GRADE_2);
+        matchingJobWorker.run(jobId, Grade.GRADE_2, "백엔드 역할을 강화해줘");
 
         verify(matchingJobStateService).beginCompletion(jobId);
         verify(matchingJobStateService).succeed(jobId);
@@ -60,9 +60,9 @@ class MatchingJobWorkerTest {
         when(matchingJobStateService.start(jobId)).thenReturn(true);
         doThrow(new MatchingJobCancelledException(jobId))
                 .when(adminTeamRecommendationService)
-                .createRecommendation(eq(Grade.GRADE_2), eq(jobId), any(BooleanSupplier.class));
+                .createRecommendation(eq(Grade.GRADE_2), eq("백엔드 역할을 강화해줘"), eq(jobId), any(BooleanSupplier.class));
 
-        matchingJobWorker.run(jobId, Grade.GRADE_2);
+        matchingJobWorker.run(jobId, Grade.GRADE_2, "백엔드 역할을 강화해줘");
 
         verify(matchingJobStateService, never()).succeed(jobId);
         verify(matchingJobStateService, never()).fail(eq(jobId), any());

@@ -29,7 +29,7 @@ public class AdminTeamRecommendationController {
     @PostMapping("/matching/run")
     public ResponseEntity<ApiResponse<MatchingJobResponseDto>> startMatching(
             @RequestBody @Valid TeamRecommendationRequestDto dto) {
-        MatchingJobResponseDto job = matchingJobService.start(dto.getGrade());
+        MatchingJobResponseDto job = matchingJobService.start(dto);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(new ApiResponse<>(true, "팀 매칭 작업이 등록되었습니다.", job));
     }

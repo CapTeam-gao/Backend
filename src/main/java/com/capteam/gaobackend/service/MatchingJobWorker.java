@@ -17,6 +17,10 @@ public class MatchingJobWorker {
 
     // HTTP 요청 스레드와 분리된 실행기에서 AI 호출부터 추천안 저장까지 처리합니다.
     public void run(String jobId, Grade grade) {
+        run(jobId, grade, null);
+    }
+
+    public void run(String jobId, Grade grade, String regenerationPrompt) {
         if (!matchingJobStateService.start(jobId)) {
             return;
         }
@@ -24,6 +28,7 @@ public class MatchingJobWorker {
         try {
             adminTeamRecommendationService.createRecommendation(
                     grade,
+                    regenerationPrompt,
                     jobId,
                     // 저장 직전 상태 전이를 원자적으로 확인해 취소된 결과의 반영을 막습니다.
                     () -> matchingJobStateService.beginCompletion(jobId)

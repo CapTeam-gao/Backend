@@ -35,9 +35,17 @@ public class MatchingJob extends BaseTimeEntity {
     @Column(length = 1000)
     private String errorMessage;
 
+    @Column(length = 1000)
+    private String regenerationPrompt;
+
     public MatchingJob(String id, Grade grade) {
+        this(id, grade, null);
+    }
+
+    public MatchingJob(String id, Grade grade, String regenerationPrompt) {
         this.id = id;
         this.grade = grade;
+        this.regenerationPrompt = regenerationPrompt;
         this.status = MatchingJobStatus.QUEUED;
     }
 

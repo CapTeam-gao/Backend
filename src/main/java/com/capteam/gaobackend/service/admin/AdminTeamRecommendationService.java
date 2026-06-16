@@ -67,12 +67,22 @@ public class AdminTeamRecommendationService {
     // ──────────────────────────────────────────
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<TeamRecommendationResponseDto> createRecommendation(TeamRecommendationRequestDto dto) {
-        return createRecommendation(dto.getGrade(), null, () -> true);
+        return createRecommendation(dto.getGrade(), normalizePrompt(dto.getRegenerationPrompt()), null, () -> true);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<TeamRecommendationResponseDto> createRecommendation(
             Grade grade,
+            String jobId,
+            BooleanSupplier beginCompletion
+    ) {
+        return createRecommendation(grade, null, jobId, beginCompletion);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public List<TeamRecommendationResponseDto> createRecommendation(
+            Grade grade,
+            String regenerationPrompt,
             String jobId,
             BooleanSupplier beginCompletion
     ) {
@@ -86,8 +96,8 @@ public class AdminTeamRecommendationService {
         AiTeamSummaryResponseDto aiResult;
         try {
             aiResult = jobId == null
-                    ? aiClient.runMatching(studentPayloads)
-                    : aiClient.runMatching(studentPayloads, jobId);
+                    ? aiClient.runMatchingWithPrompt(studentPayloads, regenerationPrompt)
+                    : aiClient.runMatching(studentPayloads, jobId, regenerationPrompt);
         } catch (AiServerException e) {
             log.error("AI 서버 호출 실패.", e);
             throw new IllegalStateException("AI 서버 호출에 실패했습니다. AI 서버 상태를 확인해주세요.", e);
@@ -112,6 +122,13 @@ public class AdminTeamRecommendationService {
         }
         // 저장 단계만 별도 트랜잭션으로 실행해 전체 추천안 교체를 원자적으로 처리합니다.
         return recommendationPersistenceService.replacePendingRecommendations(grade, nameToUserId, targetTeams);
+    }
+
+    private String normalizePrompt(String regenerationPrompt) {
+        if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
+            return null;
+        }
+        return regenerationPrompt.trim();
     }
 
     // ──────────────────────────────────────────

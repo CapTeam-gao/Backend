@@ -17,6 +17,7 @@ public class MatchingJobResponseDto {
     private Grade grade;
     private MatchingJobStatus status;
     private String errorMessage;
+    private String regenerationPrompt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -26,6 +27,7 @@ public class MatchingJobResponseDto {
                 .grade(job.getGrade())
                 .status(job.getStatus())
                 .errorMessage(job.getErrorMessage())
+                .regenerationPrompt(job.getRegenerationPrompt())
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())
                 .build();
