@@ -92,15 +92,43 @@ public class AdminTeamRecommendationPersistenceService {
                 );
             }
 
+            saveRecommendationReasons(recommendation, aiTeam);
+
+            result.add(TeamRecommendationResponseDto.from(recommendation));
+        }
+        return result;
+    }
+
+    private void saveRecommendationReasons(
+            TeamRecommendation recommendation,
+            AiTeamSummaryResponseDto.TeamDto aiTeam
+    ) {
+        boolean savedAnyReason = false;
+        List<AiTeamSummaryResponseDto.ReasonCardDto> reasonCards = aiTeam.getReasonCards();
+        if (reasonCards != null && !reasonCards.isEmpty()) {
+            for (AiTeamSummaryResponseDto.ReasonCardDto reasonCard : reasonCards) {
+                String title = reasonCard.getTitle() == null ? "" : reasonCard.getTitle().trim();
+                String description = cleanAiDescription(reasonCard.getDescription());
+                if (title.isBlank() || description.isBlank()) {
+                    continue;
+                }
+
+                recommendationReasonRepository.save(TeamRecommendationReason.builder()
+                        .recommendation(recommendation)
+                        .title(title)
+                        .description(description)
+                        .build());
+                savedAnyReason = true;
+            }
+        }
+
+        if (!savedAnyReason) {
             recommendationReasonRepository.save(TeamRecommendationReason.builder()
                     .recommendation(recommendation)
                     .title("팀 배정 이유")
                     .description(buildAiDescription(aiTeam))
                     .build());
-
-            result.add(TeamRecommendationResponseDto.from(recommendation));
         }
-        return result;
     }
 
     private StudentRole parseRoleGroup(String roleGroup, String role) {
@@ -154,10 +182,14 @@ public class AdminTeamRecommendationPersistenceService {
     }
 
     private String buildAiDescription(AiTeamSummaryResponseDto.TeamDto aiTeam) {
-        if (aiTeam.getMatchingReason() == null || aiTeam.getMatchingReason().isBlank()) {
+        return cleanAiDescription(aiTeam.getMatchingReason());
+    }
+
+    private String cleanAiDescription(String description) {
+        if (description == null || description.isBlank()) {
             return "";
         }
-        return aiTeam.getMatchingReason()
+        return description
                 .split("\\s*\\[(강점|보완점|약점|리스크)]", 2)[0]
                 .trim();
     }

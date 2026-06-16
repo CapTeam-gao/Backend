@@ -52,6 +52,10 @@ public class AiTeamSummaryResponseDto {
         @JsonProperty("matching_reason")
         private String matchingReason;
 
+        // 화면에 카드 형태로 보여줄 팀 배정 이유 목록입니다.
+        @JsonProperty("reason_cards")
+        private List<ReasonCardDto> reasonCards;
+
         // 팀 강점 설명을 내려주는 필드입니다.
         private String strengths;
 
@@ -64,6 +68,17 @@ public class AiTeamSummaryResponseDto {
 
         // 팀원별 상세 매칭 정보를 내려주는 필드입니다.
         private List<MemberDto> members;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class ReasonCardDto {
+        // 배정 이유 카드 제목입니다.
+        private String title;
+
+        // 배정 이유 카드 상세 설명입니다.
+        private String description;
     }
 
     @Getter
