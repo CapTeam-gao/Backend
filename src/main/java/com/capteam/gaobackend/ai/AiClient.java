@@ -1,11 +1,13 @@
 package com.capteam.gaobackend.ai;
 
 import com.capteam.gaobackend.dto.ai.AiMatchingRequestDto;
+import com.capteam.gaobackend.dto.ai.AiStudentAnalysisResponseDto;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.exception.MatchingJobCancelledException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -19,6 +21,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -65,6 +68,22 @@ public class AiClient {
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
             if (students != null) request.body(students);
             request.retrieve().toBodilessEntity();
+        } catch (RestClientResponseException e) {
+            throw new AiServerException("AI 학생 분석 실행에 실패했습니다. AI 서버 상태 코드: " + e.getStatusCode().value(), e);
+        } catch (RestClientException e) {
+            throw new AiServerException("AI 학생 분석 실행에 실패했습니다. AI 서버 연결 주소를 확인해주세요: " + aiServerBaseUrl, e);
+        }
+    }
+
+    public List<AiStudentAnalysisResponseDto> runAnalysisForResult(List<AiStudentPayloadDto> students) {
+        try {
+            var request = restClient.post()
+                    .uri("/analysis/run")
+                    .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            request.body(students == null ? List.of() : students);
+
+            String responseBody = request.retrieve().body(String.class);
+            return readAnalysisResults(responseBody);
         } catch (RestClientResponseException e) {
             throw new AiServerException("AI 학생 분석 실행에 실패했습니다. AI 서버 상태 코드: " + e.getStatusCode().value(), e);
         } catch (RestClientException e) {
@@ -175,6 +194,44 @@ public class AiClient {
             return safeStudents;
         }
         return AiMatchingRequestDto.of(safeStudents, regenerationPrompt);
+    }
+
+    private List<AiStudentAnalysisResponseDto> readAnalysisResults(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(responseBody);
+            JsonNode resultNode = findAnalysisResultNode(root);
+            if (resultNode == null || resultNode.isNull()) {
+                return List.of();
+            }
+            if (resultNode.isArray()) {
+                List<AiStudentAnalysisResponseDto> results = new ArrayList<>();
+                for (JsonNode item : resultNode) {
+                    results.add(objectMapper.treeToValue(item, AiStudentAnalysisResponseDto.class));
+                }
+                return results;
+            }
+            return List.of(objectMapper.treeToValue(resultNode, AiStudentAnalysisResponseDto.class));
+        } catch (JsonProcessingException e) {
+            throw new AiServerException("AI 학생 분석 응답을 해석하지 못했습니다.", e);
+        }
+    }
+
+    private JsonNode findAnalysisResultNode(JsonNode root) {
+        if (root == null || root.isNull() || root.isArray()) {
+            return root;
+        }
+
+        for (String fieldName : List.of("data", "results", "analyses", "analysis_results", "students")) {
+            JsonNode child = root.get(fieldName);
+            if (child != null && !child.isNull()) {
+                return child;
+            }
+        }
+        return root;
     }
 
     // AI 서버에서 현재 생성된 팀 요약 결과를 조회하는 기능입니다.

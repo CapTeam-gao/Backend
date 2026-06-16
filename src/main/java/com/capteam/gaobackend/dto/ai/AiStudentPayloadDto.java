@@ -12,6 +12,9 @@ import java.util.List;
 @Builder
 public class AiStudentPayloadDto {
 
+    @JsonProperty("user_id")
+    private String userId;
+
     private String name;
     private String role;
     private List<String> stack;
@@ -43,6 +46,7 @@ public class AiStudentPayloadDto {
     // User 엔티티를 AI 전송용 DTO로 변환하는 기능입니다.
     public static AiStudentPayloadDto from(User user) {
         return AiStudentPayloadDto.builder()
+                .userId(user.getUserId())
                 .name(user.getName())
                 .role(user.getStudentRole() != null ? user.getStudentRole().name() : null)
                 .stack(user.getSkill())
