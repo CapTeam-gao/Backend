@@ -25,10 +25,18 @@ public class Team extends BaseTimeEntity  {
     @Column(nullable = false)
     private TeamStatus status;
 
+    @Column(columnDefinition = "TEXT")
+    private String strengths;
+
+    @Column(columnDefinition = "TEXT")
+    private String weaknesses;
+
     @Builder
-    public Team(String teamName, TeamStatus status, Grade grade) {
+    public Team(String teamName, TeamStatus status, Grade grade, String strengths, String weaknesses) {
         this.teamName = teamName;
         this.status = status;
         this.grade = grade;
+        this.strengths = strengths;
+        this.weaknesses = weaknesses;
     }
 }

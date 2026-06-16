@@ -25,6 +25,9 @@ public class AdminTeamDetailResponseDto {
     // 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 프로젝트 기획서에 작성한 팀명을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 팀 학년을 내려주는 필드입니다.
     private Grade grade;
 
@@ -39,6 +42,12 @@ public class AdminTeamDetailResponseDto {
 
     // 팀 프로젝트 주요 기능을 내려주는 필드입니다.
     private String mainFeatures;
+
+    // AI 추천 결과에서 내려준 팀 강점 설명을 내려주는 필드입니다.
+    private String strengths;
+
+    // AI 추천 결과에서 내려준 팀 보완점 설명을 내려주는 필드입니다.
+    private String weaknesses;
 
     // 팀원 상세 목록을 내려주는 필드입니다.
     private List<TeamMemberDto> members;
@@ -75,11 +84,14 @@ public class AdminTeamDetailResponseDto {
         return AdminTeamDetailResponseDto.builder()
                 .teamId(team.getId())
                 .teamName(team.getTeamName())
+                .projectTeamName(teamProject != null ? teamProject.getTeamName() : null)
                 .grade(team.getGrade())
                 .serviceName(teamProject != null ? teamProject.getServiceName() : null)
                 .roleCount(roleCount)
                 .serviceIntro(teamProject != null ? teamProject.getServiceIntro() : null)
                 .mainFeatures(teamProject != null ? teamProject.getMainFeatures() : null)
+                .strengths(team.getStrengths())
+                .weaknesses(team.getWeaknesses())
                 .members(teamUsers.stream()
                         // 팀장을 먼저 보여주고, 같은 역할이면 이름순으로 정렬한다. 오름/내림 차순하는 메서드
                         .sorted(Comparator

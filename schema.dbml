@@ -59,6 +59,8 @@ Table teams {
   team_name varchar [not null]
   grade varchar [not null]          // GRADE_2 | GRADE_3
   status varchar [not null]         // PENDING | APPROVED
+  strengths text
+  weaknesses text
   created_at timestamp
   updated_at timestamp
 }
@@ -93,6 +95,8 @@ Table team_recommendations {
   id bigint [pk, increment]
   grade varchar [not null]          // GRADE_2 | GRADE_3
   status varchar [not null]         // PENDING | ACCEPTED
+  strengths text
+  weaknesses text
   created_at timestamp
   updated_at timestamp
 }

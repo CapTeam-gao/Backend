@@ -189,6 +189,8 @@ public class AdminTeamRecommendationService {
                 .teamName(teamName)
                 .grade(recommendation.getGrade())
                 .status(TeamStatus.APPROVED)
+                .strengths(recommendation.getStrengths())
+                .weaknesses(recommendation.getWeaknesses())
                 .build();
         teamRepository.save(team);
 
