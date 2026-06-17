@@ -18,7 +18,7 @@ public class AiStudentAnalysisResponseDto {
     private String name;
 
     @JsonProperty("analysis_result")
-    @JsonAlias({"analysisResult", "analysis", "result", "strength"})
+    @JsonAlias({"analysisResult", "analysis", "result", "strength", "reason"})
     private String analysisResult;
 
     @JsonProperty("student_level")
