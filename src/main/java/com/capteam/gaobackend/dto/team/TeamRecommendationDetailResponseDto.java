@@ -28,6 +28,12 @@ public class TeamRecommendationDetailResponseDto {
     // 추천안 승인 상태를 내려주는 필드입니다.
     private RecommendationStatus status;
 
+    // AI가 생성한 팀 강점 설명을 내려주는 필드입니다.
+    private String strengths;
+
+    // AI가 생성한 팀 보완점 설명을 내려주는 필드입니다.
+    private String weaknesses;
+
     // 추천된 팀원 목록을 내려주는 필드입니다.
     private List<MemberDto> members;
 
@@ -100,6 +106,8 @@ public class TeamRecommendationDetailResponseDto {
                 .id(recommendation.getId())
                 .grade(recommendation.getGrade())
                 .status(recommendation.getStatus())
+                .strengths(recommendation.getStrengths())
+                .weaknesses(recommendation.getWeaknesses())
                 .members(members.stream()
                         .map(m -> MemberDto.from(m, levelMap.get(m.getUser().getUserId())))
                         .collect(Collectors.toList()))
