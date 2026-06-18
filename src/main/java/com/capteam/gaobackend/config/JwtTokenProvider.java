@@ -159,6 +159,14 @@ public class JwtTokenProvider {
         refreshTokenRepository.deleteById(userId);
     }
 
+    public void invalidateRefreshTokenValue(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+
+        refreshTokenRepository.deleteByToken(refreshToken);
+    }
+
 
 
 }

@@ -77,6 +77,16 @@ public class AuthController {
         return withRefreshTokenCookie(authResponse);
     }
 
+    // HttpOnly Cookie의 refresh token을 삭제하고 DB에 저장된 refresh token도 무효화하는 기능입니다.
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken) {
+        authService.logout(refreshToken);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteRefreshTokenCookie().toString())
+                .body(new ApiResponse<>(true, "success", null));
+    }
+
     private ResponseEntity<AuthResponse> withRefreshTokenCookie(AuthResponse authResponse) {
         ResponseCookie refreshTokenCookie = ResponseCookie.from(
                         REFRESH_TOKEN_COOKIE,
@@ -92,5 +102,15 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
                 .body(authResponse);
+    }
+
+    private ResponseCookie deleteRefreshTokenCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .sameSite(refreshCookieSameSite)
+                .path("/api/auth")
+                .maxAge(0)
+                .build();
     }
 }
