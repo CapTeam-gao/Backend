@@ -79,7 +79,12 @@ public class AdminStudentService {
     public AdminStudentDetailResponseDto getStudentDetail(String userId) {
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(UserNotFoundException::new);
-        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+        List<TeamUser> teamUsers = teamUserRepository.findAllByUserUserId(userId);
+        if (teamUsers.size() > 1) {
+            throw new IllegalStateException("학생이 여러 팀에 중복 배정되어 있습니다: " + userId);
+        }
+        TeamUser teamUser = teamUsers.stream()
+                .findFirst()
                 .orElse(null);
 
         UserAnalysis userAnalysis = userAnalysisRepository.findById(userId)

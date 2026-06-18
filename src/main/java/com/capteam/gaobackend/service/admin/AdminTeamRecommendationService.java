@@ -260,6 +260,17 @@ public class AdminTeamRecommendationService {
                     .collect(Collectors.joining(", "));
             throw new IllegalStateException("설문 미완료 학생이 있어 팀을 생성할 수 없습니다: " + names);
         }
+
+        List<User> alreadyAssignedStudents = recommendedMembers.stream()
+                .map(TeamRecommendationMember::getUser)
+                .filter(user -> teamUserRepository.existsByUserUserId(user.getUserId()))
+                .toList();
+        if (!alreadyAssignedStudents.isEmpty()) {
+            String names = alreadyAssignedStudents.stream()
+                    .map(user -> user.getName() + "(" + user.getUserId() + ")")
+                    .collect(Collectors.joining(", "));
+            throw new IllegalStateException("이미 팀에 배정된 학생이 있어 팀을 생성할 수 없습니다: " + names);
+        }
     }
 
     // ──────────────────────────────────────────
