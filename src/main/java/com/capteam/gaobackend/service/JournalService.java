@@ -3,11 +3,13 @@ package com.capteam.gaobackend.service;
 import com.capteam.gaobackend.dto.journal.JournalDetailResponseDto;
 import com.capteam.gaobackend.dto.journal.JournalCreateRequestDto;
 import com.capteam.gaobackend.dto.journal.JournalResponseDto;
+import com.capteam.gaobackend.dto.journal.JournalTodayResponseDto;
 import com.capteam.gaobackend.dto.journal.JournalUpdateRequestDto;
 import com.capteam.gaobackend.entity.Journal;
 import com.capteam.gaobackend.entity.JournalEntry;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.enums.JournalStatus;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.JournalEntryRepository;
 import com.capteam.gaobackend.repository.JournalRepository;
@@ -85,6 +87,29 @@ public class JournalService {
                 .toList();
     }
 
+    // 오늘 날짜의 내 팀 일지와 현재 로그인한 사용자의 제출 상태를 조회하는 기능입니다.
+    public JournalTodayResponseDto getTodayJournal() {
+        User user = getAuthenticatedUser();
+        TeamUser myTeamUser = getMyTeamUser(user);
+        LocalDate today = LocalDate.now(SEOUL_ZONE);
+
+        return journalRepository.findByTeamIdAndDate(myTeamUser.getTeam().getId(), today)
+                .map(journal -> {
+                    List<JournalEntry> entries = journalEntryRepository.findByJournalId(journal.getId());
+                    JournalEntry myEntry = entries.stream()
+                            .filter(entry -> entry.getWriter().getUserId().equals(user.getUserId()))
+                            .findFirst()
+                            .orElse(null);
+                    return JournalTodayResponseDto.from(
+                            journal,
+                            myEntry,
+                            entries,
+                            isAllMembersSubmitted(journal)
+                    );
+                })
+                .orElseGet(() -> JournalTodayResponseDto.empty(myTeamUser.getTeam(), today));
+    }
+
     // 내가 제출한 특정 일지 내용을 수정하는 기능입니다.
     @Transactional
     public JournalDetailResponseDto updateMyJournalEntry(Long journalId, JournalUpdateRequestDto dto) {
@@ -94,6 +119,9 @@ public class JournalService {
 
         if (!journal.getTeam().getId().equals(myTeamUser.getTeam().getId())) {
             throw new RuntimeException("다른 팀의 일지는 수정할 수 없습니다.");
+        }
+        if (journal.getStatus() == JournalStatus.COMPLETED) {
+            throw new IllegalArgumentException("완료된 일지는 수정할 수 없습니다.");
         }
 
         JournalEntry entry = journalEntryRepository.findByJournalIdAndWriterUserId(journalId, user.getUserId())
@@ -169,11 +197,16 @@ public class JournalService {
 
     // 팀원 전원이 일지를 제출했으면 일지 상태를 완료로 변경하는 기능입니다.
     private void completeIfAllMembersSubmitted(Journal journal) {
+        if (isAllMembersSubmitted(journal)) {
+            journal.complete();
+        }
+    }
+
+    // 팀원 전원이 해당 일지를 제출했는지 확인하는 기능입니다.
+    private boolean isAllMembersSubmitted(Journal journal) {
         long memberCount = teamUserRepository.findByTeamId(journal.getTeam().getId()).size();
         long submittedCount = journalEntryRepository.countByJournalId(journal.getId());
 
-        if (memberCount > 0 && submittedCount >= memberCount) {
-            journal.complete();
-        }
+        return memberCount > 0 && submittedCount >= memberCount;
     }
 }
