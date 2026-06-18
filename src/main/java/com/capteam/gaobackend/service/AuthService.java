@@ -122,4 +122,10 @@ public class AuthService {
                 .surveyCompleted(user.isSurveyCompleted())
                 .build();
     }
+
+    // HttpOnly Cookie에 있던 refresh token을 DB에서 삭제하는 기능입니다.
+    @Transactional
+    public void logout(String refreshToken) {
+        jwtTokenProvider.invalidateRefreshTokenValue(refreshToken);
+    }
 }

@@ -38,7 +38,8 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/me",
                                 "/api/auth/refresh",
-                                "/api/auth/reissue"
+                                "/api/auth/reissue",
+                                "/api/auth/logout"
                         ).permitAll()
                         // 실제 인증은 STOMP CONNECT 프레임에서 JwtChannelInterceptor가 Authorization 헤더를 검사합니다.
                         .requestMatchers("/ws", "/ws/**").permitAll()

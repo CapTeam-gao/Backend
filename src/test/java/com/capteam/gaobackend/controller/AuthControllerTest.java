@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +31,7 @@ class AuthControllerTest {
         authController = new AuthController(authService, jwtTokenProvider);
         ReflectionTestUtils.setField(authController, "refreshCookieSecure", false);
         ReflectionTestUtils.setField(authController, "refreshCookieSameSite", "Lax");
-        when(jwtTokenProvider.getRefreshTokenExpirationSeconds()).thenReturn(604800L);
+        lenient().when(jwtTokenProvider.getRefreshTokenExpirationSeconds()).thenReturn(604800L);
     }
 
     @Test
@@ -61,6 +62,19 @@ class AuthControllerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE))
                 .contains("refreshToken=refresh-token")
                 .contains("HttpOnly");
+    }
+
+    @Test
+    void logoutDeletesRefreshTokenCookieAndStoredToken() {
+        ResponseEntity<?> response = authController.logout("refresh-token");
+
+        verify(authService).logout("refresh-token");
+        assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE))
+                .contains("refreshToken=")
+                .contains("Max-Age=0")
+                .contains("HttpOnly")
+                .contains("Path=/api/auth")
+                .contains("SameSite=Lax");
     }
 
     private AuthResponse authResponse() {
