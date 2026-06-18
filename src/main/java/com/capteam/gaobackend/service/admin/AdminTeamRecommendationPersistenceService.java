@@ -136,10 +136,21 @@ public class AdminTeamRecommendationPersistenceService {
     }
 
     private StudentRole parseRoleGroup(String roleGroup, String role) {
-        String normalizedRoleGroup = roleGroup == null ? "" : roleGroup.toLowerCase(Locale.ROOT);
+        String normalizedRoleGroup = normalizeRoleText(roleGroup);
+        StudentRole specializedRoleGroup = parseSpecializedRole(normalizedRoleGroup);
+        if (specializedRoleGroup != null) {
+            return specializedRoleGroup;
+        }
+
+        String normalizedRole = normalizeRoleText(role);
+        StudentRole specializedRole = parseSpecializedRole(normalizedRole);
+        if (specializedRole != null) {
+            return specializedRole;
+        }
+
         StudentRole parsed = switch (normalizedRoleGroup) {
-            case "frontend" -> StudentRole.FRONTEND;
-            case "ai_data" -> StudentRole.AI;
+            case "frontend", "front" -> StudentRole.FRONTEND;
+            case "ai_data", "ai", "data" -> StudentRole.AI;
             case "app" -> StudentRole.APP;
             case "game" -> StudentRole.GAME;
             case "backend" -> StudentRole.BACKEND;
@@ -149,7 +160,9 @@ public class AdminTeamRecommendationPersistenceService {
             return parsed;
         }
 
-        String normalizedRole = role == null ? "" : role.toLowerCase(Locale.ROOT);
+        if (containsAny(normalizedRole, "game", "게임")) {
+            return StudentRole.GAME;
+        }
         if (containsAny(normalizedRole, "frontend", "front", "프론트", "react", "vue")) {
             return StudentRole.FRONTEND;
         }
@@ -163,6 +176,31 @@ public class AdminTeamRecommendationPersistenceService {
             return StudentRole.DESIGN;
         }
         return StudentRole.BACKEND;
+    }
+
+    private StudentRole parseSpecializedRole(String normalizedRole) {
+        if (containsAny(normalizedRole, "fullstack", "full_stack", "풀스택")) {
+            return StudentRole.FULLSTACK;
+        }
+        if (containsAny(normalizedRole, "devops", "dev_ops", "인프라")) {
+            return StudentRole.DEVOPS;
+        }
+        if (containsAny(normalizedRole, "security", "보안", "시큐리티")) {
+            return StudentRole.SECURITY;
+        }
+
+        return null;
+    }
+
+    private String normalizeRoleText(String role) {
+        if (role == null) {
+            return "";
+        }
+
+        return role.trim()
+                .toLowerCase(Locale.ROOT)
+                .replace('-', '_')
+                .replace(' ', '_');
     }
 
     private boolean containsAny(String text, String... keywords) {
