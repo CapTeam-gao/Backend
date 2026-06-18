@@ -31,6 +31,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
 
     // 로그인 요청을 처리하고 최초 로그인 비밀번호 암호화 후 JWT를 발급하는 기능입니다.
+    @Transactional
     public AuthResponse doLogin(LoginRequestDto dto) {
         User user = userRepository.findByUserId(dto.getUserId()).orElseThrow(UserNotFoundException::new);
 
@@ -81,7 +82,7 @@ public class AuthService {
     }
 
 
-    @Transactional(readOnly = true)
+    @Transactional
     // refresh token을 검증하고 새 access/refresh token을 재발급하는 기능입니다.
     public AuthResponse refreshToken(RefreshRequest dto) {
         if (dto == null) {
@@ -91,7 +92,7 @@ public class AuthService {
     }
 
     // HttpOnly Cookie에서 전달된 refresh token을 검증하고 토큰을 재발급하는 기능입니다.
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse refreshToken(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new BadCredentialsException("리프레시 토큰이 필요합니다.");

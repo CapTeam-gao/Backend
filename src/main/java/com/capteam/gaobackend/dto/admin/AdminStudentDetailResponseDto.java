@@ -3,6 +3,7 @@ package com.capteam.gaobackend.dto.admin;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.LeaderRole;
+import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.StudentRole;
 import lombok.Builder;
@@ -49,6 +50,12 @@ public class AdminStudentDetailResponseDto {
 
     // AI가 생성한 학생 분석 설명을 내려주는 필드입니다.
     private String analysisResult;
+
+    // 설문 응답 일관성 기반 신뢰도를 내려주는 필드입니다.
+    private ResponseReliability responseReliability;
+
+    // 설문 전체 불일치 응답 수를 내려주는 필드입니다.
+    private Integer inconsistentAnswers;
 
     private Double leadership;
 
@@ -103,6 +110,8 @@ public class AdminStudentDetailResponseDto {
                 .preferredTeammates(user.getPreferredTeammates())
                 .wantsLeader(user.isWantsLeader())
                 .analysisResult(resolveAnalysisResult(userAnalysis))
+                .responseReliability(userAnalysis == null ? null : userAnalysis.getResponseReliability())
+                .inconsistentAnswers(userAnalysis == null ? null : userAnalysis.getInconsistentAnswers())
                 .leadership(userDevelopmentScore.getLeadership())
                 .problemSolving(userDevelopmentScore.getProblemSolving())
                 .implementation(userDevelopmentScore.getImplementation())

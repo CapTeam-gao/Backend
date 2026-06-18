@@ -97,6 +97,7 @@ public class UserService {
                 developmentScores
         );
 
+        userSurveyAnalysisService.saveSurveyReliability(user, dto);
         userSurveyAnalysisService.analyzeSubmittedSurvey(user);
 
         return UserSurveyResponseDto.from(user);

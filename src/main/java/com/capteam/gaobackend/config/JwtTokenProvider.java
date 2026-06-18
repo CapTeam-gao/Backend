@@ -1,11 +1,14 @@
 package com.capteam.gaobackend.config;
 
 
+import com.capteam.gaobackend.entity.RefreshToken;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.repository.RefreshTokenRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,15 +18,18 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
+    private final RefreshTokenRepository refreshTokenRepository;
+
     @Value("${jwt.secret}")
     private String secretKey;   // 시크릿키 가져오기
 
@@ -32,8 +38,6 @@ public class JwtTokenProvider {
 
     @Value("${jwt.refresh-token.expiration}")
     private long refreshTokenExpiration;    //리프레시 토큰 기간 가져오기   엑세스 끝나면 사용
-
-    private final Map<String, String> refreshTokenStore = new ConcurrentHashMap<>();
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));  //서명키 생성
@@ -46,7 +50,11 @@ public class JwtTokenProvider {
 
     public String createRefreshToken(User user) {  // 리프레시 토큰 생성
         var token = createToken(user,refreshTokenExpiration);
-        refreshTokenStore.put(user.getUserId().toString(),token);   //토큰에다 유저 아이디 넣기
+        refreshTokenRepository.save(RefreshToken.builder()
+                .userId(user.getUserId())
+                .token(token)
+                .expiresAt(Instant.now().plusMillis(refreshTokenExpiration))
+                .build());
         return token;
     }
 
@@ -120,9 +128,15 @@ public class JwtTokenProvider {
 
     // 유저아이디(식별자)로 토큰을 꺼내와서 검증하는 메서드
     public boolean validateRefreshToken(String userId, String refreshToken) {
-        var stored = refreshTokenStore.get(userId);     //토큰 꺼내오기
-        return stored != null && stored.equals(refreshToken) && validateToken(refreshToken);
-        //null 확인, 유저 아이디로 가져온 토큰과 서버에 있는 리프레시 토큰이 같은지 보기, 토큰이 만료된 토큰인지
+        return refreshTokenRepository.findById(userId)
+                .map(stored -> {
+                    if (stored.getExpiresAt().isBefore(Instant.now())) {
+                        refreshTokenRepository.deleteById(userId);
+                        return false;
+                    }
+                    return stored.getToken().equals(refreshToken) && validateToken(refreshToken);
+                })
+                .orElse(false);
     }
 
     public String extractRole(String token) {
@@ -142,7 +156,7 @@ public class JwtTokenProvider {
     }
 
     public void invalidateRefreshToken(String userId) {
-        refreshTokenStore.remove(userId);
+        refreshTokenRepository.deleteById(userId);
     }
 
 
