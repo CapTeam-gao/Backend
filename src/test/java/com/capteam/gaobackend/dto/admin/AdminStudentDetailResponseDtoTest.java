@@ -5,6 +5,7 @@ import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.entity.UserDevelopmentScore;
 import com.capteam.gaobackend.entity.UserPersonalityScore;
 import com.capteam.gaobackend.enums.AccountRole;
+import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
 import org.junit.jupiter.api.Test;
 
@@ -23,6 +24,8 @@ class AdminStudentDetailResponseDtoTest {
                 .user(user)
                 .analysisResult("중")
                 .studentLevel(StudentLevel.MIDDLE)
+                .responseReliability(ResponseReliability.MEDIUM)
+                .inconsistentAnswers(2)
                 .build();
 
         AdminStudentDetailResponseDto response = AdminStudentDetailResponseDto.from(
@@ -35,5 +38,7 @@ class AdminStudentDetailResponseDtoTest {
 
         assertThat(response.getAnalysisResult()).isNull();
         assertThat(response.getStudentLevel()).isEqualTo(StudentLevel.MIDDLE);
+        assertThat(response.getResponseReliability()).isEqualTo(ResponseReliability.MEDIUM);
+        assertThat(response.getInconsistentAnswers()).isEqualTo(2);
     }
 }

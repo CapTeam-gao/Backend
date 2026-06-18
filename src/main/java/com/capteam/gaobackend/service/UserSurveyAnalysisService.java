@@ -3,8 +3,10 @@ package com.capteam.gaobackend.service;
 import com.capteam.gaobackend.ai.AiClient;
 import com.capteam.gaobackend.dto.ai.AiStudentAnalysisResponseDto;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
+import com.capteam.gaobackend.dto.user.request.UserSurveyRequestDto;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
+import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.UserAnalysisRepository;
@@ -22,6 +24,31 @@ public class UserSurveyAnalysisService {
 
     private final AiClient aiClient;
     private final UserAnalysisRepository userAnalysisRepository;
+
+    public void saveSurveyReliability(User user, UserSurveyRequestDto dto) {
+        ResponseReliability responseReliability = dto.getResponseReliability();
+        Integer inconsistentAnswers = validateNonNegative(dto.getInconsistentAnswers(), "전체 불일치 응답 수");
+        Integer personalityInconsistentCount =
+                validateNonNegative(dto.getPersonalityInconsistentCount(), "성격 성향 불일치 응답 수");
+        Integer developmentInconsistentCount =
+                validateNonNegative(dto.getDevelopmentInconsistentCount(), "개발 성향 불일치 응답 수");
+
+        userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
+                analysis -> analysis.updateSurveyReliability(
+                        responseReliability,
+                        inconsistentAnswers,
+                        personalityInconsistentCount,
+                        developmentInconsistentCount
+                ),
+                () -> userAnalysisRepository.save(UserAnalysis.builder()
+                        .user(user)
+                        .responseReliability(responseReliability)
+                        .inconsistentAnswers(inconsistentAnswers)
+                        .personalityInconsistentCount(personalityInconsistentCount)
+                        .developmentInconsistentCount(developmentInconsistentCount)
+                        .build())
+        );
+    }
 
     public void analyzeSubmittedSurvey(User user) {
         try {
@@ -76,5 +103,13 @@ public class UserSurveyAnalysisService {
             case "LOWER", "LOW", "하" -> StudentLevel.LOWER;
             default -> null;
         };
+    }
+
+    private Integer validateNonNegative(Integer value, String label) {
+        if (value != null && value < 0) {
+            throw new IllegalArgumentException(label + "는 0 이상이어야 합니다.");
+        }
+
+        return value;
     }
 }

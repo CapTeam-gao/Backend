@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.StudentLevel;
+import com.capteam.gaobackend.enums.ResponseReliability;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.domain.Persistable;
@@ -30,13 +31,34 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
     // AI가 분석한 학생 실력 등급을 저장하는 필드입니다.
     private StudentLevel studentLevel; // AI가 분석한 학생 실력 (상/중/하), 어드민만 조회 가능
 
+    @Enumerated(EnumType.STRING)
+    // 설문 응답 일관성 기반 신뢰도를 저장하는 필드입니다.
+    private ResponseReliability responseReliability;
+
+    // 설문 전체 불일치 응답 수를 저장하는 필드입니다.
+    private Integer inconsistentAnswers;
+
+    // 성격 성향 문항 불일치 수를 저장하는 필드입니다.
+    private Integer personalityInconsistentCount;
+
+    // 개발 성향 문항 불일치 수를 저장하는 필드입니다.
+    private Integer developmentInconsistentCount;
+
     @Transient
     // 직접 할당하는 userId 기본키 엔티티를 새 엔티티로 persist할지 판단하는 필드입니다.
     private boolean isNew = true;
 
     // 분석 대상 사용자와 분석 결과를 받아 UserAnalysis 엔티티를 생성하는 기능입니다.
     @Builder
-    public UserAnalysis(User user, String analysisResult, StudentLevel studentLevel) {
+    public UserAnalysis(
+            User user,
+            String analysisResult,
+            StudentLevel studentLevel,
+            ResponseReliability responseReliability,
+            Integer inconsistentAnswers,
+            Integer personalityInconsistentCount,
+            Integer developmentInconsistentCount
+    ) {
         if (user == null || user.getUserId() == null) {
             throw new IllegalArgumentException("분석 대상 사용자가 필요합니다.");
         }
@@ -44,12 +66,29 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
         this.user = user;
         this.analysisResult = analysisResult;
         this.studentLevel = studentLevel;
+        this.responseReliability = responseReliability;
+        this.inconsistentAnswers = inconsistentAnswers;
+        this.personalityInconsistentCount = personalityInconsistentCount;
+        this.developmentInconsistentCount = developmentInconsistentCount;
     }
 
     // 기존 분석 결과와 실력 등급을 최신 값으로 갱신하는 기능입니다.
     public void updateAnalysisResult(String analysisResult, StudentLevel studentLevel) {
         this.analysisResult = analysisResult;
         this.studentLevel = studentLevel;
+    }
+
+    // 설문 응답 신뢰도와 불일치 수를 최신 값으로 갱신하는 기능입니다.
+    public void updateSurveyReliability(
+            ResponseReliability responseReliability,
+            Integer inconsistentAnswers,
+            Integer personalityInconsistentCount,
+            Integer developmentInconsistentCount
+    ) {
+        this.responseReliability = responseReliability;
+        this.inconsistentAnswers = inconsistentAnswers;
+        this.personalityInconsistentCount = personalityInconsistentCount;
+        this.developmentInconsistentCount = developmentInconsistentCount;
     }
 
     // Spring Data JPA가 UserAnalysis의 기본키 값을 읽는 기능입니다.

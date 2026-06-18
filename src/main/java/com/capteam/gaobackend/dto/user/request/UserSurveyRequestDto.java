@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.dto.user.request;
 
+import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentRole;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,6 +55,18 @@ public class UserSurveyRequestDto {
 
     // 개발 성향 10개 문항 원점수를 받는 필드입니다. 2문항씩 묶어 5개 항목 평균으로 계산합니다.
     private List<Integer> developmentScoreAnswers;
+
+    // 설문 응답 일관성 기반 신뢰도를 받는 필드입니다.
+    private ResponseReliability responseReliability;
+
+    // 설문 전체 불일치 응답 수를 받는 필드입니다.
+    private Integer inconsistentAnswers;
+
+    // 성격 성향 문항 불일치 수를 받는 필드입니다.
+    private Integer personalityInconsistentCount;
+
+    // 개발 성향 문항 불일치 수를 받는 필드입니다.
+    private Integer developmentInconsistentCount;
 
 
     @Getter
