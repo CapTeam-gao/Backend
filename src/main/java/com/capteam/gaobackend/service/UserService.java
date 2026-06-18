@@ -150,10 +150,13 @@ public class UserService {
         return switch (normalized) {
             case "프론트엔드", "frontend", "front", "react" -> StudentRole.FRONTEND;
             case "백엔드", "backend", "back", "spring" -> StudentRole.BACKEND;
+            case "풀스택", "fullstack", "full-stack", "full stack" -> StudentRole.FULLSTACK;
+            case "devops", "dev-ops", "dev ops", "인프라" -> StudentRole.DEVOPS;
+            case "security", "보안", "시큐리티" -> StudentRole.SECURITY;
             case "ai", "인공지능", "데이터", "ai/data" -> StudentRole.AI;
             case "디자인", "design", "ui/ux", "uiux" -> StudentRole.DESIGN;
-            case "앱", "app", "android", "ios", "게임개발", "game" -> StudentRole.APP;
-            case "풀스택", "fullstack", "full-stack", "devops" -> StudentRole.BACKEND;
+            case "게임개발", "game", "game client", "game server" -> StudentRole.GAME;
+            case "앱", "app", "android", "ios" -> StudentRole.APP;
             default -> {
                 try {
                     yield StudentRole.valueOf(role.trim().toUpperCase(Locale.ROOT));

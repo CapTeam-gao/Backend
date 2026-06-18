@@ -2,11 +2,13 @@ package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.entity.TeamRecommendation;
+import com.capteam.gaobackend.entity.TeamRecommendationMember;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.StudentLevel;
+import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.repository.TeamRecommendationMemberRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationReasonRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationRepository;
@@ -92,5 +94,71 @@ class AdminTeamRecommendationPersistenceServiceTest {
         assertThat(analysisCaptor.getValue().getAnalysisResult())
                 .isEqualTo("백엔드 구현 경험이 풍부하고 협업이 안정적입니다.");
         assertThat(analysisCaptor.getValue().getStudentLevel()).isEqualTo(StudentLevel.MIDDLE);
+    }
+
+    @Test
+    void storesSpecializedAiRolesWithoutBackendFallback() {
+        User fullstackUser = user("stu2301", "김풀스택");
+        User devopsUser = user("stu2302", "박데브옵스");
+        User securityUser = user("stu2303", "이보안");
+        User gameUser = user("stu2304", "최게임");
+
+        AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
+        team.setMembers(List.of(
+                member("김풀스택", "fullstack", "백엔드와 프론트엔드를 함께 구현"),
+                member("박데브옵스", "backend", "devops 배포 자동화 담당"),
+                member("이보안", null, "security 취약점 점검 담당"),
+                member("최게임", "game", "게임 클라이언트 구현")
+        ));
+        team.setLeader("김풀스택");
+
+        when(userRepository.findAllById(any()))
+                .thenReturn(List.of(fullstackUser, devopsUser, securityUser, gameUser));
+        when(recommendationRepository.findByGradeAndStatus(any(), any())).thenReturn(List.of());
+        when(recommendationRepository.save(any(TeamRecommendation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userAnalysisRepository.findById(any())).thenReturn(Optional.empty());
+
+        persistenceService.replacePendingRecommendations(
+                Grade.GRADE_2,
+                Map.of(
+                        "김풀스택", "stu2301",
+                        "박데브옵스", "stu2302",
+                        "이보안", "stu2303",
+                        "최게임", "stu2304"
+                ),
+                List.of(team)
+        );
+
+        ArgumentCaptor<TeamRecommendationMember> memberCaptor =
+                ArgumentCaptor.forClass(TeamRecommendationMember.class);
+        verify(recommendationMemberRepository, org.mockito.Mockito.times(4)).save(memberCaptor.capture());
+
+        assertThat(memberCaptor.getAllValues())
+                .extracting(TeamRecommendationMember::getStudentRole)
+                .containsExactly(
+                        StudentRole.FULLSTACK,
+                        StudentRole.DEVOPS,
+                        StudentRole.SECURITY,
+                        StudentRole.GAME
+                );
+    }
+
+    private User user(String userId, String name) {
+        return User.builder()
+                .userId(userId)
+                .name(name)
+                .accountRole(AccountRole.STUDENT)
+                .build();
+    }
+
+    private AiTeamSummaryResponseDto.MemberDto member(String name, String roleGroup, String role) {
+        AiTeamSummaryResponseDto.MemberDto member = new AiTeamSummaryResponseDto.MemberDto();
+        member.setName(name);
+        member.setRoleGroup(roleGroup);
+        member.setRole(role);
+        member.setSkillLevel("중");
+        member.setStrength(name + " 강점");
+        return member;
     }
 }

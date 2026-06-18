@@ -7,6 +7,7 @@ import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamRecommendation;
 import com.capteam.gaobackend.entity.TeamRecommendationMember;
+import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserDevelopmentScore;
 import com.capteam.gaobackend.entity.UserPersonalityScore;
@@ -114,7 +115,7 @@ class AdminTeamRecommendationServiceTest {
                 .accountRole(AccountRole.STUDENT)
                 .build();
         user.completeSurvey(
-                StudentRole.BACKEND,
+                StudentRole.DEVOPS,
                 List.of("Java"),
                 List.of("Spring 프로젝트"),
                 false,
@@ -125,7 +126,7 @@ class AdminTeamRecommendationServiceTest {
         TeamRecommendationMember member = TeamRecommendationMember.builder()
                 .recommendation(recommendation)
                 .user(user)
-                .studentRole(StudentRole.BACKEND)
+                .studentRole(StudentRole.DEVOPS)
                 .isRecommendedLeader(true)
                 .build();
 
@@ -143,5 +144,9 @@ class AdminTeamRecommendationServiceTest {
                 .isEqualTo("프론트엔드와 백엔드 역할이 균형 있게 구성되었습니다.");
         assertThat(teamCaptor.getValue().getWeaknesses())
                 .isEqualTo("AI 역할 인원이 적어 분석 로직이 특정 학생에게 집중될 수 있습니다.");
+
+        ArgumentCaptor<TeamUser> teamUserCaptor = ArgumentCaptor.forClass(TeamUser.class);
+        verify(teamUserRepository).save(teamUserCaptor.capture());
+        assertThat(teamUserCaptor.getValue().getStudentRole()).isEqualTo(StudentRole.DEVOPS);
     }
 }
