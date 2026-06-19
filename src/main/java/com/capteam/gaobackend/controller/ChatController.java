@@ -7,11 +7,13 @@ import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.ChatFileStorageService;
 import com.capteam.gaobackend.service.ChatPresenceService;
 import com.capteam.gaobackend.service.ChatService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -122,6 +124,26 @@ public class ChatController {
         // 기본 실시간 전송은 WebSocket /pub/chat/{channelId}/send 입니다.
         // 이 REST API는 HTTP 기반 fallback과 API 테스트 편의를 위해 같은 저장 로직을 재사용합니다.
         return ApiResponse.ok(chatService.saveMessage(channelId, authentication.getName(), request));
+    }
+
+    // 작성자가 본인이 보낸 채팅 메시지를 수정하는 기능입니다.
+    @PatchMapping("/messages/{messageId}")
+    public ResponseEntity<ApiResponse<ChatMessageResponseDto>> updateMessage(
+            @PathVariable Long messageId,
+            @RequestBody @Valid ChatMessageUpdateRequestDto request,
+            Authentication authentication
+    ) {
+        return ApiResponse.ok(chatService.updateMessage(messageId, authentication.getName(), request));
+    }
+
+    // 작성자가 본인이 보낸 채팅 메시지를 삭제하는 기능입니다.
+    @DeleteMapping("/messages/{messageId}")
+    public ResponseEntity<ApiResponse<String>> deleteMessage(
+            @PathVariable Long messageId,
+            Authentication authentication
+    ) {
+        chatService.deleteMessage(messageId, authentication.getName());
+        return ApiResponse.ok("메시지가 삭제되었습니다.");
     }
 
     // 특정 채널의 메시지를 현재 사용자 기준으로 읽음 처리하는 기능입니다.
