@@ -5,6 +5,7 @@ import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
@@ -216,6 +217,26 @@ public class ChatService {
         return ChatMessageResponseDto.from(chatMessageRepository.save(chatMessage));
     }
 
+    // 작성자가 본인이 보낸 텍스트 채팅 메시지를 수정하는 기능입니다.
+    @Transactional
+    public ChatMessageResponseDto updateMessage(Long messageId, String userId, ChatMessageUpdateRequestDto request) {
+        ChatMessage chatMessage = getEditableMessage(messageId, userId);
+        String messageText = normalize(request.getMessage());
+        if (messageText.isEmpty()) {
+            throw new IllegalArgumentException("수정할 메시지 내용이 필요합니다.");
+        }
+
+        chatMessage.updateMessage(messageText);
+        return ChatMessageResponseDto.from(chatMessage);
+    }
+
+    // 작성자가 본인이 보낸 채팅 메시지를 삭제하는 기능입니다.
+    @Transactional
+    public void deleteMessage(Long messageId, String userId) {
+        ChatMessage chatMessage = getEditableMessage(messageId, userId);
+        chatMessageRepository.delete(chatMessage);
+    }
+
     // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
     @Transactional
     public void markAsRead(Long channelId, String userId) {
@@ -273,6 +294,19 @@ public class ChatService {
                 .lastMessage(lastMessage)
                 .unreadCount(unreadCount)
                 .build();
+    }
+
+    // 메시지가 존재하고, 현재 사용자가 메시지 채널에 접근 가능하며 작성자인지 확인하는 기능입니다.
+    private ChatMessage getEditableMessage(Long messageId, String userId) {
+        ChatMessage chatMessage = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅 메시지입니다."));
+
+        chatAccessService.getAccessibleChannel(chatMessage.getChannel().getId(), userId);
+        if (!chatMessage.getSender().getUserId().equals(userId)) {
+            throw new IllegalArgumentException("본인이 보낸 메시지만 수정하거나 삭제할 수 있습니다.");
+        }
+
+        return chatMessage;
     }
 
     // null 문자열을 빈 문자열로 바꾸고 앞뒤 공백을 제거하는 기능입니다.

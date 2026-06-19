@@ -45,4 +45,9 @@ public class ChatMessage extends BaseTimeEntity {
         this.fileType = fileType;
         this.fileSize = fileSize;
     }
+
+    // 작성자가 보낸 텍스트 메시지 내용을 수정하는 기능입니다.
+    public void updateMessage(String message) {
+        this.message = message;
+    }
 }
