@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,61 +30,112 @@ public class ChatPresenceService {
     // presence 조회 시 채널 접근 권한을 확인하는 Service 필드입니다.
     private final ChatAccessService chatAccessService;
 
-    // userId -> 현재 접속 중인 WebSocket sessionId 목록입니다.
-    // 같은 사용자가 브라우저 탭을 여러 개 열 수 있으므로 session을 Set으로 관리합니다.
-    private final ConcurrentHashMap<String, Set<String>> userSessions = new ConcurrentHashMap<>();
+    // userId -> teamId -> 현재 채팅 채널을 구독 중인 subscription key 목록입니다.
+    // "online"은 WebSocket 연결 여부가 아니라 이 구조에 subscription이 남아 있는지로 판단합니다.
+    // 같은 사용자가 여러 탭이나 여러 채널을 열 수 있으므로 sessionId가 아니라 subscription 단위로 관리합니다.
+    private final ConcurrentHashMap<String, Map<Long, Set<String>>> userTeamSubscriptions = new ConcurrentHashMap<>();
 
     // sessionId -> userId 역방향 저장소입니다.
-    // DISCONNECT 이벤트에는 user 정보가 불안정할 수 있어서 sessionId로 사용자를 다시 찾습니다.
+    // DISCONNECT 이벤트에는 user 정보가 불안정할 수 있어서 sessionId 기준 정리에 사용합니다.
     private final ConcurrentHashMap<String, String> sessionUsers = new ConcurrentHashMap<>();
 
-    // WebSocket 연결 시 사용자 세션을 온라인 상태로 등록하는 기능입니다.
+    // subscription key -> 채팅방 presence 구독 정보입니다.
+    // subscription key는 sessionId:subscriptionId 조합이라 같은 세션에서 여러 채널을 구독해도 구분됩니다.
+    private final ConcurrentHashMap<String, ChatPresenceSubscription> chatSubscriptions = new ConcurrentHashMap<>();
+
+    // sessionId -> 해당 세션에서 활성화된 채팅 subscription key 목록입니다.
+    private final ConcurrentHashMap<String, Set<String>> sessionSubscriptions = new ConcurrentHashMap<>();
+
+    // WebSocket 연결 시 사용자와 sessionId를 연결하는 기능입니다.
     public void connect(String sessionId, String userId) {
-        Set<String> sessions = userSessions.computeIfAbsent(userId, key -> ConcurrentHashMap.newKeySet());
-        boolean wasOffline = sessions.isEmpty();
-
-        sessions.add(sessionId);
         sessionUsers.put(sessionId, userId);
+    }
 
-        // 첫 번째 탭/세션이 연결될 때만 online 이벤트를 보냅니다.
-        // 이미 온라인인 사용자가 탭을 하나 더 열 때마다 이벤트가 중복으로 나가지 않게 하기 위함입니다.
-        if (wasOffline) {
-            publishPresence(userId, true);
+    // 채팅 채널 구독 시 사용자를 해당 팀 채팅방 presence에 등록하는 기능입니다.
+    // 이 메서드가 호출되어야 presence API에서 online=true가 됩니다.
+    public void enterChat(String sessionId, String subscriptionId, String userId, Long channelId) {
+        ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        Long teamId = channel.getChatRoom().getTeam().getId();
+        String subscriptionKey = buildSubscriptionKey(sessionId, subscriptionId);
+
+        ChatPresenceSubscription previousSubscription = chatSubscriptions.put(
+                subscriptionKey,
+                new ChatPresenceSubscription(userId, teamId)
+        );
+        if (previousSubscription != null) {
+            // 같은 sessionId:subscriptionId가 재사용되면 이전 팀 presence를 먼저 정리합니다.
+            removeSubscription(subscriptionKey, previousSubscription);
+        }
+
+        Map<Long, Set<String>> teamSubscriptions = userTeamSubscriptions.computeIfAbsent(
+                userId,
+                key -> new ConcurrentHashMap<>()
+        );
+        Set<String> subscriptions = teamSubscriptions.computeIfAbsent(teamId, key -> ConcurrentHashMap.newKeySet());
+        boolean wasAbsent = subscriptions.isEmpty();
+        subscriptions.add(subscriptionKey);
+
+        sessionSubscriptions.computeIfAbsent(sessionId, key -> ConcurrentHashMap.newKeySet())
+                .add(subscriptionKey);
+
+        if (wasAbsent) {
+            // 이 팀에서 첫 채팅 구독이 생긴 순간에만 online 이벤트를 한 번 발행합니다.
+            publishPresence(userId, teamId, true);
         }
     }
 
-    // WebSocket 연결 종료 시 세션을 제거하고 마지막 세션이면 오프라인 처리하는 기능입니다.
+    // 채팅 채널 구독 해제 시 해당 subscription만 presence에서 제거하는 기능입니다.
+    // 같은 사용자가 다른 탭/채널을 아직 구독 중이면 offline으로 바꾸지 않습니다.
+    public void leaveChat(String sessionId, String subscriptionId) {
+        String subscriptionKey = buildSubscriptionKey(sessionId, subscriptionId);
+        ChatPresenceSubscription subscription = chatSubscriptions.remove(subscriptionKey);
+        if (subscription == null) {
+            return;
+        }
+
+        Set<String> sessionSubscriptionSet = sessionSubscriptions.get(sessionId);
+        if (sessionSubscriptionSet != null) {
+            sessionSubscriptionSet.remove(subscriptionKey);
+            if (sessionSubscriptionSet.isEmpty()) {
+                sessionSubscriptions.remove(sessionId);
+            }
+        }
+
+        removeSubscription(subscriptionKey, subscription);
+    }
+
+    // WebSocket 연결 종료 시 해당 세션의 채팅방 presence와 연결 정보를 정리하는 기능입니다.
+    // 프론트가 unsubscribe를 못 보내고 브라우저가 닫혀도 이 경로에서 해당 세션의 구독을 모두 제거합니다.
     public void disconnect(String sessionId) {
-        String userId = sessionUsers.remove(sessionId);
-        if (userId == null) {
+        sessionUsers.remove(sessionId);
+
+        Set<String> subscriptionKeys = sessionSubscriptions.remove(sessionId);
+        if (subscriptionKeys == null || subscriptionKeys.isEmpty()) {
             return;
         }
 
-        Set<String> sessions = userSessions.get(userId);
-        if (sessions == null) {
-            return;
-        }
-
-        sessions.remove(sessionId);
-
-        // 사용자의 마지막 WebSocket 세션이 끊겼을 때만 offline으로 봅니다.
-        if (sessions.isEmpty()) {
-            userSessions.remove(userId);
-            publishPresence(userId, false);
+        for (String subscriptionKey : subscriptionKeys) {
+            ChatPresenceSubscription subscription = chatSubscriptions.remove(subscriptionKey);
+            if (subscription != null) {
+                removeSubscription(subscriptionKey, subscription);
+            }
         }
     }
 
-    // 특정 사용자가 현재 온라인인지 확인하는 기능입니다.
+    // 특정 사용자가 현재 어느 팀 채팅방에 입장해 있는지 확인하는 기능입니다.
+    // WebSocket만 연결되어 있고 /sub/chat/{channelId} 구독이 없으면 false입니다.
     public boolean isOnline(String userId) {
-        Set<String> sessions = userSessions.get(userId);
-        return sessions != null && !sessions.isEmpty();
+        Map<Long, Set<String>> teamSubscriptions = userTeamSubscriptions.get(userId);
+        return teamSubscriptions != null && teamSubscriptions.values()
+                .stream()
+                .anyMatch(sessions -> !sessions.isEmpty());
     }
 
     // 특정 팀에 속한 온라인 팀원 수를 계산하는 기능입니다.
     public long countOnlineMembersByTeamId(Long teamId) {
         return teamUserRepository.findByTeamId(teamId)
                 .stream()
-                .filter(teamUser -> isOnline(teamUser.getUser().getUserId()))
+                .filter(teamUser -> isOnlineInTeam(teamUser.getUser().getUserId(), teamId))
                 .count();
     }
 
@@ -98,7 +150,7 @@ public class ChatPresenceService {
                 .stream()
                 .map(teamUser -> ChatMemberPresenceResponseDto.of(
                         teamUser,
-                        isOnline(teamUser.getUser().getUserId())
+                        isOnlineInTeam(teamUser.getUser().getUserId(), teamId)
                 ))
                 .toList();
 
@@ -109,12 +161,11 @@ public class ChatPresenceService {
     }
 
     // 사용자의 온라인/오프라인 변경 이벤트를 해당 팀 presence 구독 주소로 발행하는 기능입니다.
-    private void publishPresence(String userId, boolean online) {
-        // 현재 프로젝트에서는 학생은 하나의 팀에 속한다고 보고 팀 채팅 상태를 broadcast 합니다.
-        // 팀이 없는 관리자나 아직 팀 배정 전 학생은 presence 이벤트를 보낼 팀이 없으므로 무시합니다.
+    private void publishPresence(String userId, Long teamId, boolean online) {
         teamUserRepository.findByUserUserId(userId)
+                .filter(teamUser -> teamUser.getTeam().getId().equals(teamId))
                 .ifPresent(teamUser -> messagingTemplate.convertAndSend(
-                        "/sub/presence/teams/" + teamUser.getTeam().getId(),
+                        "/sub/presence/teams/" + teamId,
                         buildEvent(teamUser, online)
                 ));
     }
@@ -126,5 +177,45 @@ public class ChatPresenceService {
                 .name(teamUser.getUser().getName())
                 .online(online)
                 .build();
+    }
+
+    private void removeSubscription(String subscriptionKey, ChatPresenceSubscription subscription) {
+        Map<Long, Set<String>> teamSubscriptions = userTeamSubscriptions.get(subscription.userId());
+        if (teamSubscriptions == null) {
+            return;
+        }
+
+        Set<String> subscriptions = teamSubscriptions.get(subscription.teamId());
+        if (subscriptions == null) {
+            return;
+        }
+
+        subscriptions.remove(subscriptionKey);
+        if (subscriptions.isEmpty()) {
+            // 해당 팀에서 마지막 채팅 구독이 사라진 경우에만 offline 이벤트를 발행합니다.
+            teamSubscriptions.remove(subscription.teamId());
+            publishPresence(subscription.userId(), subscription.teamId(), false);
+        }
+
+        if (teamSubscriptions.isEmpty()) {
+            userTeamSubscriptions.remove(subscription.userId());
+        }
+    }
+
+    private boolean isOnlineInTeam(String userId, Long teamId) {
+        Map<Long, Set<String>> teamSubscriptions = userTeamSubscriptions.get(userId);
+        if (teamSubscriptions == null) {
+            return false;
+        }
+
+        Set<String> subscriptions = teamSubscriptions.get(teamId);
+        return subscriptions != null && !subscriptions.isEmpty();
+    }
+
+    private String buildSubscriptionKey(String sessionId, String subscriptionId) {
+        return sessionId + ":" + subscriptionId;
+    }
+
+    private record ChatPresenceSubscription(String userId, Long teamId) {
     }
 }
