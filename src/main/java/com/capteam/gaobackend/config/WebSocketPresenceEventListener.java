@@ -7,12 +7,20 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+import org.springframework.web.socket.messaging.SessionUnsubscribeEvent;
 
 import java.security.Principal;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @RequiredArgsConstructor
 public class WebSocketPresenceEventListener {
+
+    // 채팅방 presence는 실제 채팅 메시지를 받는 구독만 기준으로 잡습니다.
+    // /sub/presence/... 구독이나 단순 WebSocket CONNECT는 "채팅방 입장"으로 보지 않습니다.
+    private static final Pattern CHAT_SUBSCRIPTION_PATTERN = Pattern.compile("^/sub/chat/(\\d+)$");
 
     private final ChatPresenceService chatPresenceService;
 
@@ -26,13 +34,54 @@ public class WebSocketPresenceEventListener {
         }
 
         // CONNECT 인증이 성공하면 JwtChannelInterceptor가 Principal을 넣어둡니다.
-        // 이 시점부터 사용자를 online으로 표시할 수 있습니다.
+        // 여기서는 sessionId와 userId만 연결해둡니다. online 처리는 /sub/chat/{channelId} 구독 시점에 합니다.
         chatPresenceService.connect(accessor.getSessionId(), user.getName());
     }
 
     @EventListener
+    public void handleSubscribe(SessionSubscribeEvent event) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+        Principal user = accessor.getUser();
+        String sessionId = accessor.getSessionId();
+        String subscriptionId = accessor.getSubscriptionId();
+        Long channelId = parseChatChannelId(accessor.getDestination());
+
+        if (user == null || sessionId == null || subscriptionId == null || channelId == null) {
+            return;
+        }
+
+        // 사용자가 채팅 화면에서 실제 메시지 채널을 구독하면 채팅방에 들어온 것으로 봅니다.
+        // 프론트가 채팅방을 나갈 때 이 구독을 unsubscribe 해야 offline으로 바뀝니다.
+        chatPresenceService.enterChat(sessionId, subscriptionId, user.getName(), channelId);
+    }
+
+    @EventListener
+    public void handleUnsubscribe(SessionUnsubscribeEvent event) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(event.getMessage());
+        if (accessor.getSessionId() == null || accessor.getSubscriptionId() == null) {
+            return;
+        }
+
+        // 채팅 메시지 구독을 해제하면 해당 subscription만 presence에서 제거합니다.
+        chatPresenceService.leaveChat(accessor.getSessionId(), accessor.getSubscriptionId());
+    }
+
+    @EventListener
     public void handleDisconnect(SessionDisconnectEvent event) {
-        // DISCONNECT에서는 Principal이 없을 수도 있으므로 sessionId 기준으로 offline 처리를 합니다.
+        // DISCONNECT에서는 Principal이 없을 수도 있으므로 sessionId 기준으로 채팅방 presence와 연결 정보를 정리합니다.
         chatPresenceService.disconnect(event.getSessionId());
+    }
+
+    private Long parseChatChannelId(String destination) {
+        if (destination == null) {
+            return null;
+        }
+
+        Matcher matcher = CHAT_SUBSCRIPTION_PATTERN.matcher(destination);
+        if (!matcher.matches()) {
+            return null;
+        }
+
+        return Long.parseLong(matcher.group(1));
     }
 }
