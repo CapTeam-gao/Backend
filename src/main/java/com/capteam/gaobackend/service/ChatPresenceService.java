@@ -7,10 +7,12 @@ import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.repository.TeamUserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class ChatPresenceService {
 
     // 팀원 목록을 조회해 온라인 멤버 수와 presence 응답을 구성하는 Repository 필드입니다.
@@ -47,13 +50,30 @@ public class ChatPresenceService {
     private final ConcurrentHashMap<String, Set<String>> sessionSubscriptions = new ConcurrentHashMap<>();
 
     // WebSocket 연결 시 사용자와 sessionId를 연결하는 기능입니다.
-    public void connect(String sessionId, String userId) {
-        sessionUsers.put(sessionId, userId);
+    public synchronized void connect(String sessionId, String userId) {
+        String previousUserId = sessionUsers.put(sessionId, userId);
+        log.info(
+                "[PRESENCE CONNECT] sessionId={}, userId={}, previousUserId={}",
+                sessionId,
+                userId,
+                previousUserId
+        );
     }
 
     // 채팅 채널 구독 시 사용자를 해당 팀 채팅방 presence에 등록하는 기능입니다.
     // 이 메서드가 호출되어야 presence API에서 online=true가 됩니다.
-    public void enterChat(String sessionId, String subscriptionId, String userId, Long channelId) {
+    public synchronized void enterChat(String sessionId, String subscriptionId, String userId, Long channelId) {
+        String connectedUserId = sessionUsers.get(sessionId);
+        if (!userId.equals(connectedUserId)) {
+            log.warn(
+                    "[PRESENCE SUBSCRIBE REJECT] sessionId={}, userId={}, connectedUserId={}",
+                    sessionId,
+                    userId,
+                    connectedUserId
+            );
+            return;
+        }
+
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
         Long teamId = channel.getChatRoom().getTeam().getId();
         String subscriptionKey = buildSubscriptionKey(sessionId, subscriptionId);
@@ -86,10 +106,15 @@ public class ChatPresenceService {
 
     // 채팅 채널 구독 해제 시 해당 subscription만 presence에서 제거하는 기능입니다.
     // 같은 사용자가 다른 탭/채널을 아직 구독 중이면 offline으로 바꾸지 않습니다.
-    public void leaveChat(String sessionId, String subscriptionId) {
+    public synchronized void leaveChat(String sessionId, String subscriptionId) {
         String subscriptionKey = buildSubscriptionKey(sessionId, subscriptionId);
         ChatPresenceSubscription subscription = chatSubscriptions.remove(subscriptionKey);
         if (subscription == null) {
+            log.warn(
+                    "[PRESENCE UNSUBSCRIBE MISS] sessionId={}, subscriptionId={}",
+                    sessionId,
+                    subscriptionId
+            );
             return;
         }
 
@@ -106,20 +131,39 @@ public class ChatPresenceService {
 
     // WebSocket 연결 종료 시 해당 세션의 채팅방 presence와 연결 정보를 정리하는 기능입니다.
     // 프론트가 unsubscribe를 못 보내고 브라우저가 닫혀도 이 경로에서 해당 세션의 구독을 모두 제거합니다.
-    public void disconnect(String sessionId) {
-        sessionUsers.remove(sessionId);
+    public synchronized void disconnect(String sessionId) {
+        String userId = sessionUsers.remove(sessionId);
+        log.info("[PRESENCE DISCONNECT] sessionId={}, userId={}", sessionId, userId);
 
         Set<String> subscriptionKeys = sessionSubscriptions.remove(sessionId);
-        if (subscriptionKeys == null || subscriptionKeys.isEmpty()) {
+        Set<String> keysToRemove = subscriptionKeys == null
+                ? new HashSet<>()
+                : new HashSet<>(subscriptionKeys);
+
+        // sessionSubscriptions 인덱스가 예상치 못하게 누락되어도 실제 구독 저장소에 남은 값을 찾아 정리합니다.
+        // 이 방어 로직 덕분에 DISCONNECT 이후 presence가 계속 online으로 고정되는 상태를 막을 수 있습니다.
+        String subscriptionKeyPrefix = sessionId + ":";
+        chatSubscriptions.keySet().stream()
+                .filter(subscriptionKey -> subscriptionKey.startsWith(subscriptionKeyPrefix))
+                .forEach(keysToRemove::add);
+
+        if (keysToRemove.isEmpty()) {
+            log.info("[PRESENCE SESSIONS] userId={}, sessions=[]", userId);
             return;
         }
 
-        for (String subscriptionKey : subscriptionKeys) {
+        for (String subscriptionKey : keysToRemove) {
             ChatPresenceSubscription subscription = chatSubscriptions.remove(subscriptionKey);
             if (subscription != null) {
                 removeSubscription(subscriptionKey, subscription);
             }
         }
+
+        log.info(
+                "[PRESENCE SESSIONS] userId={}, sessions={}",
+                userId,
+                findSessionIdsByUserId(userId)
+        );
     }
 
     // 특정 사용자가 현재 어느 팀 채팅방에 입장해 있는지 확인하는 기능입니다.
@@ -214,6 +258,20 @@ public class ChatPresenceService {
 
     private String buildSubscriptionKey(String sessionId, String subscriptionId) {
         return sessionId + ":" + subscriptionId;
+    }
+
+    private Set<String> findSessionIdsByUserId(String userId) {
+        if (userId == null) {
+            return Set.of();
+        }
+
+        Set<String> sessionIds = new HashSet<>();
+        sessionUsers.forEach((sessionId, connectedUserId) -> {
+            if (userId.equals(connectedUserId)) {
+                sessionIds.add(sessionId);
+            }
+        });
+        return sessionIds;
     }
 
     private record ChatPresenceSubscription(String userId, Long teamId) {
