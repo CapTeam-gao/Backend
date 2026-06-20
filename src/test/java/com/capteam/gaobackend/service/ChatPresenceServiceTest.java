@@ -20,7 +20,9 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -103,6 +105,7 @@ class ChatPresenceServiceTest {
         when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser));
 
         // 채팅방 라우트에서 나가며 STOMP 구독을 해제하는 상황입니다.
+        chatPresenceService.connect("session-1", "stu2301");
         chatPresenceService.enterChat("session-1", "sub-1", "stu2301", 10L);
         chatPresenceService.leaveChat("session-1", "sub-1");
 
@@ -116,7 +119,28 @@ class ChatPresenceServiceTest {
 
         // 브라우저 새로고침/탭 종료처럼 unsubscribe 없이 연결이 끊기는 상황입니다.
         // DISCONNECT만 와도 해당 세션의 채팅 구독이 모두 제거되어야 합니다.
+        chatPresenceService.connect("session-1", "stu2301");
         chatPresenceService.enterChat("session-1", "sub-1", "stu2301", 10L);
+        chatPresenceService.disconnect("session-1");
+
+        assertThat(chatPresenceService.isOnline("stu2301")).isFalse();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void disconnectRemovesOrphanSubscriptionEvenWhenSessionIndexIsMissing() {
+        when(chatAccessService.getAccessibleChannel(10L, "stu2301")).thenReturn(channel);
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser));
+
+        chatPresenceService.connect("session-1", "stu2301");
+        chatPresenceService.enterChat("session-1", "sub-1", "stu2301", 10L);
+
+        // 세션별 구독 인덱스만 유실된 비정상 상태를 재현합니다.
+        Map<String, Set<String>> sessionSubscriptions =
+                (Map<String, Set<String>>) ReflectionTestUtils.getField(chatPresenceService, "sessionSubscriptions");
+        assertThat(sessionSubscriptions).isNotNull();
+        sessionSubscriptions.remove("session-1");
+
         chatPresenceService.disconnect("session-1");
 
         assertThat(chatPresenceService.isOnline("stu2301")).isFalse();
@@ -129,10 +153,22 @@ class ChatPresenceServiceTest {
         when(teamUserRepository.findByTeamId(1L)).thenReturn(List.of(teamUser));
 
         // presence API가 userSessions(WebSocket 연결)이 아니라 채팅 구독 상태를 기준으로 응답하는지 확인합니다.
+        chatPresenceService.connect("session-1", "stu2301");
         chatPresenceService.enterChat("session-1", "sub-1", "stu2301", 10L);
 
         assertThat(chatPresenceService.findChannelPresence(10L, "stu2301").getMembers())
                 .singleElement()
                 .satisfies(member -> assertThat(member.isOnline()).isTrue());
+    }
+
+    @Test
+    void rejectsSubscriptionArrivingAfterDisconnect() {
+        chatPresenceService.connect("session-1", "stu2301");
+        chatPresenceService.disconnect("session-1");
+
+        // 연결 종료보다 늦게 처리된 SUBSCRIBE 이벤트는 presence를 다시 살리면 안 됩니다.
+        chatPresenceService.enterChat("session-1", "sub-1", "stu2301", 10L);
+
+        assertThat(chatPresenceService.isOnline("stu2301")).isFalse();
     }
 }
