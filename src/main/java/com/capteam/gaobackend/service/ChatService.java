@@ -1,8 +1,10 @@
 package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.dto.chat.ChatChannelRequestDto;
+import com.capteam.gaobackend.dto.chat.ChatChannelEventDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatMessageEventDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
@@ -21,8 +23,11 @@ import com.capteam.gaobackend.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +36,9 @@ import java.util.List;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatService {
+
+    private static final String CHAT_CHANNEL_EVENTS_DESTINATION_FORMAT = "/sub/chat/rooms/%d/channels";
+    private static final String CHAT_MESSAGE_EVENTS_DESTINATION_FORMAT = "/sub/chat/%d/events";
 
     // 채팅 메시지 저장, 조회, unread 계산에 사용하는 Repository 필드입니다.
     private final ChatMessageRepository chatMessageRepository;
@@ -49,6 +57,9 @@ public class ChatService {
 
     // 관리자 채팅방 생성 시 대상 팀을 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
+
+    // 채팅 메시지/채널 변경 이벤트를 WebSocket 구독자에게 발행하는 필드입니다.
+    private final SimpMessagingTemplate messagingTemplate;
 
 
     // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
@@ -158,7 +169,9 @@ public class ChatService {
                 .createdBy(creator)
                 .build();
 
-        return ChatChannelResponseDto.from(chatChannelRepository.save(channel));
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(chatChannelRepository.save(channel));
+        publishChannelEventAfterCommit(room.getId(), ChatChannelEventDto.created(response));
+        return response;
     }
 
     // 팀원이 자기 팀 채널 이름을 수정하는 기능입니다.
@@ -172,19 +185,23 @@ public class ChatService {
         }
 
         channel.updateName(channelName);
-        return ChatChannelResponseDto.from(channel);
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(channel);
+        publishChannelEventAfterCommit(channel.getChatRoom().getId(), ChatChannelEventDto.updated(response));
+        return response;
     }
 
     // 팀원이 자기 팀 채널과 해당 채널 메시지/읽음 상태를 삭제하는 기능입니다.
     @Transactional
     public void deleteChannel(Long channelId, String userId) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        Long roomId = channel.getChatRoom().getId();
 
         // 현재는 채널 삭제 시 메시지도 같이 삭제합니다.
         // 추후 기여도 분석에 채팅 기록이 필요하면 soft delete 방식으로 바꾸는 게 좋습니다.
         chatReadStatusRepository.deleteByChannelId(channelId);
         chatMessageRepository.deleteByChannelId(channelId);
         chatChannelRepository.delete(channel);
+        publishChannelEventAfterCommit(roomId, ChatChannelEventDto.deleted(channelId));
     }
 
     // 채널 접근 권한을 검사한 뒤 텍스트 또는 파일 메시지를 DB에 저장하는 기능입니다.
@@ -227,14 +244,20 @@ public class ChatService {
         }
 
         chatMessage.updateMessage(messageText);
-        return ChatMessageResponseDto.from(chatMessage);
+        chatMessageRepository.flush();
+
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(chatMessage);
+        publishMessageEventAfterCommit(response.getChannelId(), ChatMessageEventDto.updated(response));
+        return response;
     }
 
     // 작성자가 본인이 보낸 채팅 메시지를 삭제하는 기능입니다.
     @Transactional
     public void deleteMessage(Long messageId, String userId) {
         ChatMessage chatMessage = getEditableMessage(messageId, userId);
+        Long channelId = chatMessage.getChannel().getId();
         chatMessageRepository.delete(chatMessage);
+        publishMessageEventAfterCommit(channelId, ChatMessageEventDto.deleted(messageId, channelId));
     }
 
     // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
@@ -318,5 +341,33 @@ public class ChatService {
     private String normalizeToNull(String value) {
         String normalized = normalize(value);
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void publishChannelEventAfterCommit(Long roomId, ChatChannelEventDto event) {
+        publishAfterCommit(() -> messagingTemplate.convertAndSend(
+                CHAT_CHANNEL_EVENTS_DESTINATION_FORMAT.formatted(roomId),
+                event
+        ));
+    }
+
+    private void publishMessageEventAfterCommit(Long channelId, ChatMessageEventDto event) {
+        publishAfterCommit(() -> messagingTemplate.convertAndSend(
+                CHAT_MESSAGE_EVENTS_DESTINATION_FORMAT.formatted(channelId),
+                event
+        ));
+    }
+
+    private void publishAfterCommit(Runnable publisher) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            publisher.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                publisher.run();
+            }
+        });
     }
 }

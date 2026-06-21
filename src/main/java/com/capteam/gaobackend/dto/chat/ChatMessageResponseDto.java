@@ -40,6 +40,9 @@ public class ChatMessageResponseDto {
     // 메시지 생성 시각을 내려주는 필드입니다.
     private LocalDateTime createdAt;
 
+    // 메시지 마지막 수정 시각을 내려주는 필드입니다.
+    private LocalDateTime updatedAt;
+
     // ChatMessage 엔티티를 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatMessageResponseDto from(ChatMessage chatMessage) {
         return ChatMessageResponseDto.builder()
@@ -53,6 +56,7 @@ public class ChatMessageResponseDto {
                 .fileType(chatMessage.getFileType())
                 .fileSize(chatMessage.getFileSize())
                 .createdAt(chatMessage.getCreatedAt())
+                .updatedAt(chatMessage.getUpdatedAt())
                 .build();
     }
 }
