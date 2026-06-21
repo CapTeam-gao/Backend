@@ -14,15 +14,19 @@ import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatReadStatus;
 import com.capteam.gaobackend.entity.ChatRoom;
 import com.capteam.gaobackend.entity.Team;
+import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
 import com.capteam.gaobackend.repository.ChatReadStatusRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
+import com.capteam.gaobackend.repository.TeamUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +61,9 @@ public class ChatService {
 
     // 관리자 채팅방 생성 시 대상 팀을 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
+
+    // 채널 생성/수정/삭제 권한 검증에 사용하는 팀원 Repository 필드입니다.
+    private final TeamUserRepository teamUserRepository;
 
     // 채팅 메시지/채널 변경 이벤트를 WebSocket 구독자에게 발행하는 필드입니다.
     private final SimpMessagingTemplate messagingTemplate;
@@ -154,6 +161,7 @@ public class ChatService {
     @Transactional
     public ChatChannelResponseDto createChannel(Long roomId, String userId, ChatChannelRequestDto request) {
         ChatRoom room = chatAccessService.getAccessibleRoom(roomId, userId);
+        assertTeamLeader(room.getTeam().getId(), userId);
         User creator = chatAccessService.getUser(userId);
         String channelName = normalize(request.getChannelName());
 
@@ -178,6 +186,7 @@ public class ChatService {
     @Transactional
     public ChatChannelResponseDto updateChannel(Long channelId, String userId, ChatChannelRequestDto request) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        assertTeamLeader(channel.getChatRoom().getTeam().getId(), userId);
         String channelName = normalize(request.getChannelName());
 
         if (channelName.isEmpty()) {
@@ -194,7 +203,12 @@ public class ChatService {
     @Transactional
     public void deleteChannel(Long channelId, String userId) {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        assertTeamLeader(channel.getChatRoom().getTeam().getId(), userId);
         Long roomId = channel.getChatRoom().getId();
+
+        if (isDefaultChannel(channel)) {
+            throw new IllegalArgumentException("공통 채널은 삭제할 수 없습니다.");
+        }
 
         // 현재는 채널 삭제 시 메시지도 같이 삭제합니다.
         // 추후 기여도 분석에 채팅 기록이 필요하면 soft delete 방식으로 바꾸는 게 좋습니다.
@@ -341,6 +355,19 @@ public class ChatService {
     private String normalizeToNull(String value) {
         String normalized = normalize(value);
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private void assertTeamLeader(Long teamId, String userId) {
+        TeamUser teamUser = teamUserRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new AccessDeniedException("팀장만 채널을 관리할 수 있습니다."));
+
+        if (!teamUser.getTeam().getId().equals(teamId) || teamUser.getLeaderRole() != LeaderRole.LEADER) {
+            throw new AccessDeniedException("팀장만 채널을 관리할 수 있습니다.");
+        }
+    }
+
+    private boolean isDefaultChannel(ChatChannel channel) {
+        return "공통".equals(channel.getChannelName());
     }
 
     private void publishChannelEventAfterCommit(Long roomId, ChatChannelEventDto event) {
