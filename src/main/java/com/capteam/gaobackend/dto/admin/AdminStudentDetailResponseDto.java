@@ -27,6 +27,9 @@ public class AdminStudentDetailResponseDto {
     // 학생이 소속된 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 팀 프로젝트 기획서에 작성된 팀 이름을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 학생의 팀 내 개발 역할을 내려주는 필드입니다.
     private StudentRole studentRole;
 
@@ -95,13 +98,17 @@ public class AdminStudentDetailResponseDto {
 
     // User와 선택적인 팀원/AI 분석 정보를 관리자 학생 상세 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentDetailResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis, UserDevelopmentScore userDevelopmentScore, UserPersonalityScore userPersonalityScore) {
+        return from(user, teamUser, userAnalysis, userDevelopmentScore, userPersonalityScore, null);
+    }
 
-
+    // User와 선택적인 팀원/AI 분석/프로젝트 팀명을 관리자 학생 상세 응답 DTO로 변환하는 기능입니다.
+    public static AdminStudentDetailResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis, UserDevelopmentScore userDevelopmentScore, UserPersonalityScore userPersonalityScore, String projectTeamName) {
         return AdminStudentDetailResponseDto.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
                 .grade(user.getGrade())
                 .teamName(teamUser == null ? "미배정" : teamUser.getTeam().getTeamName())
+                .projectTeamName(projectTeamName)
                 .studentRole(teamUser == null ? user.getStudentRole() : teamUser.getStudentRole())
                 .leaderRole(teamUser == null ? null : teamUser.getLeaderRole())
                 .studentLevel(userAnalysis == null ? null : userAnalysis.getStudentLevel())

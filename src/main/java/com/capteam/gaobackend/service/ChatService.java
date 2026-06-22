@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.service;
 
+import com.capteam.gaobackend.dto.chat.ChatAdminUnreadEventDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelEventDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
@@ -9,20 +10,25 @@ import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatUnreadSummaryResponseDto;
 import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatReadStatus;
 import com.capteam.gaobackend.entity.ChatRoom;
 import com.capteam.gaobackend.entity.Team;
+import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
 import com.capteam.gaobackend.repository.ChatReadStatusRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
+import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,6 +49,7 @@ public class ChatService {
 
     private static final String CHAT_CHANNEL_EVENTS_DESTINATION_FORMAT = "/sub/chat/rooms/%d/channels";
     private static final String CHAT_MESSAGE_EVENTS_DESTINATION_FORMAT = "/sub/chat/%d/events";
+    private static final String ADMIN_CHAT_UNREAD_DESTINATION = "/sub/admin/chat/unread";
 
     // 채팅 메시지 저장, 조회, unread 계산에 사용하는 Repository 필드입니다.
     private final ChatMessageRepository chatMessageRepository;
@@ -62,8 +69,14 @@ public class ChatService {
     // 관리자 채팅방 생성 시 대상 팀을 조회하는 Repository 필드입니다.
     private final TeamRepository teamRepository;
 
+    // 프로젝트 기획서에 작성된 팀 이름을 채팅방 표시명으로 조회하는 Repository 필드입니다.
+    private final TeamProjectRepository teamProjectRepository;
+
     // 채널 생성/수정/삭제 권한 검증에 사용하는 팀원 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
+
+    // 관리자 unread 이벤트 대상 계정을 조회하는 Repository 필드입니다.
+    private final UserRepository userRepository;
 
     // 채팅 메시지/채널 변경 이벤트를 WebSocket 구독자에게 발행하는 필드입니다.
     private final SimpMessagingTemplate messagingTemplate;
@@ -91,6 +104,24 @@ public class ChatService {
         return chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId())
                 .stream()
                 .map(channel -> buildChannelSummary(channel, userId))
+                .toList();
+    }
+
+    // 관리자가 전체 팀 채팅에서 아직 읽지 않은 학생 메시지 수를 조회하는 기능입니다.
+    public ChatUnreadSummaryResponseDto getAdminUnreadSummary(String adminId) {
+        return ChatUnreadSummaryResponseDto.builder()
+                .totalUnreadCount(countAdminTotalUnread(adminId))
+                .build();
+    }
+
+    // 관리자가 특정 채팅방의 채널별 마지막 메시지와 unreadCount를 조회하는 기능입니다.
+    public List<ChatChannelSummaryResponseDto> getAdminChannelSummaries(Long roomId, String adminId) {
+        ChatRoom room = chatRoomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅방입니다."));
+
+        return chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId())
+                .stream()
+                .map(channel -> buildAdminChannelSummary(channel, adminId))
                 .toList();
     }
 
@@ -246,7 +277,10 @@ public class ChatService {
                 .fileSize(fileUrl.isEmpty() ? null : request.getFileSize())
                 .build();
 
-        return ChatMessageResponseDto.from(chatMessageRepository.save(chatMessage));
+        ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(savedMessage);
+        publishAdminUnreadEventAfterCommit("MESSAGE_CREATED", channel.getChatRoom().getId(), channel.getId());
+        return response;
     }
 
     // 작성자가 본인이 보낸 텍스트 채팅 메시지를 수정하는 기능입니다.
@@ -281,9 +315,24 @@ public class ChatService {
         ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
         User user = chatAccessService.getUser(userId);
 
+        saveReadStatus(channel, user);
+    }
+
+    // 관리자가 특정 채널의 학생 메시지를 읽음 처리하는 기능입니다.
+    @Transactional
+    public void markAdminChannelAsRead(Long channelId, String adminId) {
+        ChatChannel channel = chatAccessService.getAdminChannel(channelId);
+        User admin = chatAccessService.getUser(adminId);
+
+        saveReadStatus(channel, admin);
+        publishAdminUnreadEventAfterCommit("CHANNEL_READ", channel.getChatRoom().getId(), channelId, adminId);
+    }
+
+    // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
+    private void saveReadStatus(ChatChannel channel, User user) {
         // 사용자가 채널 화면을 열었거나 마지막 메시지까지 확인했을 때 호출합니다.
         // 이후 unreadCount는 이 시간 이후에 온 다른 사람 메시지만 계산합니다.
-        ChatReadStatus readStatus = chatReadStatusRepository.findByChannelIdAndUserUserId(channelId, userId)
+        ChatReadStatus readStatus = chatReadStatusRepository.findByChannelIdAndUserUserId(channel.getId(), user.getUserId())
                 .orElseGet(() -> ChatReadStatus.builder()
                         .channel(channel)
                         .user(user)
@@ -309,7 +358,9 @@ public class ChatService {
     private ChatRoomResponseDto buildRoomResponse(ChatRoom room) {
         return ChatRoomResponseDto.from(
                 room,
-                chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId())
+                resolveDisplayTeamName(room),
+                chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId()),
+                null
         );
     }
 
@@ -317,9 +368,17 @@ public class ChatService {
     private ChatRoomResponseDto buildRoomResponse(ChatRoom room, TeamUser myTeamUser) {
         return ChatRoomResponseDto.from(
                 room,
+                resolveDisplayTeamName(room),
                 chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId()),
                 myTeamUser
         );
+    }
+
+    // 프로젝트 기획서 팀명이 있으면 우선 사용하고 없으면 기본 팀명을 반환하는 기능입니다.
+    private String resolveDisplayTeamName(ChatRoom room) {
+        return teamProjectRepository.findByTeamId(room.getTeam().getId())
+                .map(TeamProject::getTeamName)
+                .orElse(room.getTeam().getTeamName());
     }
 
     // 채널 정보, 마지막 메시지, unreadCount를 묶어 채널 요약 DTO로 만드는 기능입니다.
@@ -341,6 +400,41 @@ public class ChatService {
                 .lastMessage(lastMessage)
                 .unreadCount(unreadCount)
                 .build();
+    }
+
+    // 관리자 기준 채널 정보, 마지막 메시지, unreadCount를 묶어 채널 요약 DTO로 만드는 기능입니다.
+    private ChatChannelSummaryResponseDto buildAdminChannelSummary(ChatChannel channel, String adminId) {
+        ChatMessageResponseDto lastMessage = chatMessageRepository.findTopByChannelIdOrderByCreatedAtDesc(channel.getId())
+                .map(ChatMessageResponseDto::from)
+                .orElse(null);
+
+        return ChatChannelSummaryResponseDto.builder()
+                .channel(ChatChannelResponseDto.from(channel))
+                .lastMessage(lastMessage)
+                .unreadCount(countAdminUnread(channel, adminId))
+                .build();
+    }
+
+    // 관리자가 아직 읽지 않은 전체 학생 메시지 수를 계산하는 기능입니다.
+    private long countAdminTotalUnread(String adminId) {
+        return chatChannelRepository.findAll()
+                .stream()
+                .mapToLong(channel -> countAdminUnread(channel, adminId))
+                .sum();
+    }
+
+    // 관리자가 특정 채널에서 아직 읽지 않은 학생 메시지 수를 계산하는 기능입니다.
+    private long countAdminUnread(ChatChannel channel, String adminId) {
+        return chatReadStatusRepository.findByChannelIdAndUserUserId(channel.getId(), adminId)
+                .map(readStatus -> chatMessageRepository.countByChannelIdAndCreatedAtAfterAndSenderAccountRole(
+                        channel.getId(),
+                        readStatus.getLastReadAt(),
+                        AccountRole.STUDENT
+                ))
+                .orElseGet(() -> chatMessageRepository.countByChannelIdAndSenderAccountRole(
+                        channel.getId(),
+                        AccountRole.STUDENT
+                ));
     }
 
     // 메시지가 존재하고, 현재 사용자가 메시지 채널에 접근 가능하며 작성자인지 확인하는 기능입니다.
@@ -398,6 +492,27 @@ public class ChatService {
                 CHAT_MESSAGE_EVENTS_DESTINATION_FORMAT.formatted(channelId),
                 event
         ));
+    }
+
+    private void publishAdminUnreadEventAfterCommit(String type, Long roomId, Long channelId) {
+        userRepository.findByAccountRole(AccountRole.ADMIN)
+                .stream()
+                .findFirst()
+                .map(User::getUserId)
+                .ifPresent(adminId -> publishAdminUnreadEventAfterCommit(type, roomId, channelId, adminId));
+    }
+
+    private void publishAdminUnreadEventAfterCommit(String type, Long roomId, Long channelId, String adminId) {
+        ChatChannel channel = chatAccessService.getAdminChannel(channelId);
+        ChatAdminUnreadEventDto event = ChatAdminUnreadEventDto.of(
+                type,
+                roomId,
+                channelId,
+                countAdminUnread(channel, adminId),
+                countAdminTotalUnread(adminId)
+        );
+
+        publishAfterCommit(() -> messagingTemplate.convertAndSend(ADMIN_CHAT_UNREAD_DESTINATION, event));
     }
 
     private void publishAfterCommit(Runnable publisher) {

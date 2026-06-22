@@ -67,6 +67,7 @@ public class DashboardService {
         boolean grade2TeamCreated = grade2TeamCount > 0;
         boolean grade3TeamCreated = grade3TeamCount > 0;
         long submittedTeamCount = journalRepository.countDistinctTeamByDate(today());
+        long totalChatRoomCount = totalTeamCount > 0 ? chatRoomRepository.count() : 0;
 
         return AdminDashboardResponseDto.builder()
                 .teamCreated(grade2TeamCreated && grade3TeamCreated)
@@ -75,7 +76,8 @@ public class DashboardService {
                 .totalTeamCount(totalTeamCount)
                 .grade2TeamCount(grade2TeamCount)
                 .grade3TeamCount(grade3TeamCount)
-                .activeChatRoomCount(totalTeamCount > 0 ? chatRoomRepository.count() : 0)
+                .totalChatRoomCount(totalChatRoomCount)
+                .activeChatRoomCount(totalChatRoomCount)
                 .journalNotSubmittedTeamCount(totalTeamCount > 0 ? Math.max(totalTeamCount - submittedTeamCount, 0) : 0)
                 .totalStudentCount(userRepository.countByAccountRole(AccountRole.STUDENT))
                 .hasUnreadNotice(noticeService.hasUnreadNotice(userId))

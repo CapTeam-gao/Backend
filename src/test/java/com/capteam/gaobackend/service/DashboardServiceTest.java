@@ -77,4 +77,17 @@ class DashboardServiceTest {
         assertThat(response.isGrade3TeamCreated()).isTrue();
         assertThat(response.isTeamCreated()).isTrue();
     }
+
+    @Test
+    void reportsTotalChatRoomCountForDashboard() {
+        when(teamRepository.count()).thenReturn(3L);
+        when(teamRepository.countByGrade(Grade.GRADE_2)).thenReturn(2L);
+        when(teamRepository.countByGrade(Grade.GRADE_3)).thenReturn(1L);
+        when(chatRoomRepository.count()).thenReturn(3L);
+
+        AdminDashboardResponseDto response = dashboardService.getAdminDashboard("admin");
+
+        assertThat(response.getTotalChatRoomCount()).isEqualTo(3L);
+        assertThat(response.getActiveChatRoomCount()).isEqualTo(3L);
+    }
 }
