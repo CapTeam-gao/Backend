@@ -4,6 +4,7 @@ import com.capteam.gaobackend.dto.chat.ChatChannelEventDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageEventDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
+import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatRoom;
@@ -28,6 +29,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -96,6 +98,22 @@ class ChatServiceEventTest {
                 .message("기존 메시지")
                 .build();
         ReflectionTestUtils.setField(message, "id", 1L);
+    }
+
+    @Test
+    void getMyChatRoomIncludesMyMemberRole() {
+        when(chatAccessService.getMyChatRoom("stu2301")).thenReturn(room);
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.LEADER)));
+        when(chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(channel));
+
+        ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
+
+        assertThat(response.getId()).isEqualTo(100L);
+        assertThat(response.getTeamName()).isEqualTo("1팀");
+        assertThat(response.getMyMember().getUserId()).isEqualTo("stu2301");
+        assertThat(response.getMyMember().getName()).isEqualTo("장준민");
+        assertThat(response.getMyMember().getLeaderRole()).isEqualTo(LeaderRole.LEADER);
+        assertThat(response.getChannels()).hasSize(1);
     }
 
     @Test

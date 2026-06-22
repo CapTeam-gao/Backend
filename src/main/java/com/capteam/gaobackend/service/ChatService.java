@@ -72,7 +72,8 @@ public class ChatService {
     // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
     public ChatRoomResponseDto getMyChatRoom(String userId) {
         ChatRoom room = chatAccessService.getMyChatRoom(userId);
-        return buildRoomResponse(room);
+        TeamUser myTeamUser = getMyTeamUser(userId);
+        return buildRoomResponse(room, myTeamUser);
     }
 
     // 특정 채팅방을 조회하되 학생은 자기 팀 채팅방만 접근 가능하게 검사하는 기능입니다.
@@ -312,6 +313,15 @@ public class ChatService {
         );
     }
 
+    // 채팅방 엔티티, 채널 목록, 로그인한 팀원 정보를 묶어 응답 DTO로 만드는 기능입니다.
+    private ChatRoomResponseDto buildRoomResponse(ChatRoom room, TeamUser myTeamUser) {
+        return ChatRoomResponseDto.from(
+                room,
+                chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(room.getId()),
+                myTeamUser
+        );
+    }
+
     // 채널 정보, 마지막 메시지, unreadCount를 묶어 채널 요약 DTO로 만드는 기능입니다.
     private ChatChannelSummaryResponseDto buildChannelSummary(ChatChannel channel, String userId) {
         ChatMessageResponseDto lastMessage = chatMessageRepository.findTopByChannelIdOrderByCreatedAtDesc(channel.getId())
@@ -355,6 +365,12 @@ public class ChatService {
     private String normalizeToNull(String value) {
         String normalized = normalize(value);
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    // 로그인한 사용자의 팀원 정보를 조회하는 기능입니다.
+    private TeamUser getMyTeamUser(String userId) {
+        return teamUserRepository.findByUserUserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("아직 배정된 팀이 없습니다."));
     }
 
     private void assertTeamLeader(Long teamId, String userId) {
