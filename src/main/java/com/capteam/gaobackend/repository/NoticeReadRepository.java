@@ -11,6 +11,8 @@ public interface NoticeReadRepository extends JpaRepository<NoticeRead, Long> {
 
     long countByUserUserId(String userId);
 
+    void deleteByNoticeId(Long noticeId);
+
     // 사용자가 아직 읽지 않은 공지가 하나라도 있는지 확인하는 기능입니다.
     @Query("""
             select count(n) > 0

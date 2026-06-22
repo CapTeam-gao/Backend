@@ -1,32 +1,28 @@
 package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.entity.Team;
-import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.enums.TeamStatus;
-import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TeamAssignmentNoticeService {
 
-    private static final String INTRODUCTION = """
-            캡스톤 팀 배정이 완료되었습니다.
-            아래 팀 목록을 확인한 뒤 팀 채팅방과 프로젝트 기획서 작성을 진행해주세요.
-            """;
-
     private final TeamRepository teamRepository;
     private final TeamUserRepository teamUserRepository;
-    private final TeamProjectRepository teamProjectRepository;
     private final AdminNoticeService adminNoticeService;
 
     // 최종 승인된 학년의 전체 팀 정보를 마크다운 공지로 생성하는 기능입니다.
@@ -40,44 +36,65 @@ public class TeamAssignmentNoticeService {
             throw new IllegalStateException("공지에 포함할 승인 완료 팀이 없습니다.");
         }
 
-        adminNoticeService.createTeamAssignmentNotice(buildContent(approvedTeams));
+        adminNoticeService.createTeamAssignmentNotice(grade, buildContent(grade, approvedTeams));
     }
 
-    String buildContent(List<Team> teams) {
-        StringBuilder content = new StringBuilder(INTRODUCTION)
-                .append('\n')
+    String buildContent(Grade grade, List<Team> teams) {
+        StringBuilder content = new StringBuilder()
+                .append("# 캡스톤 ")
+                .append(toGradeLabel(grade))
+                .append(" 팀 배정 결과 안내\n\n")
+                .append("캡스톤 팀 배정이 완료되었습니다.\n")
+                .append("본인이 배정된 팀을 확인한 뒤 팀 채팅방에서 프로젝트 진행을 시작해주세요.\n\n")
+                .append("## 확인 사항\n")
+                .append("- 팀장은 이름 옆에 팀장으로 표시됩니다.\n")
+                .append("- 팀 채팅방에서 프로젝트 주제와 역할 분담을 먼저 논의해주세요.\n")
+                .append("- 프로젝트 기획서는 팀원들과 협의한 뒤 작성해주세요.\n\n")
+                .append("---\n\n")
                 .append("## 팀 목록\n");
 
         for (Team team : teams) {
+            List<TeamUser> members = leaderFirst(teamUserRepository.findByTeamId(team.getId()));
+
             content.append('\n')
                     .append("### ")
-                    .append(resolveTeamName(team))
+                    .append(team.getTeamName())
                     .append('\n')
-                    .append("- 학년: ")
-                    .append(toGradeLabel(team.getGrade()))
+                    .append(formatMembers(members))
                     .append('\n')
-                    .append("- 팀원\n");
-
-            List<TeamUser> members = teamUserRepository.findByTeamId(team.getId()).stream()
-                    .sorted(Comparator.comparing(TeamUser::getId, Comparator.nullsLast(Long::compareTo)))
-                    .toList();
-            for (TeamUser member : members) {
-                content.append("  - ")
-                        .append(member.getUser().getName())
-                        .append(" / ")
-                        .append(toRoleLabel(member.getStudentRole()))
-                        .append('\n');
-            }
+                    .append(formatRoleSummary(members))
+                    .append("\n\n---\n");
         }
 
-        return content.toString().stripTrailing();
+        return content.append("\n팀 배정과 관련된 문의가 있다면 담당 선생님께 문의해주세요.")
+                .toString();
     }
 
-    private String resolveTeamName(Team team) {
-        return teamProjectRepository.findByTeamId(team.getId())
-                .map(TeamProject::getTeamName)
-                .filter(teamName -> !teamName.isBlank())
-                .orElse(team.getTeamName());
+    private List<TeamUser> leaderFirst(List<TeamUser> members) {
+        return members.stream()
+                .sorted(Comparator.comparing(member -> member.getLeaderRole() == LeaderRole.LEADER ? 0 : 1))
+                .toList();
+    }
+
+    private String formatMembers(List<TeamUser> members) {
+        return members.stream()
+                .map(member -> member.getUser().getName()
+                        + (member.getLeaderRole() == LeaderRole.LEADER ? " 팀장" : ""))
+                .collect(Collectors.joining(" · "));
+    }
+
+    private String formatRoleSummary(List<TeamUser> members) {
+        Map<StudentRole, Long> roleCounts = members.stream()
+                .filter(member -> member.getStudentRole() != null)
+                .collect(Collectors.groupingBy(
+                        TeamUser::getStudentRole,
+                        LinkedHashMap::new,
+                        Collectors.counting()
+                ));
+
+        return roleCounts.entrySet().stream()
+                .map(entry -> toRoleLabel(entry.getKey()) + " " + entry.getValue() + "명")
+                .collect(Collectors.joining(" · "));
     }
 
     private String toGradeLabel(Grade grade) {
