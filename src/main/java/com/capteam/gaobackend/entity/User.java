@@ -38,11 +38,12 @@ public class User extends BaseTimeEntity {
 
     // 사용자 기본 계정을 생성하는 기능입니다.
     @Builder
-    public User(String userId, String name, AccountRole accountRole) {
+    public User(String userId, String name, AccountRole accountRole, Grade grade) {
         this.userId = userId;
         this.name = name;
         this.password = "1234";
         this.accountRole = accountRole;
+        this.grade = grade;
     }
 
     @Enumerated(EnumType.STRING)
@@ -58,9 +59,18 @@ public class User extends BaseTimeEntity {
     private List<String> experience;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    // 학생 학년을 저장하는 필드입니다.
+    @Column(nullable = true)
+    // 학생 학년을 저장하는 필드입니다. 관리자는 학년 정보가 없으므로 null을 허용합니다.
     private Grade grade;
+
+    // 학생 계정은 반드시 학년을 갖도록 DB 저장 및 수정 직전에 검증합니다.
+    @PrePersist
+    @PreUpdate
+    private void validateGradeByAccountRole() {
+        if (accountRole == AccountRole.STUDENT && grade == null) {
+            throw new IllegalArgumentException("학생 계정은 학년 정보가 필요합니다.");
+        }
+    }
 
     // 학생의 팀장 희망 여부를 저장하는 필드입니다.
     private boolean wantsLeader;
