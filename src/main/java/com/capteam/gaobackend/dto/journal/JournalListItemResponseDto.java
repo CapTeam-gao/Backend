@@ -22,6 +22,9 @@ public class JournalListItemResponseDto {
     // 일지가 속한 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 프로젝트 기획서에 작성한 팀명을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 팀 학년을 내려주는 필드입니다.
     private Grade grade;
 
@@ -60,6 +63,7 @@ public class JournalListItemResponseDto {
                 .journalId(journal.getId())
                 .teamId(journal.getTeam().getId())
                 .teamName(journal.getTeam().getTeamName())
+                .projectTeamName(teamProject == null ? null : teamProject.getTeamName())
                 .grade(journal.getTeam().getGrade())
                 .serviceName(teamProject == null ? null : teamProject.getServiceName())
                 .date(journal.getDate())

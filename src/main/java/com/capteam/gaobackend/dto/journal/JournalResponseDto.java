@@ -17,6 +17,9 @@ public class JournalResponseDto {
     // 일지가 속한 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 프로젝트 기획서에 작성한 팀명을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 일지 제목을 내려주는 필드입니다.
     private String title;
 
@@ -28,9 +31,15 @@ public class JournalResponseDto {
 
     // Journal 엔티티를 학생 일지 목록 응답 DTO로 변환하는 기능입니다.
     public static JournalResponseDto from(Journal journal) {
+        return from(journal, null);
+    }
+
+    // 프로젝트 기획서 팀명을 포함해 학생 일지 목록 응답 DTO로 변환하는 기능입니다.
+    public static JournalResponseDto from(Journal journal, String projectTeamName) {
         return JournalResponseDto.builder()
                 .journalId(journal.getId())
                 .teamName(journal.getTeam().getTeamName())
+                .projectTeamName(projectTeamName)
                 .title(journal.getTitle())
                 .date(journal.getDate())
                 .status(journal.getStatus())

@@ -13,7 +13,6 @@ public class JournalUpdateRequestDto {
     private String activityContent;
 
     // 수정할 오늘 팀 전체 활동 요약 내용을 받는 필드입니다.
-    @NotBlank
     private String todayActivityContent;
 
     // 수정할 다음 작업 계획 내용을 받는 필드입니다.
