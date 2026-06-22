@@ -67,6 +67,7 @@ public class DashboardService {
         boolean grade2TeamCreated = grade2TeamCount > 0;
         boolean grade3TeamCreated = grade3TeamCount > 0;
         long submittedTeamCount = journalRepository.countDistinctTeamByDate(today());
+        long activeChatRoomCount = countActiveChatRooms();
 
         return AdminDashboardResponseDto.builder()
                 .teamCreated(grade2TeamCreated && grade3TeamCreated)
@@ -75,11 +76,19 @@ public class DashboardService {
                 .totalTeamCount(totalTeamCount)
                 .grade2TeamCount(grade2TeamCount)
                 .grade3TeamCount(grade3TeamCount)
-                .activeChatRoomCount(totalTeamCount > 0 ? chatRoomRepository.count() : 0)
+                .activeChatRoomCount(activeChatRoomCount)
                 .journalNotSubmittedTeamCount(totalTeamCount > 0 ? Math.max(totalTeamCount - submittedTeamCount, 0) : 0)
                 .totalStudentCount(userRepository.countByAccountRole(AccountRole.STUDENT))
                 .hasUnreadNotice(noticeService.hasUnreadNotice(userId))
                 .build();
+    }
+
+    // 실제 채팅방 중 현재 온라인 팀원이 한 명 이상인 방만 활성 채팅방으로 계산합니다.
+    private long countActiveChatRooms() {
+        return chatRoomRepository.findAll()
+                .stream()
+                .filter(room -> chatPresenceService.countOnlineMembersByTeamId(room.getTeam().getId()) > 0)
+                .count();
     }
 
     // 학생 대시보드에 필요한 내 팀/채팅 접속자/수업 시간/일지/공지 상태를 조회하는 기능입니다.

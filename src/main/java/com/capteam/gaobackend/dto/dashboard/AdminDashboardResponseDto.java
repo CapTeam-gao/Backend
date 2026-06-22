@@ -25,7 +25,7 @@ public class AdminDashboardResponseDto {
     // 3학년 팀 개수를 내려주는 필드입니다.
     private long grade3TeamCount;
 
-    // 현재 생성되어 있는 팀 채팅방 수를 내려주는 필드입니다.
+    // 현재 온라인 팀원이 한 명 이상인 활성 채팅방 수를 내려주는 필드입니다.
     private long activeChatRoomCount;
 
     // 오늘 일지를 아직 완료 제출하지 않은 팀 수를 내려주는 필드입니다.
