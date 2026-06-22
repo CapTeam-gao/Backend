@@ -32,6 +32,9 @@ public class AdminStudentService {
     // 팀 배정 전 학생까지 목록에 포함하기 위해 사용자 정보를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
+    // 프로젝트 기획서에 작성된 팀 이름을 조회하는 Repository 필드입니다.
+    private final TeamProjectRepository teamProjectRepository;
+
     // 관리자가 전체 학생 통계와 검색 조건이 반영된 학생 목록을 AI 분석 정보와 함께 조회하는 기능입니다.
     public AdminStudentListPageResponseDto getAllStudents(
             String name,
@@ -57,6 +60,13 @@ public class AdminStudentService {
                         UserAnalysis::getUserId,
                         userAnalysis -> userAnalysis
                 ));
+        Map<Long, String> projectTeamNameMap = teamProjectRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(
+                        teamProject -> teamProject.getTeam().getId(),
+                        TeamProject::getTeamName,
+                        (first, second) -> first
+                ));
 
         List<AdminStudentListResponseDto> filteredStudents = students.stream()
                 .filter(user -> matchesName(user, name))
@@ -67,7 +77,8 @@ public class AdminStudentService {
                 .map(user -> AdminStudentListResponseDto.from(
                         user,
                         teamUserMap.get(user.getUserId()),
-                        userAnalysisMap.get(user.getUserId())
+                        userAnalysisMap.get(user.getUserId()),
+                        resolveProjectTeamName(teamUserMap.get(user.getUserId()), projectTeamNameMap)
                 ))
                 .toList();
 
@@ -96,7 +107,18 @@ public class AdminStudentService {
         UserPersonalityScore userPersonalityScore = user.getPersonalityScores();
 
 
-        return AdminStudentDetailResponseDto.from(user, teamUser, userAnalysis,userDevelopmentScore,userPersonalityScore);
+        String projectTeamName = teamUser == null ? null : teamProjectRepository.findByTeamId(teamUser.getTeam().getId())
+                .map(TeamProject::getTeamName)
+                .orElse(null);
+
+        return AdminStudentDetailResponseDto.from(
+                user,
+                teamUser,
+                userAnalysis,
+                userDevelopmentScore,
+                userPersonalityScore,
+                projectTeamName
+        );
     }
 
     // 이름 검색어가 비어 있으면 전체 허용하고, 값이 있으면 학생 이름에 포함되는지 확인하는 기능입니다.
@@ -123,6 +145,11 @@ public class AdminStudentService {
     private boolean matchesStudentRole(User user, TeamUser teamUser, StudentRole studentRole) {
         StudentRole role = teamUser == null ? user.getStudentRole() : teamUser.getStudentRole();
         return studentRole == null || role == studentRole;
+    }
+
+    // 팀원 정보가 있으면 프로젝트 기획서의 팀명을 찾아 반환하는 기능입니다.
+    private String resolveProjectTeamName(TeamUser teamUser, Map<Long, String> projectTeamNameMap) {
+        return teamUser == null ? null : projectTeamNameMap.get(teamUser.getTeam().getId());
     }
 
     // 문자열이 null이거나 공백인지 확인하는 기능입니다.

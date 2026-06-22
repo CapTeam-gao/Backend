@@ -55,15 +55,20 @@ public class ChatRoomResponseDto {
 
     // ChatRoom 엔티티와 채널 목록을 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatRoomResponseDto from(ChatRoom room, List<ChatChannel> channels) {
-        return from(room, channels, null);
+        return from(room, room.getTeam().getTeamName(), channels, null);
     }
 
     // ChatRoom 엔티티, 채널 목록, 로그인한 팀원 정보를 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatRoomResponseDto from(ChatRoom room, List<ChatChannel> channels, TeamUser myMember) {
+        return from(room, room.getTeam().getTeamName(), channels, myMember);
+    }
+
+    // ChatRoom 엔티티, 표시용 팀명, 채널 목록, 로그인한 팀원 정보를 프론트 응답 DTO로 변환하는 기능입니다.
+    public static ChatRoomResponseDto from(ChatRoom room, String teamName, List<ChatChannel> channels, TeamUser myMember) {
         return ChatRoomResponseDto.builder()
                 .id(room.getId())
                 .teamId(room.getTeam().getId())
-                .teamName(room.getTeam().getTeamName())
+                .teamName(teamName)
                 .myMember(myMember == null ? null : MyChatMemberDto.from(myMember))
                 .channels(channels.stream()
                         .map(ChatChannelResponseDto::from)
