@@ -5,6 +5,7 @@ import com.capteam.gaobackend.dto.dashboard.UserDashboardResponseDto;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.JournalStatus;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
 import com.capteam.gaobackend.repository.JournalEntryRepository;
 import com.capteam.gaobackend.repository.JournalRepository;
@@ -66,7 +67,10 @@ public class DashboardService {
         long grade3TeamCount = teamRepository.countByGrade(Grade.GRADE_3);
         boolean grade2TeamCreated = grade2TeamCount > 0;
         boolean grade3TeamCreated = grade3TeamCount > 0;
-        long submittedTeamCount = journalRepository.countDistinctTeamByDate(today());
+        long submittedTeamCount = journalRepository.countDistinctTeamByDateAndStatus(
+                today(),
+                JournalStatus.COMPLETED
+        );
         long totalChatRoomCount = totalTeamCount > 0 ? chatRoomRepository.count() : 0;
 
         return AdminDashboardResponseDto.builder()
