@@ -10,6 +10,7 @@ public class ChatChannelEventDto {
     private String type;
     private ChannelPayload channel;
     private Long channelId;
+    private Long roomId;
 
     public static ChatChannelEventDto created(ChatChannelResponseDto channel) {
         return ChatChannelEventDto.builder()
@@ -25,10 +26,11 @@ public class ChatChannelEventDto {
                 .build();
     }
 
-    public static ChatChannelEventDto deleted(Long channelId) {
+    public static ChatChannelEventDto deleted(Long channelId, Long roomId) {
         return ChatChannelEventDto.builder()
                 .type("CHANNEL_DELETED")
                 .channelId(channelId)
+                .roomId(roomId)
                 .build();
     }
 
@@ -37,11 +39,13 @@ public class ChatChannelEventDto {
     public static class ChannelPayload {
 
         private Long id;
+        private Long roomId;
         private String channelName;
 
         private static ChannelPayload from(ChatChannelResponseDto channel) {
             return ChannelPayload.builder()
                     .id(channel.getId())
+                    .roomId(channel.getRoomId())
                     .channelName(channel.getChannelName())
                     .build();
         }

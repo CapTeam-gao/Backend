@@ -271,6 +271,7 @@ class ChatServiceEventTest {
         ChatChannelEventDto event = eventCaptor.getValue();
         assertThat(event.getType()).isEqualTo("CHANNEL_CREATED");
         assertThat(event.getChannel().getId()).isEqualTo(12L);
+        assertThat(event.getChannel().getRoomId()).isEqualTo(100L);
         assertThat(event.getChannel().getChannelName()).isEqualTo("프론트엔드");
     }
 
@@ -293,6 +294,7 @@ class ChatServiceEventTest {
         ChatChannelEventDto event = eventCaptor.getValue();
         assertThat(event.getType()).isEqualTo("CHANNEL_UPDATED");
         assertThat(event.getChannel().getId()).isEqualTo(10L);
+        assertThat(event.getChannel().getRoomId()).isEqualTo(100L);
         assertThat(event.getChannel().getChannelName()).isEqualTo("백엔드");
     }
 
@@ -309,6 +311,7 @@ class ChatServiceEventTest {
         ChatChannelEventDto event = eventCaptor.getValue();
         assertThat(event.getType()).isEqualTo("CHANNEL_DELETED");
         assertThat(event.getChannelId()).isEqualTo(10L);
+        assertThat(event.getRoomId()).isEqualTo(100L);
     }
 
     @Test

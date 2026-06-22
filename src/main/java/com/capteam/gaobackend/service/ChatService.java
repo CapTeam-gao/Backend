@@ -247,7 +247,7 @@ public class ChatService {
         chatReadStatusRepository.deleteByChannelId(channelId);
         chatMessageRepository.deleteByChannelId(channelId);
         chatChannelRepository.delete(channel);
-        publishChannelEventAfterCommit(roomId, ChatChannelEventDto.deleted(channelId));
+        publishChannelEventAfterCommit(roomId, ChatChannelEventDto.deleted(channelId, roomId));
     }
 
     // 채널 접근 권한을 검사한 뒤 텍스트 또는 파일 메시지를 DB에 저장하는 기능입니다.
