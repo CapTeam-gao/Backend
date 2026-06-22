@@ -28,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,7 @@ class AdminTeamRecommendationServiceTest {
     @Mock private ChatChannelRepository chatChannelRepository;
     @Mock private AdminTeamRecommendationPersistenceService recommendationPersistenceService;
     @Mock private AdminTeamMatchingPreparationService matchingPreparationService;
+    @Mock private TeamAssignmentNoticeService teamAssignmentNoticeService;
 
     private AdminTeamRecommendationService adminTeamRecommendationService;
 
@@ -68,7 +70,8 @@ class AdminTeamRecommendationServiceTest {
                 chatRoomRepository,
                 chatChannelRepository,
                 recommendationPersistenceService,
-                matchingPreparationService
+                matchingPreparationService,
+                teamAssignmentNoticeService
         );
     }
 
@@ -148,5 +151,44 @@ class AdminTeamRecommendationServiceTest {
         ArgumentCaptor<TeamUser> teamUserCaptor = ArgumentCaptor.forClass(TeamUser.class);
         verify(teamUserRepository).save(teamUserCaptor.capture());
         assertThat(teamUserCaptor.getValue().getStudentRole()).isEqualTo(StudentRole.DEVOPS);
+        verify(teamAssignmentNoticeService).createNotice(Grade.GRADE_2);
+    }
+
+    @Test
+    void createsOneNoticeAfterAcceptingAllRecommendationsByGrade() {
+        TeamRecommendation recommendation = TeamRecommendation.builder()
+                .grade(Grade.GRADE_3)
+                .build();
+        ReflectionTestUtils.setField(recommendation, "id", 10L);
+        User user = User.builder()
+                .userId("stu3301")
+                .name("김학생")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        user.completeSurvey(
+                StudentRole.APP,
+                List.of("Flutter"),
+                List.of("앱 프로젝트"),
+                false,
+                List.of(),
+                new UserPersonalityScore(3.0, 3.0, 3.0, 3.0, 3.0),
+                new UserDevelopmentScore(3.0, 3.0, 3.0, 3.0, 3.0)
+        );
+        TeamRecommendationMember member = TeamRecommendationMember.builder()
+                .recommendation(recommendation)
+                .user(user)
+                .studentRole(StudentRole.APP)
+                .isRecommendedLeader(true)
+                .build();
+
+        when(recommendationRepository.findByGrade(Grade.GRADE_3)).thenReturn(List.of(recommendation));
+        when(recommendationRepository.findById(10L)).thenReturn(Optional.of(recommendation));
+        when(recommendationMemberRepository.findByRecommendationId(10L)).thenReturn(List.of(member));
+        when(teamRepository.countByGrade(Grade.GRADE_3)).thenReturn(0L);
+        when(chatRoomRepository.findByTeamId(any())).thenReturn(Optional.empty());
+
+        adminTeamRecommendationService.acceptAllByGrade(Grade.GRADE_3);
+
+        verify(teamAssignmentNoticeService).createNotice(Grade.GRADE_3);
     }
 }

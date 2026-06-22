@@ -2,6 +2,7 @@ package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.notice.*;
 import com.capteam.gaobackend.entity.*;
+import com.capteam.gaobackend.enums.Important;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class AdminNoticeService {
 
     // 새 공지 생성 이벤트를 실시간으로 구독자에게 발행할 WebSocket 대상 경로입니다.
     private static final String NOTICE_CREATED_DESTINATION = "/sub/notices";
+    private static final String TEAM_ASSIGNMENT_NOTICE_TITLE = "캡스톤 팀 배정 결과 안내";
 
     // 공지 목록/상세/생성/수정/삭제에 사용하는 Repository 필드입니다.
     private final NoticeRepository noticeRepository;
@@ -61,12 +63,23 @@ public class AdminNoticeService {
     public NoticeDetailResponseDto createNotice(NoticeCreateRequestDto dto) {
         User author = getAuthenticatedUser(); // 현재 로그인한 어드민 가져오기
 
+        return saveNotice(dto.getTitle(), dto.getContent(), dto.getImportant(), author);
+    }
+
+    // 팀 최종 승인 결과를 현재 로그인한 관리자 명의의 일반 공지로 생성하는 기능입니다.
+    @Transactional
+    public NoticeDetailResponseDto createTeamAssignmentNotice(String content) {
+        User author = getAuthenticatedUser();
+        return saveNotice(TEAM_ASSIGNMENT_NOTICE_TITLE, content, Important.COMMON, author);
+    }
+
+    private NoticeDetailResponseDto saveNotice(String title, String content, Important important, User author) {
         // 공지 엔티티 생성 (Builder 패턴)
         Notice notice = Notice.builder()
-                .title(dto.getTitle())
-                .content(dto.getContent())
+                .title(title)
+                .content(content)
                 .writer(author)
-                .important(dto.getImportant())
+                .important(important)
                 .build();
 
         noticeRepository.save(notice); // DB에 저장
