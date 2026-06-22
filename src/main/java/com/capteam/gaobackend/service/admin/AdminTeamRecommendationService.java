@@ -58,6 +58,7 @@ public class AdminTeamRecommendationService {
 
     private final AdminTeamRecommendationPersistenceService recommendationPersistenceService;
     private final AdminTeamMatchingPreparationService matchingPreparationService;
+    private final TeamAssignmentNoticeService teamAssignmentNoticeService;
 
     private static final int MAX_TEAM_MEMBER_COUNT = 5;
 
@@ -170,6 +171,17 @@ public class AdminTeamRecommendationService {
     // ──────────────────────────────────────────
     @Transactional
     public void acceptRecommendation(Long recommendationId) {
+        Team team = acceptRecommendationAndCreateTeam(recommendationId);
+
+        // 개별 승인 방식에서도 해당 학년의 마지막 추천안을 승인한 시점에 최종 결과 공지를 생성합니다.
+        if (recommendationRepository
+                .findByGradeAndStatus(team.getGrade(), RecommendationStatus.PENDING)
+                .isEmpty()) {
+            teamAssignmentNoticeService.createNotice(team.getGrade());
+        }
+    }
+
+    private Team acceptRecommendationAndCreateTeam(Long recommendationId) {
         TeamRecommendation recommendation = recommendationRepository.findById(recommendationId)
                 .orElseThrow(() -> new RuntimeException("추천안을 찾을 수 없습니다."));
 
@@ -209,6 +221,7 @@ public class AdminTeamRecommendationService {
 
         // 추천안 상태 수락으로 변경 (더티 체킹)
         recommendation.accept();
+        return team;
     }
 
     // 팀 생성 완료 후 팀 채팅방과 기본 공통 채널을 생성하는 기능입니다.
@@ -344,8 +357,10 @@ public class AdminTeamRecommendationService {
         }
 
         for (TeamRecommendation rec : pending) {
-            acceptRecommendation(rec.getId());
+            acceptRecommendationAndCreateTeam(rec.getId());
         }
+
+        teamAssignmentNoticeService.createNotice(grade);
     }
 
 }
