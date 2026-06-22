@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.dto.journal;
 
 import com.capteam.gaobackend.entity.Journal;
+import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.JournalStatus;
@@ -56,18 +57,38 @@ public class JournalListItemResponseDto {
             int submittedMemberCount,   //몇명 제출했는지 가져오려고 서비스 로직에서
             int totalMemberCount    //  팀원 총 수
     ) {
+        return from(
+                journal.getTeam(),
+                journal,
+                teamProject,
+                submittedMemberCount,
+                totalMemberCount,
+                journal.getDate()
+        );
+    }
+
+    // 전체 팀 기준 관리자 목록을 만들며, 일지가 없는 팀은 미제출 항목으로 변환합니다.
+    public static JournalListItemResponseDto from(
+            Team team,
+            Journal journal,
+            TeamProject teamProject,
+            int submittedMemberCount,
+            int totalMemberCount,
+            LocalDate date
+    ) {
         int notSubmittedMemberCount = Math.max(totalMemberCount - submittedMemberCount, 0); //몇 명 제출 안했는지 총 인원 - 제출한 팀원으로 계산
-        boolean submitted = totalMemberCount > 0 && submittedMemberCount >= totalMemberCount;
+        JournalStatus status = journal == null ? JournalStatus.IN_PROGRESS : journal.getStatus();
+        boolean submitted = status == JournalStatus.COMPLETED;
 
         return JournalListItemResponseDto.builder()
-                .journalId(journal.getId())
-                .teamId(journal.getTeam().getId())
-                .teamName(journal.getTeam().getTeamName())
+                .journalId(journal == null ? null : journal.getId())
+                .teamId(team.getId())
+                .teamName(team.getTeamName())
                 .projectTeamName(teamProject == null ? null : teamProject.getTeamName())
-                .grade(journal.getTeam().getGrade())
+                .grade(team.getGrade())
                 .serviceName(teamProject == null ? null : teamProject.getServiceName())
-                .date(journal.getDate())
-                .status(journal.getStatus())
+                .date(date)
+                .status(status)
                 .submittedMemberCount(submittedMemberCount)
                 .totalMemberCount(totalMemberCount)
                 .notSubmittedMemberCount(notSubmittedMemberCount)

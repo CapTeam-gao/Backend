@@ -3,6 +3,7 @@ package com.capteam.gaobackend.service;
 import com.capteam.gaobackend.dto.dashboard.AdminDashboardResponseDto;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.JournalStatus;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
 import com.capteam.gaobackend.repository.JournalEntryRepository;
 import com.capteam.gaobackend.repository.JournalRepository;
@@ -47,7 +48,6 @@ class DashboardServiceTest {
                 noticeService,
                 chatPresenceService
         );
-        when(journalRepository.countDistinctTeamByDate(any(LocalDate.class))).thenReturn(0L);
         when(userRepository.countByAccountRole(AccountRole.STUDENT)).thenReturn(0L);
         when(noticeService.hasUnreadNotice("admin")).thenReturn(false);
     }
@@ -89,5 +89,18 @@ class DashboardServiceTest {
 
         assertThat(response.getTotalChatRoomCount()).isEqualTo(3L);
         assertThat(response.getActiveChatRoomCount()).isEqualTo(3L);
+    }
+
+    @Test
+    void countsOnlyCompletedJournalsAsSubmittedTeams() {
+        when(teamRepository.count()).thenReturn(4L);
+        when(journalRepository.countDistinctTeamByDateAndStatus(
+                any(LocalDate.class),
+                org.mockito.ArgumentMatchers.eq(JournalStatus.COMPLETED)
+        )).thenReturn(1L);
+
+        AdminDashboardResponseDto response = dashboardService.getAdminDashboard("admin");
+
+        assertThat(response.getJournalNotSubmittedTeamCount()).isEqualTo(3L);
     }
 }
