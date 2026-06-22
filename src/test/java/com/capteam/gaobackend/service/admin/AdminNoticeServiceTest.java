@@ -5,6 +5,7 @@ import com.capteam.gaobackend.entity.Notice;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Important;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.repository.NoticeReadRepository;
 import com.capteam.gaobackend.repository.NoticeRepository;
 import com.capteam.gaobackend.repository.UserRepository;
@@ -18,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -65,14 +67,45 @@ class AdminNoticeServiceTest {
         when(userRepository.findById("admin")).thenReturn(Optional.of(admin));
         when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        adminNoticeService.createTeamAssignmentNotice("팀 배정 결과 본문");
+        when(noticeRepository.findByTitle("캡스톤 2학년 팀 배정 결과 안내"))
+                .thenReturn(Optional.empty());
+
+        adminNoticeService.createTeamAssignmentNotice(Grade.GRADE_2, "팀 배정 결과 본문");
 
         ArgumentCaptor<Notice> noticeCaptor = ArgumentCaptor.forClass(Notice.class);
         verify(noticeRepository).save(noticeCaptor.capture());
-        assertThat(noticeCaptor.getValue().getTitle()).isEqualTo("캡스톤 팀 배정 결과 안내");
+        assertThat(noticeCaptor.getValue().getTitle()).isEqualTo("캡스톤 2학년 팀 배정 결과 안내");
         assertThat(noticeCaptor.getValue().getContent()).isEqualTo("팀 배정 결과 본문");
         assertThat(noticeCaptor.getValue().getWriter()).isSameAs(admin);
-        assertThat(noticeCaptor.getValue().getImportant()).isEqualTo(Important.COMMON);
+        assertThat(noticeCaptor.getValue().getImportant()).isEqualTo(Important.IMPORTANT);
+        verify(messagingTemplate).convertAndSend(eq("/sub/notices"), any(NoticeCreatedEventDto.class));
+    }
+
+    @Test
+    void updatesExistingGradeNoticeInsteadOfCreatingDuplicate() {
+        User admin = User.builder()
+                .userId("admin")
+                .name("관리자")
+                .accountRole(AccountRole.ADMIN)
+                .build();
+        Notice existingNotice = Notice.builder()
+                .title("캡스톤 3학년 팀 배정 결과 안내")
+                .content("기존 본문")
+                .writer(admin)
+                .important(Important.COMMON)
+                .build();
+        ReflectionTestUtils.setField(existingNotice, "id", 7L);
+
+        when(userRepository.findById("admin")).thenReturn(Optional.of(admin));
+        when(noticeRepository.findByTitle("캡스톤 3학년 팀 배정 결과 안내"))
+                .thenReturn(Optional.of(existingNotice));
+
+        adminNoticeService.createTeamAssignmentNotice(Grade.GRADE_3, "새 본문");
+
+        assertThat(existingNotice.getContent()).isEqualTo("새 본문");
+        assertThat(existingNotice.getImportant()).isEqualTo(Important.IMPORTANT);
+        verify(noticeReadRepository).deleteByNoticeId(7L);
+        verify(noticeRepository, org.mockito.Mockito.never()).save(any(Notice.class));
         verify(messagingTemplate).convertAndSend(eq("/sub/notices"), any(NoticeCreatedEventDto.class));
     }
 }

@@ -3,6 +3,7 @@ package com.capteam.gaobackend.service.admin;
 import com.capteam.gaobackend.dto.notice.*;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.Important;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,6 @@ public class AdminNoticeService {
 
     // 새 공지 생성 이벤트를 실시간으로 구독자에게 발행할 WebSocket 대상 경로입니다.
     private static final String NOTICE_CREATED_DESTINATION = "/sub/notices";
-    private static final String TEAM_ASSIGNMENT_NOTICE_TITLE = "캡스톤 팀 배정 결과 안내";
 
     // 공지 목록/상세/생성/수정/삭제에 사용하는 Repository 필드입니다.
     private final NoticeRepository noticeRepository;
@@ -66,11 +66,30 @@ public class AdminNoticeService {
         return saveNotice(dto.getTitle(), dto.getContent(), dto.getImportant(), author);
     }
 
-    // 팀 최종 승인 결과를 현재 로그인한 관리자 명의의 일반 공지로 생성하는 기능입니다.
+    // 학년별 팀 최종 승인 공지를 중요 공지로 생성하거나 기존 공지를 최신 내용으로 갱신합니다.
     @Transactional
-    public NoticeDetailResponseDto createTeamAssignmentNotice(String content) {
+    public NoticeDetailResponseDto createTeamAssignmentNotice(Grade grade, String content) {
         User author = getAuthenticatedUser();
-        return saveNotice(TEAM_ASSIGNMENT_NOTICE_TITLE, content, Important.COMMON, author);
+        String title = teamAssignmentNoticeTitle(grade);
+        Notice existingNotice = noticeRepository.findByTitle(title).orElse(null);
+
+        if (existingNotice == null) {
+            return saveNotice(title, content, Important.IMPORTANT, author);
+        }
+
+        existingNotice.update(title, content, Important.IMPORTANT);
+        noticeReadRepository.deleteByNoticeId(existingNotice.getId());
+
+        NoticeDetailResponseDto response = NoticeDetailResponseDto.from(existingNotice);
+        publishNoticeCreatedEventAfterCommit(response);
+        return response;
+    }
+
+    private String teamAssignmentNoticeTitle(Grade grade) {
+        return switch (grade) {
+            case GRADE_2 -> "캡스톤 2학년 팀 배정 결과 안내";
+            case GRADE_3 -> "캡스톤 3학년 팀 배정 결과 안내";
+        };
     }
 
     private NoticeDetailResponseDto saveNotice(String title, String content, Important important, User author) {
