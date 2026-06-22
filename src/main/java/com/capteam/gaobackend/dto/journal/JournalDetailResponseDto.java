@@ -20,6 +20,9 @@ public class JournalDetailResponseDto { //상세 조회
     // 일지가 속한 팀 이름을 내려주는 필드입니다.
     private String teamName;
 
+    // 프로젝트 기획서에 작성한 팀명을 내려주는 필드입니다.
+    private String projectTeamName;
+
     // 일지 제목을 내려주는 필드입니다.
     private String title;
 
@@ -49,6 +52,17 @@ public class JournalDetailResponseDto { //상세 조회
     // 일지, 현재 작성자, 팀원 목록, 제출 목록을 상세 응답 DTO로 변환하는 기능입니다.
     public static JournalDetailResponseDto from(Journal journal, User writer,
                                                 List<User> teamMembers, List<JournalEntry> entries) {
+        return from(journal, writer, teamMembers, entries, null);
+    }
+
+    // 프로젝트 기획서 팀명을 포함해 일지 상세 응답 DTO로 변환하는 기능입니다.
+    public static JournalDetailResponseDto from(
+            Journal journal,
+            User writer,
+            List<User> teamMembers,
+            List<JournalEntry> entries,
+            String projectTeamName
+    ) {
 
         //가독성 안좋아서 리스트 별개 변수는 분리
 
@@ -69,6 +83,7 @@ public class JournalDetailResponseDto { //상세 조회
         return JournalDetailResponseDto.builder()
                 .journalId(journal.getId())
                 .teamName(journal.getTeam().getTeamName())
+                .projectTeamName(projectTeamName)
                 .title(journal.getTitle())
                 .writerName(writer == null ? null : writer.getName())
                 .teamMemberNames(teamMemberNames)

@@ -10,10 +10,12 @@ import com.capteam.gaobackend.entity.JournalEntry;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.JournalStatus;
+import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.JournalEntryRepository;
 import com.capteam.gaobackend.repository.JournalRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,12 +47,19 @@ public class JournalService {
     // 현재 로그인한 사용자를 조회하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
+    // 일지 응답에 프로젝트 기획서 팀명을 포함하기 위한 Repository 필드입니다.
+    private final TeamProjectRepository teamProjectRepository;
+
     // 오늘 날짜의 내 팀 일지를 만들고 내 제출 내용을 저장하는 기능입니다.
     @Transactional
     public JournalDetailResponseDto createMyJournalEntry(JournalCreateRequestDto dto) {
         User user = getAuthenticatedUser();
         TeamUser myTeamUser = getMyTeamUser(user);
         LocalDate today = LocalDate.now(SEOUL_ZONE);
+        String todayActivityContent = resolveTodayActivityContent(
+                myTeamUser,
+                dto.getTodayActivityContent()
+        );
 
         Journal journal = journalRepository.findByTeamIdAndDate(myTeamUser.getTeam().getId(), today)
                 .orElseGet(() -> journalRepository.save(Journal.builder()
@@ -66,7 +75,7 @@ public class JournalService {
         journalEntryRepository.save(JournalEntry.builder()
                 .journal(journal)
                 .writer(user)
-                .todayActivityContent(dto.getTodayActivityContent())
+                .todayActivityContent(todayActivityContent)
                 .activityContent(dto.getActivityContent())
                 .nextPlanContent(dto.getNextPlanContent())
                 .reflectionContent(dto.getReflectionContent())
@@ -80,10 +89,11 @@ public class JournalService {
     public List<JournalResponseDto> getMyTeamJournalList() {
         User user = getAuthenticatedUser();
         TeamUser myTeamUser = getMyTeamUser(user);
+        String projectTeamName = findProjectTeamName(myTeamUser.getTeam().getId());
 
         return journalRepository.findByTeamIdOrderByDateDesc(myTeamUser.getTeam().getId())
                 .stream()
-                .map(JournalResponseDto::from)
+                .map(journal -> JournalResponseDto.from(journal, projectTeamName))
                 .toList();
     }
 
@@ -126,8 +136,12 @@ public class JournalService {
 
         JournalEntry entry = journalEntryRepository.findByJournalIdAndWriterUserId(journalId, user.getUserId())
                 .orElseThrow(() -> new IllegalArgumentException("수정할 내 일지 제출 내역이 없습니다."));
+        String todayActivityContent = resolveTodayActivityContent(
+                myTeamUser,
+                dto.getTodayActivityContent()
+        );
         entry.update(
-                dto.getTodayActivityContent(),
+                todayActivityContent,
                 dto.getActivityContent(),
                 dto.getNextPlanContent(),
                 dto.getReflectionContent()
@@ -179,7 +193,13 @@ public class JournalService {
                 .sorted(Comparator.comparing(User::getName))
                 .toList();
 
-        return JournalDetailResponseDto.from(journal, writer, teamMembers, entries);
+        return JournalDetailResponseDto.from(
+                journal,
+                writer,
+                teamMembers,
+                entries,
+                findProjectTeamName(teamId)
+        );
     }
 
     // SecurityContext에서 현재 로그인한 사용자를 조회하는 기능입니다.
@@ -193,6 +213,24 @@ public class JournalService {
     private TeamUser getMyTeamUser(User user) {
         return teamUserRepository.findByUserUserId(user.getUserId())
                 .orElseThrow(() -> new RuntimeException("소속된 팀을 찾을 수 없습니다."));
+    }
+
+    // 팀장은 팀 전체 진행 상황을 반드시 작성하고, 팀원 값은 DB 저장을 위해 빈 문자열로 정규화합니다.
+    private String resolveTodayActivityContent(TeamUser teamUser, String todayActivityContent) {
+        if (teamUser.getLeaderRole() == LeaderRole.LEADER) {
+            if (todayActivityContent == null || todayActivityContent.isBlank()) {
+                throw new IllegalArgumentException("팀장은 팀 전체 진행 상황을 작성해야 합니다.");
+            }
+            return todayActivityContent.trim();
+        }
+
+        return "";
+    }
+
+    private String findProjectTeamName(Long teamId) {
+        return teamProjectRepository.findByTeamId(teamId)
+                .map(teamProject -> teamProject.getTeamName())
+                .orElse(null);
     }
 
     // 팀원 전원이 일지를 제출했으면 일지 상태를 완료로 변경하는 기능입니다.
