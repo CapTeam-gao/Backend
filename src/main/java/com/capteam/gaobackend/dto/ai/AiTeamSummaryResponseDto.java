@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.dto.ai;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -111,6 +112,11 @@ public class AiTeamSummaryResponseDto {
     @Setter
     @NoArgsConstructor
     public static class MemberDto {
+        // 백엔드가 AI 서버에 전달한 학생 식별자입니다. 이름보다 안정적인 매칭 기준으로 사용합니다.
+        @JsonProperty("user_id")
+        @JsonAlias({"userId", "student_id", "studentId"})
+        private String userId;
+
         // 팀원 이름을 내려주는 필드입니다.
         private String name;
 

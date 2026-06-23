@@ -97,6 +97,42 @@ class AdminTeamRecommendationPersistenceServiceTest {
     }
 
     @Test
+    void storesMemberByUserIdWhenAiNameDoesNotMatchBackendName() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        AiTeamSummaryResponseDto.MemberDto member = new AiTeamSummaryResponseDto.MemberDto();
+        member.setUserId("stu2301");
+        member.setName("잘못된 이름");
+        member.setRoleGroup("backend");
+        member.setSkillLevel("상");
+        member.setStrength("백엔드 구현 강점");
+        AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
+        team.setMembers(List.of(member));
+        team.setLeader("홍길동");
+
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
+        when(recommendationRepository.findByGradeAndStatus(any(), any())).thenReturn(List.of());
+        when(recommendationRepository.save(any(TeamRecommendation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.empty());
+
+        persistenceService.replacePendingRecommendations(
+                Grade.GRADE_2,
+                Map.of("홍길동", "stu2301"),
+                List.of(team)
+        );
+
+        ArgumentCaptor<TeamRecommendationMember> memberCaptor =
+                ArgumentCaptor.forClass(TeamRecommendationMember.class);
+        verify(recommendationMemberRepository).save(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getUser().getUserId()).isEqualTo("stu2301");
+        assertThat(memberCaptor.getValue().isRecommendedLeader()).isTrue();
+    }
+
+    @Test
     void storesSpecializedAiRolesWithoutBackendFallback() {
         User fullstackUser = user("stu2301", "김풀스택");
         User devopsUser = user("stu2302", "박데브옵스");

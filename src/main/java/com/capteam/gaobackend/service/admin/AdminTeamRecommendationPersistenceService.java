@@ -56,7 +56,7 @@ public class AdminTeamRecommendationPersistenceService {
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
             List<AiTeamSummaryResponseDto.MemberDto> validMembers = aiTeam.getMembers().stream()
-                    .filter(member -> nameToUserId.containsKey(member.getName()))
+                    .filter(member -> AiTeamMemberUserResolver.resolveUserId(member, nameToUserId) != null)
                     .toList();
 
             if (validMembers.isEmpty()) {
@@ -73,7 +73,7 @@ public class AdminTeamRecommendationPersistenceService {
 
             String leaderName = aiTeam.getLeader();
             for (AiTeamSummaryResponseDto.MemberDto member : validMembers) {
-                String userId = nameToUserId.get(member.getName());
+                String userId = AiTeamMemberUserResolver.resolveUserId(member, nameToUserId);
                 User user = usersById.get(userId);
                 if (user == null) {
                     throw new IllegalStateException("추천 대상 학생을 찾을 수 없습니다: " + userId);
@@ -82,7 +82,7 @@ public class AdminTeamRecommendationPersistenceService {
                         .recommendation(recommendation)
                         .user(user)
                         .studentRole(parseRoleGroup(member.getRoleGroup(), member.getRole()))
-                        .isRecommendedLeader(member.getName().equals(leaderName))
+                        .isRecommendedLeader(AiTeamMemberUserResolver.isSameStudent(member, leaderName, nameToUserId))
                         .build());
 
                 StudentLevel level = parseSkillLevel(member.getSkillLevel());
