@@ -59,21 +59,47 @@ jobs:
             -i ~/.ssh/deploy_key
             -o IdentitiesOnly=yes
             -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
             -p "${EC2_PORT:-22}"
           )
+          SCP_OPTIONS=(
+            -i ~/.ssh/deploy_key
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
+            -P "${EC2_PORT:-22}"
+          )
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              sleep $((attempt * 10))
+            done
+            "$@"
+          }
+
           APP_PARENT="/home/${EC2_USER}/apps"
           APP_DIR="${APP_PARENT}/Backend"
           RELEASE_DIR="${APP_PARENT}/Backend.release"
+          RELEASE_ARCHIVE="${APP_PARENT}/Backend.release.tgz"
 
-          ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "rm -rf '$RELEASE_DIR' && mkdir -p '$RELEASE_DIR'"
           tar \
             --exclude='.git' \
             --exclude='.gradle' \
             --exclude='build' \
             --exclude='.env' \
             --exclude='uploads' \
-            -czf - . | ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "tar -xzf - -C '$RELEASE_DIR'"
-          ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "rm -rf '$APP_DIR' && mv '$RELEASE_DIR' '$APP_DIR'"
+            -czf backend-release.tgz .
+
+          retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "rm -rf '$RELEASE_DIR' && mkdir -p '$RELEASE_DIR'"
+          retry scp "${SCP_OPTIONS[@]}" backend-release.tgz "$EC2_USER@$EC2_HOST:$RELEASE_ARCHIVE"
+          retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "tar -xzf '$RELEASE_ARCHIVE' -C '$RELEASE_DIR' && rm -f '$RELEASE_ARCHIVE' && rm -rf '$APP_DIR' && mv '$RELEASE_DIR' '$APP_DIR'"
 
       - name: Deploy on EC2
         shell: bash
@@ -88,6 +114,10 @@ jobs:
             -i ~/.ssh/deploy_key
             -o IdentitiesOnly=yes
             -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
             -p "${EC2_PORT:-22}"
           )
           APP_DIR="/home/${EC2_USER}/apps/Backend"
