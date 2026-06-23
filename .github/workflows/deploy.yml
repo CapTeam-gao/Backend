@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - jinuk
+      - master
 
 jobs:
   deploy:
