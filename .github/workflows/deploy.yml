@@ -35,6 +35,10 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          echo "=== key type ==="
+          head -1 ~/.ssh/deploy_key
+          echo "=== key fingerprint ==="
+          ssh-keygen -l -f ~/.ssh/deploy_key
           ssh -i ~/.ssh/deploy_key \
               -o IdentitiesOnly=yes \
               -o StrictHostKeyChecking=no \
