@@ -28,10 +28,7 @@ services:
         max-file: "3"
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: gaobackend:1.0
+    image: ${BACKEND_IMAGE:-ghcr.io/capteam-gao/backend:latest}
     restart: unless-stopped
     cpus: "${BACKEND_CPUS:-1.5}"
     ports:
