@@ -1,0 +1,13 @@
+.git
+.github
+.gradle
+.idea
+.env
+build
+out
+uploads
+*.log
+*.pdf
+*.xlsx
+*.dbml
+.DS_Store

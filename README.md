@@ -96,7 +96,7 @@ CapTeam Backend는 이 데이터를 안정적으로 저장하고, 관리자 요�
 - 학생은 공지 목록과 상세 내용을 조회할 수 있습니다.
 - 캡스톤 일지 작성과 관리자 조회 흐름을 제공합니다.
 - WebSocket/STOMP 기반 채팅 API를 구성하고, 팀별 채팅방과 채널을 관리합니다.
-- 채팅 파일 업로드는 로컬 저장소 경로와 public path 설정을 분리합니다.
+- 채팅 파일은 비공개 S3 버킷에 저장하고 채널 권한 확인 후 Presigned URL로 제공합니다.
 
 ## 기술 스택
 
@@ -107,11 +107,11 @@ CapTeam Backend는 이 데이터를 안정적으로 저장하고, 관리자 요�
 | Security | Spring Security, JWT |
 | Database | MySQL, Spring Data JPA |
 | Realtime | WebSocket, STOMP |
-| Cache/Infra | Redis |
+| Storage/Infra | Amazon S3, EC2 IAM Role |
 | API Docs | springdoc-openapi |
 | Build | Gradle |
 | Test | JUnit 5, Mockito, Spring Boot Test |
-| Deploy | Docker |
+| Deploy | Docker Compose, Nginx, EC2 |
 
 ## 폴더 구조
 
@@ -218,13 +218,29 @@ JWT_ACCESS_TOKEN_EXPIRATION=3600000
 JWT_REFRESH_TOKEN_EXPIRATION=1209600000
 JWT_REFRESH_COOKIE_SECURE=false
 JWT_REFRESH_COOKIE_SAME_SITE=Lax
-WEBSOCKET_ALLOWED_ORIGINS=*
+WEBSOCKET_ALLOWED_ORIGINS=https://frontend.example.com
 AI_SERVER_BASE_URL=http://localhost:8000
-CHAT_FILE_UPLOAD_DIR=uploads/chat
-CHAT_FILE_PUBLIC_PATH=/chat-files
+AWS_REGION=ap-northeast-2
+AWS_S3_BUCKET=your-private-chat-file-bucket
+AWS_S3_KEY_PREFIX=chat
+AWS_S3_PRESIGNED_URL_DURATION=PT10M
 ```
 
 민감 정보는 `.env` 또는 배포 환경 변수로 관리하고, 저장소에 포함하지 않습니다.
+운영 EC2에는 S3 객체 업로드와 조회 권한을 가진 IAM Role을 연결하며, Access Key는 환경 변수로 저장하지 않습니다.
+S3 버킷은 퍼블릭 액세스를 차단하고, EC2 IAM Role에는 해당 버킷의 `s3:PutObject`, `s3:GetObject` 권한만 부여합니다.
+백엔드는 `/chat-files/{channelId}/{fileName}` 경로를 저장하고, 같은 채널에 접근 가능한 로그인 사용자에게만 짧게 유효한 Presigned URL을 생성합니다.
+
+## EC2 + S3 운영 배포
+
+운영 배포에 필요한 IAM 정책, S3 CORS, Nginx 설정과 실행 순서는 [`deploy/aws/README.md`](deploy/aws/README.md)에 정리되어 있습니다.
+
+핵심 원칙은 다음과 같습니다.
+
+- EC2 IAM Role의 임시 자격 증명을 사용하고 Access Key를 저장하지 않습니다.
+- S3 버킷은 비공개로 유지하고 `chat/*` 객체에만 `GetObject`, `PutObject`를 허용합니다.
+- MySQL과 Spring Boot 포트는 EC2 외부에 직접 공개하지 않고 Nginx의 80/443만 공개합니다.
+- `/actuator/health`를 Docker와 EC2 상태 확인에 사용합니다.
 
 ## 실행 방법
 
