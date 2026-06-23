@@ -2,6 +2,7 @@ package com.capteam.gaobackend.dto.notice;
 
 import com.capteam.gaobackend.entity.Notice;
 import com.capteam.gaobackend.enums.Important;
+import com.capteam.gaobackend.enums.NoticeType;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -29,8 +30,13 @@ public class NoticeResponseDto {
     // 공지 작성 시각을 내려주는 필드입니다.
     private LocalDateTime createdAt;
 
+    // 목록에서도 필요 시 팀 배정 결과 공지 여부를 구분할 수 있게 내려주는 필드입니다.
+    private NoticeType noticeType;
+
     // Notice 엔티티를 공지 목록 응답 DTO로 변환하는 기능입니다.
     public static NoticeResponseDto from(Notice notice) {
+        NoticeType noticeType = notice.getNoticeType() == null ? NoticeType.GENERAL : notice.getNoticeType();
+
         return NoticeResponseDto.builder()
                 .id(notice.getId())
                 .title(notice.getTitle())
@@ -39,6 +45,7 @@ public class NoticeResponseDto {
                 // 프론트에서 IMPORTANT일 때만 중요 태그를 보여줌
                 .important(notice.getImportant())
                 .createdAt(notice.getCreatedAt())
+                .noticeType(noticeType)
                 .build();
     }
 }

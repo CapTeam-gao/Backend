@@ -1,6 +1,8 @@
 package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.Important;
+import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.NoticeType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -31,13 +33,23 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
     @Enumerated(EnumType.STRING)
     private Important important;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notice_type", nullable = false)
+    private NoticeType noticeType = NoticeType.GENERAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "result_grade")
+    private Grade resultGrade;
 
     @Builder // Notice.builder().title("...").content("...").writer(user).grade(grade).build() 형태로 생성
-    public Notice(String title, String content, User writer, Important important) {
+    public Notice(String title, String content, User writer, Important important,
+                  NoticeType noticeType, Grade resultGrade) {
         this.title = title;
         this.content = content;
         this.writer = writer;
         this.important = important;
+        this.noticeType = noticeType == null ? NoticeType.GENERAL : noticeType;
+        this.resultGrade = resultGrade;
 //        this.grade = grade;
     }
 
@@ -49,4 +61,16 @@ public class Notice extends BaseTimeEntity { // BaseTimeEntity: 생성일/수정
 //        this.grade = grade;
     }
 
+    public void updateTeamResult(String title, String content, Important important, Grade resultGrade) {
+        update(title, content, important);
+        this.noticeType = NoticeType.TEAM_RESULT;
+        this.resultGrade = resultGrade;
+    }
+
+    @PrePersist
+    public void applyNoticeDefaults() {
+        if (noticeType == null) {
+            noticeType = NoticeType.GENERAL;
+        }
+    }
 }
