@@ -1,0 +1,61 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - jinuk
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -eu
+
+            if [ ! -d /home/ubuntu/Backend/.git ]; then
+              mkdir -p /home/ubuntu
+              cd /home/ubuntu
+              git clone -b jinuk https://github.com/CapTeam-gao/Backend.git
+            fi
+
+            cd /home/ubuntu/Backend
+            git fetch origin jinuk
+            git reset --hard origin/jinuk
+
+            cat > .env <<'EOF'
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+            MYSQL_USER=${{ secrets.MYSQL_USER }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_ACCESS_TOKEN_EXPIRATION=${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
+            JWT_REFRESH_TOKEN_EXPIRATION=${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
+            JWT_REFRESH_COOKIE_SECURE=${{ secrets.JWT_REFRESH_COOKIE_SECURE }}
+            JWT_REFRESH_COOKIE_SAME_SITE=${{ secrets.JWT_REFRESH_COOKIE_SAME_SITE }}
+
+            WEBSOCKET_ALLOWED_ORIGINS=${{ secrets.WEBSOCKET_ALLOWED_ORIGINS }}
+            AI_SERVER_BASE_URL=${{ secrets.AI_SERVER_BASE_URL }}
+
+            AWS_REGION=${{ secrets.AWS_REGION }}
+            AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+            AWS_S3_KEY_PREFIX=${{ secrets.AWS_S3_KEY_PREFIX }}
+            AWS_S3_PRESIGNED_URL_DURATION=${{ secrets.AWS_S3_PRESIGNED_URL_DURATION }}
+
+            CHAT_FILE_MAX_SIZE=${{ secrets.CHAT_FILE_MAX_SIZE }}
+            CHAT_FILE_MAX_REQUEST_SIZE=${{ secrets.CHAT_FILE_MAX_REQUEST_SIZE }}
+            BACKEND_BIND_ADDRESS=${{ secrets.BACKEND_BIND_ADDRESS }}
+            BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+            EOF
+
+            chmod 600 .env
+            docker compose config
+            docker compose up -d --build
+            docker compose ps
