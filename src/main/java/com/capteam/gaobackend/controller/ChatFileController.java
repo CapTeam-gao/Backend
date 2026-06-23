@@ -2,11 +2,15 @@ package com.capteam.gaobackend.controller;
 
 import com.capteam.gaobackend.service.ChatFileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.net.URI;
 
 @RestController
 @RequiredArgsConstructor
@@ -14,11 +18,19 @@ public class ChatFileController {
 
     private final ChatFileStorageService chatFileStorageService;
 
-    // 업로드된 채팅 첨부 파일을 공개 URL로 조회하는 기능입니다.
-    @GetMapping("/chat-files/{fileName:.+}")
-    public ResponseEntity<Resource> getChatFile(@PathVariable String fileName) {
-        // 업로드된 채팅 파일을 프론트에서 링크나 이미지로 바로 열 때 쓰는 endpoint입니다.
-        // 실제 파일은 DB가 아니라 chat.file.upload-dir 폴더에서 읽어옵니다.
-        return ResponseEntity.ok(chatFileStorageService.loadFile(fileName));
+    @GetMapping("/chat-files/{channelId}/{fileName:.+}")
+    public ResponseEntity<Void> getChatFile(
+            @PathVariable Long channelId,
+            @PathVariable String fileName,
+            Authentication authentication
+    ) {
+        URI downloadUri = URI.create(
+                chatFileStorageService.createDownloadUrl(channelId, authentication.getName(), fileName)
+        );
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(downloadUri)
+                .cacheControl(CacheControl.noStore())
+                .build();
     }
 }
