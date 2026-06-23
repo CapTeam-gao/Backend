@@ -19,13 +19,15 @@ jobs:
           script: |
             set -eu
 
-            if [ ! -d /home/ubuntu/Backend/.git ]; then
-              mkdir -p /home/ubuntu
-              cd /home/ubuntu
-              git clone -b jinuk https://github.com/CapTeam-gao/Backend.git
+            APP_DIR=/home/ec2-user/apps/Backend
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              mkdir -p /home/ec2-user/apps
+              cd /home/ec2-user/apps
+              git clone -b jinuk git@github.com:CapTeam-gao/Backend.git Backend
             fi
 
-            cd /home/ubuntu/Backend
+            cd "$APP_DIR"
             git fetch origin jinuk
             git reset --hard origin/jinuk
 
