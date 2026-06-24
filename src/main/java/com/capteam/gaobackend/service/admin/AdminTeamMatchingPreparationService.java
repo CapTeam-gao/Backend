@@ -38,6 +38,7 @@ public class AdminTeamMatchingPreparationService {
         if (gradeStudents.isEmpty()) {
             throw new IllegalStateException("배정할 미배정 학생이 없습니다.");
         }
+        validateAllStudentsHaveName(gradeStudents);
 
         Map<String, String> nameToUserId = gradeStudents.stream()
                 .collect(Collectors.toMap(User::getName, User::getUserId, (first, second) -> first));
@@ -58,6 +59,19 @@ public class AdminTeamMatchingPreparationService {
                     .map(user -> user.getName() + "(" + user.getUserId() + ")")
                     .collect(Collectors.joining(", "));
             throw new IllegalStateException("설문 미완료 학생이 있어 팀을 생성할 수 없습니다: " + names);
+        }
+    }
+
+    private void validateAllStudentsHaveName(List<User> students) {
+        List<User> studentsWithoutName = students.stream()
+                .filter(user -> user.getName() == null || user.getName().isBlank())
+                .toList();
+
+        if (!studentsWithoutName.isEmpty()) {
+            String userIds = studentsWithoutName.stream()
+                    .map(User::getUserId)
+                    .collect(Collectors.joining(", "));
+            throw new IllegalStateException("이름이 등록되지 않은 학생이 있어 팀을 생성할 수 없습니다: " + userIds);
         }
     }
 
