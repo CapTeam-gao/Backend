@@ -3,7 +3,7 @@ services:
     image: mysql:8.0
     container_name: gao-mysql
     restart: unless-stopped
-    cpus: "${MYSQL_CPUS:-0.5}"
+    cpus: 0.5
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
       MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
@@ -32,7 +32,7 @@ services:
     image: ${BACKEND_IMAGE:-ghcr.io/capteam-gao/backend:latest}
     container_name: gao-backend
     restart: unless-stopped
-    cpus: "${BACKEND_CPUS:-1.5}"
+    cpus: 1.5
     ports:
       - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_PORT:-8888}:8080"
     environment:
