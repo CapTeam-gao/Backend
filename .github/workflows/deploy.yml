@@ -3,7 +3,7 @@ name: Deploy Backend
 on:
   push:
     branches:
-      - jinuk
+      - main
       - master
 
 permissions:
