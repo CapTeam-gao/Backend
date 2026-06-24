@@ -114,6 +114,7 @@ jobs:
           APP_DIR="${APP_PARENT}/Backend"
           RELEASE_DIR="${APP_PARENT}/Backend.release"
           RELEASE_ARCHIVE="${APP_PARENT}/Backend.release.tgz"
+          LOCAL_RELEASE_ARCHIVE="${RUNNER_TEMP}/backend-release.tgz"
 
           tar \
             --exclude='.git' \
@@ -121,10 +122,10 @@ jobs:
             --exclude='build' \
             --exclude='.env' \
             --exclude='uploads' \
-            -czf backend-release.tgz .
+            -czf "$LOCAL_RELEASE_ARCHIVE" .
 
           retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "rm -rf '$RELEASE_DIR' && mkdir -p '$RELEASE_DIR'"
-          retry scp "${SCP_OPTIONS[@]}" backend-release.tgz "$EC2_USER@$EC2_HOST:$RELEASE_ARCHIVE"
+          retry scp "${SCP_OPTIONS[@]}" "$LOCAL_RELEASE_ARCHIVE" "$EC2_USER@$EC2_HOST:$RELEASE_ARCHIVE"
           retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "tar -xzf '$RELEASE_ARCHIVE' -C '$RELEASE_DIR' && rm -f '$RELEASE_ARCHIVE' && rm -rf '$APP_DIR' && mv '$RELEASE_DIR' '$APP_DIR'"
 
       - name: Deploy on EC2
