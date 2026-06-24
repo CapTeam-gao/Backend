@@ -1,6 +1,7 @@
 services:
   mysql:
     image: mysql:8.0
+    container_name: gao-mysql
     restart: unless-stopped
     cpus: "${MYSQL_CPUS:-0.5}"
     environment:
@@ -29,6 +30,7 @@ services:
 
   backend:
     image: ${BACKEND_IMAGE:-ghcr.io/capteam-gao/backend:latest}
+    container_name: gao-backend
     restart: unless-stopped
     cpus: "${BACKEND_CPUS:-1.5}"
     ports:
