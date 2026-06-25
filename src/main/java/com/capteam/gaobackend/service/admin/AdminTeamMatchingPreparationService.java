@@ -6,6 +6,8 @@ import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
+import com.capteam.gaobackend.entity.UserAnalysis;
+import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class AdminTeamMatchingPreparationService {
 
     private final TeamUserRepository teamUserRepository;
     private final UserRepository userRepository;
+    private final UserAnalysisRepository userAnalysisRepository;
 
     // AI 호출 전에 대상 학생 검증과 전송 DTO 생성을 짧은 읽기 트랜잭션 안에서 끝냅니다.
     @Transactional(readOnly = true)
@@ -43,8 +46,14 @@ public class AdminTeamMatchingPreparationService {
         Map<String, String> nameToUserId = gradeStudents.stream()
                 .collect(Collectors.toMap(User::getName, User::getUserId, (first, second) -> first));
         // 지연 로딩 필드를 포함한 AI payload를 트랜잭션 안에서 완성합니다.
+        Map<String, UserAnalysis> analysisMap = userAnalysisRepository.findAllById(
+                gradeStudents.stream()
+                        .map(User::getUserId)
+                        .toList()
+        ).stream().collect(Collectors.toMap(UserAnalysis::getUserId, analysis -> analysis));
+
         List<AiStudentPayloadDto> studentPayloads = gradeStudents.stream()
-                .map(AiStudentPayloadDto::from)
+                .map(user -> AiStudentPayloadDto.from(user, analysisMap.get(user.getUserId())))
                 .toList();
         return new PreparedMatching(nameToUserId, studentPayloads);
     }

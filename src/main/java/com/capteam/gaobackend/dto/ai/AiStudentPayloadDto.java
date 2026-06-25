@@ -2,6 +2,7 @@ package com.capteam.gaobackend.dto.ai;
 
 import com.capteam.gaobackend.entity.User;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.capteam.gaobackend.entity.UserAnalysis;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -27,6 +28,12 @@ public class AiStudentPayloadDto {
     @JsonProperty("preferred_members")
     private List<String> preferredMembers;
 
+    @JsonProperty("analysis_result")
+    private String analysisResult;
+
+    @JsonProperty("student_level")
+    private String studentLevel;
+
     // 성격 성향 점수
     private Double communication;
     private Double responsibility;
@@ -45,6 +52,10 @@ public class AiStudentPayloadDto {
 
     // User 엔티티를 AI 전송용 DTO로 변환하는 기능입니다.
     public static AiStudentPayloadDto from(User user) {
+        return from(user, null);
+    }
+
+    public static AiStudentPayloadDto from(User user, UserAnalysis analysis) {
         return AiStudentPayloadDto.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
@@ -54,6 +65,10 @@ public class AiStudentPayloadDto {
                 .grade(user.getGrade() != null ? user.getGrade().name() : null)
                 .wantsLeader(user.isWantsLeader())
                 .preferredMembers(user.getPreferredTeammates())
+                .analysisResult(analysis != null ? analysis.getAnalysisResult() : null)
+                .studentLevel(analysis != null && analysis.getStudentLevel() != null
+                        ? analysis.getStudentLevel().name()
+                        : null)
                 .communication(user.getPersonalityScores() != null ? user.getPersonalityScores().getCommunication() : null)
                 .responsibility(user.getPersonalityScores() != null ? user.getPersonalityScores().getResponsibility() : null)
                 .collaboration(user.getPersonalityScores() != null ? user.getPersonalityScores().getCollaboration() : null)
