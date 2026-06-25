@@ -106,6 +106,36 @@ class AdminTeamRecommendationServiceTest {
     }
 
     @Test
+    void matchesAiMemberByUserIdWhenNameIsDifferent() {
+        AiStudentPayloadDto studentPayload = AiStudentPayloadDto.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .build();
+        List<AiStudentPayloadDto> studentPayloads = List.of(studentPayload);
+        AiTeamSummaryResponseDto.MemberDto member = new AiTeamSummaryResponseDto.MemberDto();
+        member.setUserId("stu2301");
+        member.setName("AI가 바꾼 이름");
+        AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
+        team.setMembers(List.of(member));
+        AiTeamSummaryResponseDto aiResponse = new AiTeamSummaryResponseDto();
+        aiResponse.setTeams(List.of(team));
+
+        when(matchingPreparationService.prepare(Grade.GRADE_2))
+                .thenReturn(new AdminTeamMatchingPreparationService.PreparedMatching(
+                        Map.of("홍길동", "stu2301"),
+                        studentPayloads
+                ));
+        when(aiClient.runMatchingWithPrompt(studentPayloads, null)).thenReturn(aiResponse);
+
+        adminTeamRecommendationService.createRecommendation(
+                new TeamRecommendationRequestDto(Grade.GRADE_2, null)
+        );
+
+        verify(recommendationPersistenceService)
+                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
+    }
+
+    @Test
     void copiesRecommendationStrengthsAndWeaknessesToAcceptedTeam() {
         TeamRecommendation recommendation = TeamRecommendation.builder()
                 .grade(Grade.GRADE_2)

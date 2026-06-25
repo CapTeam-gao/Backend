@@ -107,13 +107,16 @@ public class AdminTeamRecommendationService {
         // AI 팀 중 해당 학년 학생이 1명 이상 포함된 팀만 추출
         List<AiTeamSummaryResponseDto.TeamDto> targetTeams = aiResult.getTeams().stream()
                 .filter(team -> team.getMembers().stream()
-                        .anyMatch(m -> nameToUserId.containsKey(m.getName())))
+                        .anyMatch(member -> AiTeamMemberUserResolver.resolveUserId(member, nameToUserId) != null))
                 .toList();
 
         if (targetTeams.isEmpty()) {
-            log.warn("AI 결과에서 해당 학년({}) 학생 이름이 매칭되지 않았습니다. AI 반환 이름: {}, 백엔드 이름: {}",
+            log.warn("AI 결과에서 해당 학년({}) 학생 식별자가 매칭되지 않았습니다. AI 반환 userId/name: {}, 백엔드 이름: {}",
                     grade,
-                    aiResult.getTeams().stream().flatMap(t -> t.getMembers().stream()).map(AiTeamSummaryResponseDto.MemberDto::getName).toList(),
+                    aiResult.getTeams().stream()
+                            .flatMap(t -> t.getMembers().stream())
+                            .map(member -> member.getUserId() + "/" + member.getName())
+                            .toList(),
                     nameToUserId.keySet());
             throw new IllegalStateException("AI 매칭 결과와 백엔드 학생 이름이 일치하지 않습니다. AI 서버 로그를 확인해주세요.");
         }

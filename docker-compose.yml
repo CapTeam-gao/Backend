@@ -1,7 +1,9 @@
 services:
   mysql:
     image: mysql:8.0
+    container_name: gao-mysql
     restart: unless-stopped
+    cpus: 0.5
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}
       MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required}
@@ -27,13 +29,12 @@ services:
         max-file: "3"
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: gaobackend:1.0
+    image: ${BACKEND_IMAGE:-ghcr.io/capteam-gao/backend:latest}
+    container_name: gao-backend
     restart: unless-stopped
+    cpus: 1.5
     ports:
-      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:${BACKEND_PORT:-8080}:8080"
+      - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_PORT:-8888}:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}

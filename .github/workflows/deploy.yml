@@ -1,0 +1,196 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      BACKEND_IMAGE: ghcr.io/capteam-gao/backend:${{ github.sha }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}
+            ghcr.io/capteam-gao/backend:latest
+
+      - name: Validate SSH key
+        shell: bash
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key > /dev/null
+
+#      - name:
+#        shell: bash
+#        env:
+#          EC2_HOST: ${{ secrets.EC2_HOST }}
+#          EC2_USER: ${{ secrets.EC2_USER }}
+#          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+#        run: |
+#          mkdir -p ~/.ssh
+#          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+#          chmod 600 ~/.ssh/deploy_key
+#          echo "=== key type ==="
+#          head -1 ~/.ssh/deploy_key
+#          echo "=== key fingerprint ==="
+#          ssh-keygen -l -f ~/.ssh/deploy_key
+#          ssh -i ~/.ssh/deploy_key \
+#              -o IdentitiesOnly=yes \
+#              -o StrictHostKeyChecking=no \
+#              -v \
+#              "$EC2_USER@$EC2_HOST" "echo OK"
+
+      - name: Upload source to EC2
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+        run: |
+          set -euo pipefail
+
+          SSH_OPTIONS=(
+            -i ~/.ssh/deploy_key
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
+            -p "${EC2_PORT:-22}"
+          )
+          SCP_OPTIONS=(
+            -i ~/.ssh/deploy_key
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
+            -P "${EC2_PORT:-22}"
+          )
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              sleep $((attempt * 10))
+            done
+            "$@"
+          }
+
+          APP_PARENT="/home/${EC2_USER}/apps"
+          APP_DIR="${APP_PARENT}/Backend"
+          RELEASE_DIR="${APP_PARENT}/Backend.release"
+          RELEASE_ARCHIVE="${APP_PARENT}/Backend.release.tgz"
+          LOCAL_RELEASE_ARCHIVE="${RUNNER_TEMP}/backend-release.tgz"
+
+          tar \
+            --exclude='.git' \
+            --exclude='.gradle' \
+            --exclude='build' \
+            --exclude='.env' \
+            --exclude='uploads' \
+            -czf "$LOCAL_RELEASE_ARCHIVE" .
+
+          retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "rm -rf '$RELEASE_DIR' && mkdir -p '$RELEASE_DIR'"
+          retry scp "${SCP_OPTIONS[@]}" "$LOCAL_RELEASE_ARCHIVE" "$EC2_USER@$EC2_HOST:$RELEASE_ARCHIVE"
+          retry ssh "${SSH_OPTIONS[@]}" "$EC2_USER@$EC2_HOST" "tar -xzf '$RELEASE_ARCHIVE' -C '$RELEASE_DIR' && rm -f '$RELEASE_ARCHIVE' && rm -rf '$APP_DIR' && mv '$RELEASE_DIR' '$APP_DIR'"
+
+      - name: Deploy on EC2
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_PORT: ${{ secrets.EC2_PORT }}
+        run: |
+          set -euo pipefail
+
+          SSH_OPTIONS=(
+            -i ~/.ssh/deploy_key
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=accept-new
+            -o ConnectTimeout=20
+            -o ConnectionAttempts=3
+            -o ServerAliveInterval=30
+            -o ServerAliveCountMax=20
+            -p "${EC2_PORT:-22}"
+          )
+          APP_DIR="/home/${EC2_USER}/apps/Backend"
+
+          ssh \
+            "${SSH_OPTIONS[@]}" \
+            "$EC2_USER@$EC2_HOST" \
+            "APP_DIR='$APP_DIR' bash -s" \
+            <<'REMOTE_SCRIPT'
+          set -eu
+
+          cd "$APP_DIR"
+
+          cat > .env <<'EOF'
+          MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}
+          MYSQL_USER=${{ secrets.MYSQL_USER }}
+          MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_ACCESS_TOKEN_EXPIRATION=${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
+          JWT_REFRESH_TOKEN_EXPIRATION=${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
+          JWT_REFRESH_COOKIE_SECURE=${{ secrets.JWT_REFRESH_COOKIE_SECURE }}
+          JWT_REFRESH_COOKIE_SAME_SITE=${{ secrets.JWT_REFRESH_COOKIE_SAME_SITE }}
+
+          WEBSOCKET_ALLOWED_ORIGINS=${{ secrets.WEBSOCKET_ALLOWED_ORIGINS }}
+          AI_SERVER_BASE_URL=${{ secrets.AI_SERVER_BASE_URL }}
+
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET=${{ secrets.AWS_S3_BUCKET }}
+          AWS_S3_KEY_PREFIX=${{ secrets.AWS_S3_KEY_PREFIX }}
+          AWS_S3_PRESIGNED_URL_DURATION=${{ secrets.AWS_S3_PRESIGNED_URL_DURATION }}
+
+          CHAT_FILE_MAX_SIZE=${{ secrets.CHAT_FILE_MAX_SIZE }}
+          CHAT_FILE_MAX_REQUEST_SIZE=${{ secrets.CHAT_FILE_MAX_REQUEST_SIZE }}
+          BACKEND_BIND_ADDRESS=${{ secrets.BACKEND_BIND_ADDRESS }}
+          BACKEND_PORT=${{ secrets.BACKEND_PORT }}
+          BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+          BACKEND_CPUS=${{ secrets.BACKEND_CPUS }}
+          MYSQL_CPUS=${{ secrets.MYSQL_CPUS }}
+          EOF
+
+          chmod 600 .env
+          printf '%s\n' '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          docker compose config
+          docker compose pull backend
+          docker compose up -d --remove-orphans
+          docker compose ps
+          REMOTE_SCRIPT
