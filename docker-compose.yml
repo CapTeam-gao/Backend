@@ -37,7 +37,7 @@ services:
     ports:
       - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_PORT:-8080}:8080"
     environment:
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/${MYSQL_DATABASE}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/gao_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
