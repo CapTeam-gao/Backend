@@ -45,11 +45,14 @@ public class TeamAssignmentNoticeService {
                 .append(toGradeLabel(grade))
                 .append(" 팀 배정 결과 안내\n\n")
                 .append("캡스톤 팀 배정이 완료되었습니다.\n")
-                .append("본인이 배정된 팀을 확인한 뒤 팀 채팅방에서 프로젝트 진행을 시작해주세요.\n\n")
+                .append("아래 팀 목록에서 본인이 배정된 팀과 역할을 반드시 확인하세요.\n")
+                .append("확인 후 팀 채팅방에서 프로젝트 주제와 역할 분담을 논의하면 됩니다.\n\n")
                 .append("## 확인 사항\n")
-                .append("- 팀장은 이름 옆에 팀장으로 표시됩니다.\n")
-                .append("- 팀 채팅방에서 프로젝트 주제와 역할 분담을 먼저 논의해주세요.\n")
-                .append("- 프로젝트 기획서는 팀원들과 협의한 뒤 작성해주세요.\n\n")
+                .append("- 본인의 팀, 역할, 팀장 여부를 먼저 확인하세요.\n")
+                .append("- 팀 채팅방에서 팀원들과 프로젝트 주제를 정리하세요.\n")
+                .append("- 프로젝트 기획서는 팀원 협의 후 CapTeam에서 작성하세요.\n")
+                .append("- 캡스톤 일지는 안내된 양식에 맞춰 CapTeam에 작성하세요.\n")
+                .append("- 공지 미확인으로 생기는 불이익은 본인 및 각 팀 책임입니다.\n\n")
                 .append("---\n\n")
                 .append("## 팀 목록\n");
 
@@ -66,8 +69,9 @@ public class TeamAssignmentNoticeService {
                     .append("\n\n---\n");
         }
 
-        return content.append("\n팀 배정과 관련된 문의가 있다면 담당 선생님께 문의해주세요.")
+        return content.append("\n팀 배정과 관련된 문의가 있다면 담당 선생님께 문의하세요.")
                 .toString();
+
     }
 
     private List<TeamUser> leaderFirst(List<TeamUser> members) {

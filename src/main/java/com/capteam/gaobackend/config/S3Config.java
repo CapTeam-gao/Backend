@@ -7,6 +7,7 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 
 @Configuration
 @EnableConfigurationProperties(S3Properties.class)
@@ -23,6 +24,7 @@ public class S3Config {
         return S3Client.builder()
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentialsProvider)
+                .httpClientBuilder(UrlConnectionHttpClient.builder())
                 .build();
     }
 
