@@ -82,4 +82,26 @@ class UserSurveyAnalysisServiceTest {
 
         assertThatNoException().isThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user));
     }
+
+    @Test
+    void savesUpperMiddleStudentLevelFromAiResponse() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        AiStudentAnalysisResponseDto aiResult = new AiStudentAnalysisResponseDto();
+        aiResult.setUserId("stu2301");
+        aiResult.setName("홍길동");
+        aiResult.setAnalysisResult("중상 수준입니다.");
+        aiResult.setStudentLevel("중상");
+
+        when(aiClient.runAnalysisForResult(any())).thenReturn(List.of(aiResult));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.empty());
+
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+
+        verify(userAnalysisRepository).save(analysisCaptor.capture());
+        assertThat(analysisCaptor.getValue().getStudentLevel()).isEqualTo(StudentLevel.UPPER_MIDDLE);
+    }
 }

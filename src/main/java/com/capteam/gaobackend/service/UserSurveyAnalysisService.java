@@ -99,7 +99,10 @@ public class UserSurveyAnalysisService {
         String normalized = level.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
             case "UPPER", "HIGH", "상" -> StudentLevel.UPPER;
+            // AI 서버가 한글 또는 여러 영문 alias로 중상/중하를 내려줘도 같은 enum으로 저장합니다.
+            case "UPPER_MIDDLE", "UPPER-MIDDLE", "HIGH_MIDDLE", "HIGH-MIDDLE", "중상" -> StudentLevel.UPPER_MIDDLE;
             case "MIDDLE", "MID", "MEDIUM", "중" -> StudentLevel.MIDDLE;
+            case "LOWER_MIDDLE", "LOWER-MIDDLE", "LOW_MIDDLE", "LOW-MIDDLE", "중하" -> StudentLevel.LOWER_MIDDLE;
             case "LOWER", "LOW", "하" -> StudentLevel.LOWER;
             default -> null;
         };
@@ -113,3 +116,4 @@ public class UserSurveyAnalysisService {
         return value;
     }
 }
+//
