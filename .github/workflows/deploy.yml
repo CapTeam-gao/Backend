@@ -164,6 +164,8 @@ jobs:
           MYSQL_USER=${{ secrets.MYSQL_USER }}
           MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
 
+          SPRING_DATASOURCE_URL=${{ secrets.SPRING_DATASOURCE_URL }}
+
           JWT_SECRET=${{ secrets.JWT_SECRET }}
           JWT_ACCESS_TOKEN_EXPIRATION=${{ secrets.JWT_ACCESS_TOKEN_EXPIRATION }}
           JWT_REFRESH_TOKEN_EXPIRATION=${{ secrets.JWT_REFRESH_TOKEN_EXPIRATION }}
@@ -189,8 +191,8 @@ jobs:
 
           chmod 600 .env
           printf '%s\n' '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-          docker compose config
-          docker compose pull backend
-          docker compose up -d --remove-orphans
-          docker compose ps
+          docker compose -f docker-compose.prod.yml config
+          docker compose -f docker-compose.prod.yml pull backend
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          docker compose -f docker-compose.prod.yml ps
           REMOTE_SCRIPT

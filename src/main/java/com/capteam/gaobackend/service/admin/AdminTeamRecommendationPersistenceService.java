@@ -6,15 +6,12 @@ import com.capteam.gaobackend.entity.TeamRecommendation;
 import com.capteam.gaobackend.entity.TeamRecommendationMember;
 import com.capteam.gaobackend.entity.TeamRecommendationReason;
 import com.capteam.gaobackend.entity.User;
-import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.RecommendationStatus;
-import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.repository.TeamRecommendationMemberRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationReasonRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationRepository;
-import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,7 +30,6 @@ public class AdminTeamRecommendationPersistenceService {
     private final TeamRecommendationRepository recommendationRepository;
     private final TeamRecommendationMemberRepository recommendationMemberRepository;
     private final TeamRecommendationReasonRepository recommendationReasonRepository;
-    private final UserAnalysisRepository userAnalysisRepository;
     private final UserRepository userRepository;
 
     // 취소 검증을 통과한 AI 결과만 하나의 트랜잭션에서 기존 추천안과 교체합니다.
@@ -84,16 +80,6 @@ public class AdminTeamRecommendationPersistenceService {
                         .studentRole(parseRoleGroup(member.getRoleGroup(), member.getRole()))
                         .isRecommendedLeader(AiTeamMemberUserResolver.isSameStudent(member, leaderName, nameToUserId))
                         .build());
-
-                StudentLevel level = parseSkillLevel(member.getSkillLevel());
-                userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
-                        analysis -> analysis.updateAnalysisResult(member.getStrength(), level),
-                        () -> userAnalysisRepository.save(UserAnalysis.builder()
-                                .user(user)
-                                .analysisResult(member.getStrength())
-                                .studentLevel(level)
-                                .build())
-                );
             }
 
             saveRecommendationReasons(recommendation, aiTeam);
