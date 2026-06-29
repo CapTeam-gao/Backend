@@ -218,6 +218,7 @@ public class AdminTeamRecommendationPersistenceService {
         }
         return switch (skillLevel.trim().toUpperCase()) {
             case "상", "높음" -> StudentLevel.UPPER;
+            // 팀 추천 결과의 skill_level도 학생 분석과 같은 중상/중하 enum으로 정규화합니다.
             case "UPPER_MIDDLE", "UPPER-MIDDLE", "HIGH_MIDDLE", "HIGH-MIDDLE", "중상" -> StudentLevel.UPPER_MIDDLE;
             case "LOWER_MIDDLE", "LOWER-MIDDLE", "LOW_MIDDLE", "LOW-MIDDLE", "중하" -> StudentLevel.LOWER_MIDDLE;
             case "하", "낮음" -> StudentLevel.LOWER;
@@ -238,3 +239,4 @@ public class AdminTeamRecommendationPersistenceService {
                 .trim();
     }
 }
+//
