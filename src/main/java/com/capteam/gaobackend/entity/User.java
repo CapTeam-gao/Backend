@@ -51,10 +51,12 @@ public class User extends BaseTimeEntity {
     private StudentRole studentRole;
 
     @ElementCollection
+    @Column(columnDefinition = "TEXT")
     // 학생이 보유한 기술 스택을 저장하는 필드입니다.
     private List<String> skill;
 
     @ElementCollection
+    @Column(columnDefinition = "TEXT")
     // 학생의 구현 경험을 저장하는 필드입니다.
     private List<String> experience;
 
