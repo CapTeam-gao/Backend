@@ -126,7 +126,10 @@ public class TeamService {
 
     // 로그인한 학생이 소속된 팀의 프로젝트 기획서를 조회하는 기능입니다.
     public MyTeamResponseDto.TeamProjectDto getMyTeamProject(String userId) {
-        TeamUser myTeamUser = findMyTeamUser(userId);
+        TeamUser myTeamUser = teamUserRepository.findByUserUserId(userId).orElse(null);
+        if (myTeamUser == null) {
+            return null;
+        }
 
         return teamProjectRepository.findByTeamId(myTeamUser.getTeam().getId())
                 .map(MyTeamResponseDto.TeamProjectDto::from)

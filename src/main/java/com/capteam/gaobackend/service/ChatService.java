@@ -84,8 +84,16 @@ public class ChatService {
 
     // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
     public ChatRoomResponseDto getMyChatRoom(String userId) {
-        ChatRoom room = chatAccessService.getMyChatRoom(userId);
-        TeamUser myTeamUser = getMyTeamUser(userId);
+        TeamUser myTeamUser = teamUserRepository.findByUserUserId(userId).orElse(null);
+        if (myTeamUser == null) {
+            return null;
+        }
+
+        ChatRoom room = chatRoomRepository.findByTeamId(myTeamUser.getTeam().getId()).orElse(null);
+        if (room == null) {
+            return null;
+        }
+
         return buildRoomResponse(room, myTeamUser);
     }
 

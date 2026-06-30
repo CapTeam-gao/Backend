@@ -149,6 +149,25 @@ class ChatServiceEventTest {
     }
 
     @Test
+    void getMyChatRoomReturnsNullWhenUserHasNoTeam() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.empty());
+
+        ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void getMyChatRoomReturnsNullWhenTeamHasNoChatRoom() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.MEMBER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.empty());
+
+        ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
+
+        assertThat(response).isNull();
+    }
+
+    @Test
     void getAdminUnreadSummaryCountsStudentMessagesOnly() {
         when(chatChannelRepository.findAll()).thenReturn(List.of(channel));
         when(chatReadStatusRepository.findByChannelIdAndUserUserId(10L, "admin")).thenReturn(Optional.empty());
