@@ -8,6 +8,8 @@ import com.capteam.gaobackend.enums.Important;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.repository.NoticeReadRepository;
 import com.capteam.gaobackend.repository.NoticeRepository;
+import com.capteam.gaobackend.repository.TeamRepository;
+import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,8 @@ class AdminNoticeServiceTest {
     @Mock private NoticeRepository noticeRepository;
     @Mock private NoticeReadRepository noticeReadRepository;
     @Mock private UserRepository userRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private TeamUserRepository teamUserRepository;
     @Mock private SimpMessagingTemplate messagingTemplate;
 
     private AdminNoticeService adminNoticeService;
@@ -45,6 +49,8 @@ class AdminNoticeServiceTest {
                 noticeRepository,
                 noticeReadRepository,
                 userRepository,
+                teamRepository,
+                teamUserRepository,
                 messagingTemplate
         );
         SecurityContextHolder.getContext().setAuthentication(
