@@ -28,6 +28,7 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
     private String analysisResult;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "ENUM('UPPER','UPPER_MIDDLE','MIDDLE','LOWER_MIDDLE','LOWER')")
     // AI가 분석한 학생 실력 등급을 저장하는 필드입니다.
     private StudentLevel studentLevel; // AI가 분석한 학생 실력 (상/중/하), 어드민만 조회 가능
 
