@@ -13,6 +13,7 @@ import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +26,7 @@ public class UserSurveyAnalysisService {
     private final AiClient aiClient;
     private final UserAnalysisRepository userAnalysisRepository;
 
+    @Transactional
     public void saveSurveyReliability(User user, UserSurveyRequestDto dto) {
         ResponseReliability responseReliability = dto.getResponseReliability();
         Integer inconsistentAnswers = validateNonNegative(dto.getInconsistentAnswers(), "전체 불일치 응답 수");
@@ -50,14 +52,14 @@ public class UserSurveyAnalysisService {
         );
     }
 
+    @Transactional
     public void analyzeSubmittedSurvey(User user) {
         try {
             List<AiStudentAnalysisResponseDto> results =
                     aiClient.runAnalysisForResult(List.of(AiStudentPayloadDto.from(user)));
             AiStudentAnalysisResponseDto result = findUserAnalysisResult(user, results);
             if (result == null || result.getAnalysisResult() == null || result.getAnalysisResult().isBlank()) {
-                log.warn("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다. userId={}", user.getUserId());
-                return;
+                throw new IllegalStateException("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다. userId=" + user.getUserId());
             }
 
             StudentLevel studentLevel = parseStudentLevel(result.getStudentLevel());
@@ -70,7 +72,8 @@ public class UserSurveyAnalysisService {
                             .build())
             );
         } catch (AiServerException e) {
-            log.warn("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
+            log.error("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
+            throw new IllegalStateException("AI 학생 분석 생성에 실패했습니다.", e);
         }
     }
 
