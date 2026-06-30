@@ -97,7 +97,13 @@ public class ChatService {
 
     // 내 팀 채팅방의 채널별 마지막 메시지와 읽지 않은 메시지 수를 조회하는 기능입니다.
     public List<ChatChannelSummaryResponseDto> getMyChannelSummaries(String userId) {
-        ChatRoom room = chatAccessService.getMyChatRoom(userId);
+        ChatRoom room = teamUserRepository.findByUserUserId(userId)
+                .flatMap(teamUser -> chatRoomRepository.findByTeamId(teamUser.getTeam().getId()))
+                .orElse(null);
+
+        if (room == null) {
+            return List.of();
+        }
 
         // 헤더나 메인 화면 알림용 목록입니다.
         // 채널별 마지막 메시지와 읽지 않은 메시지 수를 같이 내려줍니다.

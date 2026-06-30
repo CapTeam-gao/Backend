@@ -173,6 +173,25 @@ class ChatServiceEventTest {
     }
 
     @Test
+    void getMyChannelSummariesReturnsEmptyListWhenUserHasNoTeam() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.empty());
+
+        List<ChatChannelSummaryResponseDto> response = chatService.getMyChannelSummaries("stu2301");
+
+        assertThat(response).isEmpty();
+    }
+
+    @Test
+    void getMyChannelSummariesReturnsEmptyListWhenTeamHasNoChatRoom() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.MEMBER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.empty());
+
+        List<ChatChannelSummaryResponseDto> response = chatService.getMyChannelSummaries("stu2301");
+
+        assertThat(response).isEmpty();
+    }
+
+    @Test
     void saveMessagePublishesAdminUnreadEvent() {
         User admin = User.builder()
                 .userId("admin")
