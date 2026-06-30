@@ -1,5 +1,7 @@
 package com.capteam.gaobackend.controller;
 
+import com.capteam.gaobackend.dto.chat.ChatFileDownloadUrlResponseDto;
+import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.ChatFileStorageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.CacheControl;
@@ -32,5 +34,17 @@ public class ChatFileController {
                 .location(downloadUri)
                 .cacheControl(CacheControl.noStore())
                 .build();
+    }
+
+    @GetMapping("/api/chat/channels/{channelId}/files/{fileName:.+}/download-url")
+    public ResponseEntity<ApiResponse<ChatFileDownloadUrlResponseDto>> getChatFileDownloadUrl(
+            @PathVariable Long channelId,
+            @PathVariable String fileName,
+            Authentication authentication
+    ) {
+        String downloadUrl = chatFileStorageService.createDownloadUrl(channelId, authentication.getName(), fileName);
+        return ApiResponse.ok(ChatFileDownloadUrlResponseDto.builder()
+                .downloadUrl(downloadUrl)
+                .build());
     }
 }

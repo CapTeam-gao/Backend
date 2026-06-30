@@ -6,8 +6,10 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -26,7 +28,10 @@ import java.util.List;
 
 
 @Component
+@Slf4j
 public class JwtAuthenticationFilter extends GenericFilter {
+    private static final String BEARER_PREFIX = "Bearer ";
+
     @Value("${jwt.secret}")
     private String secretKey;
 
@@ -42,11 +47,15 @@ public class JwtAuthenticationFilter extends GenericFilter {
         String token = httpServletRequest.getHeader("Authorization");
         try {
             if(token != null) {
-                if(!token.substring(0,7).equals("Bearer ")) {
+                if(!token.startsWith(BEARER_PREFIX)) {
                     throw new AuthenticationServiceException("Bearer 형식이 아닙니다.");
                 }
 
-                String jwtToken = token.substring(7);
+                String jwtToken = token.substring(BEARER_PREFIX.length()).trim();
+                if (jwtToken.isBlank()) {
+                    throw new AuthenticationServiceException("JWT 토큰이 비어 있습니다.");
+                }
+
                 Claims claims = Jwts.parser()
                         .verifyWith(getSigningKey())
                         .build()
@@ -67,10 +76,11 @@ public class JwtAuthenticationFilter extends GenericFilter {
 
             filterChain.doFilter(servletRequest,servletResponse);
         } catch (Exception e) {
-            e.printStackTrace();
+            SecurityContextHolder.clearContext();
+            log.debug("JWT 인증에 실패했습니다: {}", e.getMessage());
             httpServletResponse.setStatus(HttpStatus.UNAUTHORIZED.value());
-            httpServletResponse.setContentType("application/json");
-            httpServletResponse.getWriter().write("invalid token");
+            httpServletResponse.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            httpServletResponse.getWriter().write("{\"error\":\"invalid token\"}");
         }
 
     }

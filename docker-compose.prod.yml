@@ -3,7 +3,6 @@ services:
     image: mysql:8.0
     container_name: gao-mysql
     restart: unless-stopped
-    cpus: ${MYSQL_CPUS:-0.5}
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
@@ -35,7 +34,6 @@ services:
     image: ${BACKEND_IMAGE:-ghcr.io/capteam-gao/backend:latest}
     container_name: gao-backend
     restart: unless-stopped
-    cpus: ${BACKEND_CPUS:-1.5}
     ports:
       - "${BACKEND_BIND_ADDRESS:-0.0.0.0}:${BACKEND_PORT:-8888}:8080"
     environment:
@@ -55,6 +53,8 @@ services:
       AWS_S3_PRESIGNED_URL_DURATION: ${AWS_S3_PRESIGNED_URL_DURATION:-PT10M}
       CHAT_FILE_MAX_SIZE: ${CHAT_FILE_MAX_SIZE:-20MB}
       CHAT_FILE_MAX_REQUEST_SIZE: ${CHAT_FILE_MAX_REQUEST_SIZE:-20MB}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       mysql:
         condition: service_healthy

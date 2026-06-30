@@ -8,6 +8,8 @@ import com.capteam.gaobackend.enums.Important;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.repository.NoticeReadRepository;
 import com.capteam.gaobackend.repository.NoticeRepository;
+import com.capteam.gaobackend.repository.TeamRepository;
+import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +28,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +38,8 @@ class AdminNoticeServiceTest {
     @Mock private NoticeRepository noticeRepository;
     @Mock private NoticeReadRepository noticeReadRepository;
     @Mock private UserRepository userRepository;
+    @Mock private TeamRepository teamRepository;
+    @Mock private TeamUserRepository teamUserRepository;
     @Mock private SimpMessagingTemplate messagingTemplate;
 
     private AdminNoticeService adminNoticeService;
@@ -45,6 +50,8 @@ class AdminNoticeServiceTest {
                 noticeRepository,
                 noticeReadRepository,
                 userRepository,
+                teamRepository,
+                teamUserRepository,
                 messagingTemplate
         );
         SecurityContextHolder.getContext().setAuthentication(
@@ -107,5 +114,29 @@ class AdminNoticeServiceTest {
         verify(noticeReadRepository).deleteByNoticeId(7L);
         verify(noticeRepository, org.mockito.Mockito.never()).save(any(Notice.class));
         verify(messagingTemplate).convertAndSend(eq("/sub/notices"), any(NoticeCreatedEventDto.class));
+    }
+
+    @Test
+    void deletesNoticeReadRowsBeforeDeletingNotice() {
+        User admin = User.builder()
+                .userId("admin")
+                .name("관리자")
+                .accountRole(AccountRole.ADMIN)
+                .build();
+        Notice notice = Notice.builder()
+                .title("공지")
+                .content("본문")
+                .writer(admin)
+                .important(Important.COMMON)
+                .build();
+        ReflectionTestUtils.setField(notice, "id", 10L);
+
+        when(noticeRepository.findById(10L)).thenReturn(Optional.of(notice));
+
+        adminNoticeService.deleteNotice(10L);
+
+        var inOrder = inOrder(noticeReadRepository, noticeRepository);
+        inOrder.verify(noticeReadRepository).deleteByNoticeId(10L);
+        inOrder.verify(noticeRepository).delete(notice);
     }
 }

@@ -164,7 +164,7 @@ public class AdminNoticeService {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new RuntimeException("공지를 찾을 수 없습니다."));
 
-        // 공지 삭제 시 cascade=ALL 덕분에 연결된 NoticeForm도 자동 삭제
+        noticeReadRepository.deleteByNoticeId(noticeId);
         noticeRepository.delete(notice);
     }
 

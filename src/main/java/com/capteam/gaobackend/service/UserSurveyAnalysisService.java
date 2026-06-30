@@ -26,7 +26,7 @@ public class UserSurveyAnalysisService {
     private final UserAnalysisRepository userAnalysisRepository;
 
     public void saveSurveyReliability(User user, UserSurveyRequestDto dto) {
-        ResponseReliability responseReliability = dto.getResponseReliability();
+        ResponseReliability responseReliability = parseResponseReliability(dto.getResponseReliability());
         Integer inconsistentAnswers = validateNonNegative(dto.getInconsistentAnswers(), "전체 불일치 응답 수");
         Integer personalityInconsistentCount =
                 validateNonNegative(dto.getPersonalityInconsistentCount(), "성격 성향 불일치 응답 수");
@@ -104,6 +104,20 @@ public class UserSurveyAnalysisService {
             case "MIDDLE", "MID", "MEDIUM", "중" -> StudentLevel.MIDDLE;
             case "LOWER_MIDDLE", "LOWER-MIDDLE", "LOW_MIDDLE", "LOW-MIDDLE", "중하" -> StudentLevel.LOWER_MIDDLE;
             case "LOWER", "LOW", "하" -> StudentLevel.LOWER;
+            default -> null;
+        };
+    }
+
+    private ResponseReliability parseResponseReliability(String reliability) {
+        if (reliability == null || reliability.isBlank()) {
+            return null;
+        }
+
+        String normalized = reliability.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "HIGH", "높음", "상" -> ResponseReliability.HIGH;
+            case "MEDIUM", "MID", "보통", "중" -> ResponseReliability.MEDIUM;
+            case "LOW", "낮음", "하" -> ResponseReliability.LOW;
             default -> null;
         };
     }

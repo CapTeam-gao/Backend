@@ -1,7 +1,5 @@
 package com.capteam.gaobackend.dto.user.request;
 
-import com.capteam.gaobackend.enums.ResponseReliability;
-import com.capteam.gaobackend.enums.StudentRole;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -12,7 +10,7 @@ import java.util.List;
 public class UserSurveyRequestDto {
 
     // 학생이 희망하는 개발 역할을 저장하는 필드입니다.
-    private StudentRole studentRole;
+    private String studentRole;
 
     // 프론트 선택 UI에서 넘어오는 역할 문자열 목록을 받는 필드입니다.
     private List<String> selectedRoles;
@@ -57,7 +55,7 @@ public class UserSurveyRequestDto {
     private List<Integer> developmentScoreAnswers;
 
     // 설문 응답 일관성 기반 신뢰도를 받는 필드입니다.
-    private ResponseReliability responseReliability;
+    private String responseReliability;
 
     // 설문 전체 불일치 응답 수를 받는 필드입니다.
     private Integer inconsistentAnswers;
