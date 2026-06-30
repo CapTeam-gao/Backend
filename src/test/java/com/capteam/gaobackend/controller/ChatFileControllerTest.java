@@ -30,4 +30,19 @@ class ChatFileControllerTest {
                 "https://private-chat-bucket.s3.amazonaws.com/chat/file.pdf?X-Amz-Signature=test");
         assertThat(response.getHeaders().getCacheControl()).isEqualTo("no-store");
     }
+
+    @Test
+    void returnsPresignedDownloadUrlAsJson() {
+        when(chatFileStorageService.createDownloadUrl(3L, "student1", "file.pdf"))
+                .thenReturn("https://private-chat-bucket.s3.amazonaws.com/chat/file.pdf?X-Amz-Signature=test");
+        ChatFileController controller = new ChatFileController(chatFileStorageService);
+
+        var authentication = new UsernamePasswordAuthenticationToken("student1", null);
+        var response = controller.getChatFileDownloadUrl(3L, "file.pdf", authentication);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData().getDownloadUrl())
+                .isEqualTo("https://private-chat-bucket.s3.amazonaws.com/chat/file.pdf?X-Amz-Signature=test");
+    }
 }

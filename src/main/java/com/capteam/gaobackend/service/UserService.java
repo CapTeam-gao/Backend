@@ -127,7 +127,10 @@ public class UserService {
     // 설문 요청에서 희망 직군을 결정하는 기능입니다.
     private StudentRole resolveStudentRole(UserSurveyRequestDto dto) {
         if (dto.getStudentRole() != null) {
-            return dto.getStudentRole();
+            StudentRole resolved = mapRole(dto.getStudentRole());
+            if (resolved != null) {
+                return resolved;
+            }
         }
 
         for (String role : safeList(dto.getSelectedRoles())) {
