@@ -20,6 +20,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -78,7 +80,13 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of(allowedOrigins));
+        List<String> originPatterns = new ArrayList<>(Arrays.asList(allowedOrigins));
+
+        if (!originPatterns.contains("https://*.vercel.app")) {
+            originPatterns.add("https://*.vercel.app");
+        }
+
+        config.setAllowedOriginPatterns(originPatterns);
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setAllowCredentials(true);
