@@ -1,5 +1,6 @@
 package com.capteam.gaobackend.service;
 
+import com.capteam.gaobackend.config.ChatFileStorageProperties;
 import com.capteam.gaobackend.config.S3Properties;
 import com.capteam.gaobackend.dto.chat.ChatFileUploadResponseDto;
 import com.capteam.gaobackend.exception.ChatFileNotFoundException;
@@ -21,8 +22,11 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
-import java.nio.file.Paths;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.UUID;
 
 @Service
@@ -33,6 +37,7 @@ public class ChatFileStorageService {
     private final S3Presigner s3Presigner;
     private final ChatAccessService chatAccessService;
     private final S3Properties s3Properties;
+    private final ChatFileStorageProperties storageProperties;
 
     private static final String PUBLIC_PATH = "/chat-files";
     private static final int MAX_FILE_NAME_LENGTH = 120;
@@ -47,6 +52,11 @@ public class ChatFileStorageService {
         String originalFileName = file.getOriginalFilename();
         String safeOriginalFileName = getSafeFileName(originalFileName);
         String storedFileName = UUID.randomUUID() + "_" + safeOriginalFileName;
+
+        if (storageProperties.isLocal()) {
+            return uploadToLocal(channelId, storedFileName, safeOriginalFileName, file);
+        }
+
         String objectKey = buildObjectKey(channelId, storedFileName);
 
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
@@ -79,6 +89,11 @@ public class ChatFileStorageService {
     public String createDownloadUrl(Long channelId, String userId, String storedFileName) {
         chatAccessService.getAccessibleChannel(channelId, userId);
         validateStoredFileName(storedFileName);
+
+        if (storageProperties.isLocal()) {
+            return buildFileUrl(channelId, storedFileName);
+        }
+
         String objectKey = buildObjectKey(channelId, storedFileName);
 
         try {
@@ -110,6 +125,70 @@ public class ChatFileStorageService {
         } catch (SdkException e) {
             throw new FileStorageException("파일 다운로드 URL을 생성하지 못했습니다.", e);
         }
+    }
+
+    public LocalStoredFile getLocalFile(Long channelId, String userId, String storedFileName) {
+        if (!storageProperties.isLocal()) {
+            throw new IllegalStateException("로컬 파일 저장소 모드가 아닙니다.");
+        }
+
+        chatAccessService.getAccessibleChannel(channelId, userId);
+        validateStoredFileName(storedFileName);
+
+        Path filePath = resolveLocalFilePath(channelId, storedFileName);
+        if (!Files.isRegularFile(filePath)) {
+            throw new ChatFileNotFoundException("채팅 파일을 찾을 수 없습니다.");
+        }
+
+        try {
+            return new LocalStoredFile(
+                    filePath,
+                    getOriginalFileName(storedFileName),
+                    Files.probeContentType(filePath)
+            );
+        } catch (IOException e) {
+            throw new FileStorageException("로컬 파일 저장소에서 파일을 확인하지 못했습니다.", e);
+        }
+    }
+
+    public boolean isLocalStorage() {
+        return storageProperties.isLocal();
+    }
+
+    private ChatFileUploadResponseDto uploadToLocal(
+            Long channelId,
+            String storedFileName,
+            String safeOriginalFileName,
+            MultipartFile file
+    ) {
+        Path filePath = resolveLocalFilePath(channelId, storedFileName);
+
+        try (InputStream inputStream = file.getInputStream()) {
+            Files.createDirectories(filePath.getParent());
+            Files.copy(inputStream, filePath);
+            return ChatFileUploadResponseDto.builder()
+                    .fileUrl(buildFileUrl(channelId, storedFileName))
+                    .originalFileName(safeOriginalFileName)
+                    .fileName(safeOriginalFileName)
+                    .storedFileName(storedFileName)
+                    .contentType(file.getContentType())
+                    .size(file.getSize())
+                    .build();
+        } catch (IOException e) {
+            throw new FileStorageException("로컬 파일 저장소에 파일을 저장하지 못했습니다.", e);
+        }
+    }
+
+    private Path resolveLocalFilePath(Long channelId, String storedFileName) {
+        Path root = Paths.get(storageProperties.localRoot()).toAbsolutePath().normalize();
+        Path channelDirectory = root.resolve("channels").resolve(channelId.toString()).normalize();
+        Path filePath = channelDirectory.resolve(storedFileName).normalize();
+
+        if (!filePath.startsWith(channelDirectory)) {
+            throw new IllegalArgumentException("잘못된 파일명입니다.");
+        }
+
+        return filePath;
     }
 
     private String getSafeFileName(String originalFileName) {
@@ -148,5 +227,20 @@ public class ChatFileStorageService {
                 || storedFileName.contains("/") || storedFileName.contains("\\")) {
             throw new IllegalArgumentException("잘못된 파일명입니다.");
         }
+    }
+
+    private String getOriginalFileName(String storedFileName) {
+        int separatorIndex = storedFileName.indexOf('_');
+        if (separatorIndex < 0 || separatorIndex == storedFileName.length() - 1) {
+            return storedFileName;
+        }
+        return storedFileName.substring(separatorIndex + 1);
+    }
+
+    public record LocalStoredFile(
+            Path path,
+            String originalFileName,
+            String contentType
+    ) {
     }
 }
