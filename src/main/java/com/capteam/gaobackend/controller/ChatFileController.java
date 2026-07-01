@@ -4,7 +4,6 @@ import com.capteam.gaobackend.dto.chat.ChatFileDownloadUrlResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.ChatFileStorageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class ChatFileController {
     private final ChatFileStorageService chatFileStorageService;
 
     @GetMapping("/chat-files/{channelId}/{fileName:.+}")
-    public ResponseEntity<?> getChatFile(
+    public ResponseEntity<StreamingResponseBody> getChatFile(
             @PathVariable Long channelId,
             @PathVariable String fileName,
             Authentication authentication
@@ -44,7 +44,11 @@ public class ChatFileController {
                             .filename(localFile.originalFileName(), StandardCharsets.UTF_8)
                             .build()
                             .toString())
-                    .body(new FileSystemResource(localFile.path()));
+                    .body(outputStream -> {
+                        try (var inputStream = Files.newInputStream(localFile.path())) {
+                            inputStream.transferTo(outputStream);
+                        }
+                    });
         }
 
         ChatFileStorageService.S3StoredFile s3File =
