@@ -14,10 +14,12 @@ import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.ServerSideEncryption;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
@@ -151,6 +153,39 @@ public class ChatFileStorageService {
         }
     }
 
+    public S3StoredFile getS3File(Long channelId, String userId, String storedFileName) {
+        if (storageProperties.isLocal()) {
+            throw new IllegalStateException("S3 파일 저장소 모드가 아닙니다.");
+        }
+
+        chatAccessService.getAccessibleChannel(channelId, userId);
+        validateStoredFileName(storedFileName);
+
+        String objectKey = buildObjectKey(channelId, storedFileName);
+        GetObjectRequest getObjectRequest = GetObjectRequest.builder()
+                .bucket(s3Properties.bucket())
+                .key(objectKey)
+                .build();
+
+        try {
+            ResponseInputStream<GetObjectResponse> objectStream = s3Client.getObject(getObjectRequest);
+            GetObjectResponse response = objectStream.response();
+            return new S3StoredFile(
+                    objectStream,
+                    getOriginalFileName(storedFileName),
+                    response.contentType(),
+                    response.contentLength()
+            );
+        } catch (S3Exception e) {
+            if (e.statusCode() == 404) {
+                throw new ChatFileNotFoundException("채팅 파일을 찾을 수 없습니다.");
+            }
+            throw new FileStorageException("파일 저장소에서 파일을 내려받지 못했습니다.", e);
+        } catch (SdkException e) {
+            throw new FileStorageException("파일 저장소에서 파일을 내려받지 못했습니다.", e);
+        }
+    }
+
     public boolean isLocalStorage() {
         return storageProperties.isLocal();
     }
@@ -241,6 +276,14 @@ public class ChatFileStorageService {
             Path path,
             String originalFileName,
             String contentType
+    ) {
+    }
+
+    public record S3StoredFile(
+            ResponseInputStream<GetObjectResponse> inputStream,
+            String originalFileName,
+            String contentType,
+            Long contentLength
     ) {
     }
 }

@@ -8,15 +8,14 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 @RestController
@@ -48,14 +47,30 @@ public class ChatFileController {
                     .body(new FileSystemResource(localFile.path()));
         }
 
-        URI downloadUri = URI.create(
-                chatFileStorageService.createDownloadUrl(channelId, authentication.getName(), fileName)
-        );
+        ChatFileStorageService.S3StoredFile s3File =
+                chatFileStorageService.getS3File(channelId, authentication.getName(), fileName);
+        MediaType mediaType = s3File.contentType() == null
+                ? MediaType.APPLICATION_OCTET_STREAM
+                : MediaType.parseMediaType(s3File.contentType());
+        StreamingResponseBody responseBody = outputStream -> {
+            try (var inputStream = s3File.inputStream()) {
+                inputStream.transferTo(outputStream);
+            }
+        };
 
-        return ResponseEntity.status(HttpStatus.FOUND)
-                .location(downloadUri)
+        ResponseEntity.BodyBuilder responseBuilder = ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .build();
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(s3File.originalFileName(), StandardCharsets.UTF_8)
+                        .build()
+                        .toString());
+
+        if (s3File.contentLength() != null) {
+            responseBuilder.contentLength(s3File.contentLength());
+        }
+
+        return responseBuilder.body(responseBody);
     }
 
     @GetMapping("/api/chat/channels/{channelId}/files/{fileName:.+}/download-url")
