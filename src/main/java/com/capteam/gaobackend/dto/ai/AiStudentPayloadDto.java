@@ -6,6 +6,7 @@ import com.capteam.gaobackend.entity.UserAnalysis;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 // 백엔드 User 데이터를 AI 서버로 전송할 때 사용하는 DTO입니다.
@@ -60,11 +61,11 @@ public class AiStudentPayloadDto {
                 .userId(user.getUserId())
                 .name(user.getName())
                 .role(user.getStudentRole() != null ? user.getStudentRole().name() : null)
-                .stack(user.getSkill())
-                .experience(user.getExperience())
+                .stack(copyList(user.getSkill()))
+                .experience(copyList(user.getExperience()))
                 .grade(user.getGrade() != null ? user.getGrade().name() : null)
                 .wantsLeader(user.isWantsLeader())
-                .preferredMembers(user.getPreferredTeammates())
+                .preferredMembers(copyList(user.getPreferredTeammates()))
                 .analysisResult(analysis != null ? analysis.getAnalysisResult() : null)
                 .studentLevel(analysis != null && analysis.getStudentLevel() != null
                         ? analysis.getStudentLevel().name()
@@ -80,5 +81,13 @@ public class AiStudentPayloadDto {
                 .learningAbility(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getLearningAbility() : null)
                 .planning(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getPlanning() : null)
                 .build();
+    }
+
+    private static List<String> copyList(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+
+        return new ArrayList<>(values);
     }
 }
