@@ -41,23 +41,23 @@ public class AiClient {
     // HTTP 요청 등록 직전에 취소가 들어오는 경쟁 조건을 처리하기 위한 임시 취소 목록입니다.
     private final Set<String> cancelledMatchingJobs = ConcurrentHashMap.newKeySet();
 
-    @Value("${ai.server.base-url}")
-    private String aiServerBaseUrl;
+    private final String aiServerBaseUrl;
 
     public AiClient(@Value("${ai.server.base-url}") String aiServerBaseUrl, ObjectMapper objectMapper) {
+        String normalizedAiServerBaseUrl = normalizeBaseUrl(aiServerBaseUrl);
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);       // 연결 타임아웃 10초
         factory.setReadTimeout(600_000);          // 읽기 타임아웃 10분 (AI 매칭 시간 고려)
 
         this.restClient = RestClient.builder()
-                .baseUrl(aiServerBaseUrl)
+                .baseUrl(normalizedAiServerBaseUrl)
                 .requestFactory(factory)
                 .build();
         this.cancellableHttpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         this.objectMapper = objectMapper;
-        this.aiServerBaseUrl = aiServerBaseUrl;
+        this.aiServerBaseUrl = normalizedAiServerBaseUrl;
     }
 
     // 백엔드 학생 데이터를 JSON으로 AI 서버에 전달해 분석을 실행하는 기능입니다.
@@ -123,7 +123,7 @@ public class AiClient {
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(aiServerBaseUrl + "/matching/run"))
+                .uri(aiServerUri("/matching/run"))
                 .timeout(Duration.ofMinutes(10))
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
@@ -172,7 +172,7 @@ public class AiClient {
 
         HttpRequest cancelRequest = HttpRequest.newBuilder()
                 // AI 서버가 이 API를 구현해야 이미 시작된 LLM 호출까지 확실히 중단됩니다.
-                .uri(URI.create(aiServerBaseUrl + "/matching/jobs/" + jobId))
+                .uri(aiServerUri("/matching/jobs/" + jobId))
                 .timeout(Duration.ofSeconds(5))
                 .DELETE()
                 .build();
@@ -194,6 +194,18 @@ public class AiClient {
             return safeStudents;
         }
         return AiMatchingRequestDto.of(safeStudents, regenerationPrompt);
+    }
+
+    private URI aiServerUri(String path) {
+        String normalizedPath = path.startsWith("/") ? path : "/" + path;
+        return URI.create(aiServerBaseUrl + normalizedPath);
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("ai.server.base-url is required");
+        }
+        return baseUrl.replaceAll("/+$", "");
     }
 
     private List<AiStudentAnalysisResponseDto> readAnalysisResults(String responseBody) {
