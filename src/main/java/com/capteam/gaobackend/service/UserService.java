@@ -268,11 +268,11 @@ public class UserService {
         }
 
         return new UserPersonalityScore(
+                validateCategoryScore(firstNonNull(scores.getIdeaPlanning(), scores.getResponsibility()), "아이디어 기획"),
                 validateCategoryScore(scores.getCommunication(), "소통"),
-                validateCategoryScore(scores.getResponsibility(), "책임감"),
-                validateCategoryScore(scores.getCollaboration(), "협업"),
-                validateCategoryScore(scores.getFlexibility(), "유연성"),
-                validateCategoryScore(scores.getEmotionalStability(), "감정 안정성")
+                validateCategoryScore(firstNonNull(scores.getRoleFlexibility(), scores.getCollaboration()), "역할 유연성"),
+                validateCategoryScore(firstNonNull(scores.getTimePressure(), scores.getFlexibility()), "시간 압박 대응"),
+                validateCategoryScore(firstNonNull(scores.getStaminaFocus(), scores.getEmotionalStability()), "체력 집중")
         );
     }
 
@@ -290,12 +290,17 @@ public class UserService {
         }
 
         return new UserDevelopmentScore(
-                validateCategoryScore(scores.getLeadership(), "리더십"),
-                validateCategoryScore(scores.getProblemSolving(), "문제 해결력"),
                 validateCategoryScore(scores.getImplementation(), "구현 실행력"),
-                validateCategoryScore(scores.getLearningAbility(), "학습 성장성"),
-                validateCategoryScore(scores.getPlanning(), "기획 정리력")
+                validateCategoryScore(scores.getProblemSolving(), "문제 해결력"),
+                validateCategoryScore(firstNonNull(scores.getCompletionQuality(), scores.getLearningAbility()), "완성도"),
+                validateCategoryScore(firstNonNull(scores.getPresentation(), scores.getPlanning()), "발표"),
+                validateCategoryScore(scores.getLeadership(), "리더십")
         );
+    }
+
+    // 신규 점수 key가 없을 때 과거 key 값을 fallback으로 사용하는 기능입니다.
+    private Double firstNonNull(Double primary, Double fallback) {
+        return primary != null ? primary : fallback;
     }
 
     // 10개 문항 원점수를 2문항씩 묶어 5개 항목 평균 점수로 계산하는 기능입니다.
