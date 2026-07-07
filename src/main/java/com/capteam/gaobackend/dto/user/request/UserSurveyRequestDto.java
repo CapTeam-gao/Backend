@@ -79,19 +79,31 @@ public class UserSurveyRequestDto {
     @NoArgsConstructor
     public static class PersonalityScoresDto {
 
+        // 아이디어 기획 성향 점수를 저장하는 필드입니다.
+        private Double ideaPlanning;
+
         // 소통 성향 점수를 저장하는 필드입니다.
         private Double communication;
 
-        // 책임감 성향 점수를 저장하는 필드입니다.
+        // 역할 유연성 점수를 저장하는 필드입니다.
+        private Double roleFlexibility;
+
+        // 시간 압박 대응 점수를 저장하는 필드입니다.
+        private Double timePressure;
+
+        // 체력/집중 유지 점수를 저장하는 필드입니다.
+        private Double staminaFocus;
+
+        // 과거 프론트 책임감 점수 별칭을 받는 필드입니다.
         private Double responsibility;
 
-        // 협업 성향 점수를 저장하는 필드입니다.
+        // 과거 프론트 협업 점수 별칭을 받는 필드입니다.
         private Double collaboration;
 
-        // 유연성 성향 점수를 저장하는 필드입니다.
+        // 과거 프론트 유연성 점수 별칭을 받는 필드입니다.
         private Double flexibility;
 
-        // 감정 안정성 점수를 저장하는 필드입니다.
+        // 과거 프론트 감정 안정성 점수 별칭을 받는 필드입니다.
         private Double emotionalStability;
     }
 
@@ -99,19 +111,25 @@ public class UserSurveyRequestDto {
     @NoArgsConstructor
     public static class DevelopmentScoresDto {
 
-        // 리더십 성향 점수를 저장하는 필드입니다.
-        private Double leadership;
+        // 구현 실행력 점수를 저장하는 필드입니다.
+        private Double implementation;
 
         // 문제 해결력 점수를 저장하는 필드입니다.
         private Double problemSolving;
 
-        // 구현 실행력 점수를 저장하는 필드입니다.
-        private Double implementation;
+        // 완성도 점수를 저장하는 필드입니다.
+        private Double completionQuality;
 
-        // 학습 성장성 점수를 저장하는 필드입니다.
+        // 발표/전달력 점수를 저장하는 필드입니다.
+        private Double presentation;
+
+        // 리더십 성향 점수를 저장하는 필드입니다.
+        private Double leadership;
+
+        // 과거 프론트 학습 성장성 점수 별칭을 받는 필드입니다.
         private Double learningAbility;
 
-        // 기획 정리력 점수를 저장하는 필드입니다.
+        // 과거 프론트 기획 정리력 점수 별칭을 받는 필드입니다.
         private Double planning;
     }
 }

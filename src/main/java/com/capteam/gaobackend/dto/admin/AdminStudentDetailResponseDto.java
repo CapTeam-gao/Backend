@@ -60,34 +60,35 @@ public class AdminStudentDetailResponseDto {
     // 설문 전체 불일치 응답 수를 내려주는 필드입니다.
     private Integer inconsistentAnswers;
 
-    private Double leadership;
+    // 구현 실행력 점수를 저장하는 필드입니다.
+    private Double implementation;
 
     // 문제 해결력 점수를 저장하는 필드입니다.
     private Double problemSolving;
 
-    // 구현 실행력 점수를 저장하는 필드입니다.
-    private Double implementation;
+    // 완성도 점수를 저장하는 필드입니다.
+    private Double completionQuality;
 
-    // 학습 성장성 점수를 저장하는 필드입니다.
-    private Double learningAbility;
+    // 발표/전달력 점수를 저장하는 필드입니다.
+    private Double presentation;
 
-    // 기획 정리력 점수를 저장하는 필드입니다.
-    private Double planning;
+    // 리더십 성향 점수를 저장하는 필드입니다.
+    private Double leadership;
+
+    // 아이디어 기획 성향 점수를 저장하는 필드입니다.
+    private Double ideaPlanning;
 
     // 소통 성향 점수를 저장하는 필드입니다.
     private Double communication;
 
-    // 책임감 성향 점수를 저장하는 필드입니다.
-    private Double responsibility;
+    // 역할 유연성 점수를 저장하는 필드입니다.
+    private Double roleFlexibility;
 
-    // 협업 성향 점수를 저장하는 필드입니다.
-    private Double collaboration;
+    // 시간 압박 대응 점수를 저장하는 필드입니다.
+    private Double timePressure;
 
-    // 유연성 성향 점수를 저장하는 필드입니다.
-    private Double flexibility;
-
-    // 감정 안정성 점수를 저장하는 필드입니다.
-    private Double emotionalStability;
+    // 체력/집중 유지 점수를 저장하는 필드입니다.
+    private Double staminaFocus;
 
 
 
@@ -103,6 +104,13 @@ public class AdminStudentDetailResponseDto {
 
     // User와 선택적인 팀원/AI 분석/프로젝트 팀명을 관리자 학생 상세 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentDetailResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis, UserDevelopmentScore userDevelopmentScore, UserPersonalityScore userPersonalityScore, String projectTeamName) {
+        UserDevelopmentScore safeDevelopmentScore = userDevelopmentScore == null
+                ? new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0)
+                : userDevelopmentScore;
+        UserPersonalityScore safePersonalityScore = userPersonalityScore == null
+                ? new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+                : userPersonalityScore;
+
         return AdminStudentDetailResponseDto.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
@@ -119,16 +127,16 @@ public class AdminStudentDetailResponseDto {
                 .analysisResult(resolveAnalysisResult(userAnalysis))
                 .responseReliability(userAnalysis == null ? null : userAnalysis.getResponseReliability())
                 .inconsistentAnswers(userAnalysis == null ? null : userAnalysis.getInconsistentAnswers())
-                .leadership(userDevelopmentScore.getLeadership())
-                .problemSolving(userDevelopmentScore.getProblemSolving())
-                .implementation(userDevelopmentScore.getImplementation())
-                .learningAbility(userDevelopmentScore.getLearningAbility())
-                .planning(userDevelopmentScore.getPlanning())
-                .communication(userPersonalityScore.getCommunication())
-                .responsibility(userPersonalityScore.getResponsibility())
-                .collaboration(userPersonalityScore.getCollaboration())
-                .flexibility(userPersonalityScore.getFlexibility())
-                .emotionalStability(userPersonalityScore.getEmotionalStability())
+                .implementation(safeDevelopmentScore.getImplementation())
+                .problemSolving(safeDevelopmentScore.getProblemSolving())
+                .completionQuality(safeDevelopmentScore.getCompletionQuality())
+                .presentation(safeDevelopmentScore.getPresentation())
+                .leadership(safeDevelopmentScore.getLeadership())
+                .ideaPlanning(safePersonalityScore.getIdeaPlanning())
+                .communication(safePersonalityScore.getCommunication())
+                .roleFlexibility(safePersonalityScore.getRoleFlexibility())
+                .timePressure(safePersonalityScore.getTimePressure())
+                .staminaFocus(safePersonalityScore.getStaminaFocus())
                 .build();
     }
 
