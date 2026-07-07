@@ -9,16 +9,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class MatchingJobStateService {
 
+    private static final List<MatchingJobStatus> ACTIVE_STATUSES = List.of(
+            MatchingJobStatus.QUEUED,
+            MatchingJobStatus.RUNNING,
+            MatchingJobStatus.COMPLETING
+    );
+
     private final MatchingJobRepository matchingJobRepository;
 
-    // 같은 학년의 중복 매칭 실행으로 추천안이 서로 덮어쓰이는 것을 방지합니다.
+    // 중복 매칭 실행으로 추천안이 서로 덮어쓰이고 AI 서버가 동시에 과부하되는 것을 방지합니다.
     @Transactional
     public synchronized MatchingJobResponseDto create(Grade grade) {
         return create(grade, null);
@@ -26,15 +33,29 @@ public class MatchingJobStateService {
 
     @Transactional
     public synchronized MatchingJobResponseDto create(Grade grade, String regenerationPrompt) {
-        boolean activeJobExists = matchingJobRepository.existsByGradeAndStatusIn(
-                grade,
-                List.of(MatchingJobStatus.QUEUED, MatchingJobStatus.RUNNING, MatchingJobStatus.COMPLETING)
-        );
-        if (activeJobExists) {
-            throw new IllegalStateException("해당 학년의 팀 매칭 작업이 이미 진행 중입니다.");
+        MatchingJobResponseDto activeJob = matchingJobRepository
+                .findFirstByStatusInOrderByCreatedAtAsc(ACTIVE_STATUSES)
+                .map(job -> resolveActiveJob(job, grade, regenerationPrompt))
+                .orElse(null);
+
+        if (activeJob != null) {
+            return activeJob;
         }
+
         MatchingJob job = new MatchingJob(UUID.randomUUID().toString(), grade, regenerationPrompt);
         return MatchingJobResponseDto.from(matchingJobRepository.save(job));
+    }
+
+    private MatchingJobResponseDto resolveActiveJob(MatchingJob activeJob, Grade requestedGrade, String requestedPrompt) {
+        boolean sameRequest =
+                activeJob.getGrade() == requestedGrade &&
+                        Objects.equals(activeJob.getRegenerationPrompt(), requestedPrompt);
+
+        if (sameRequest) {
+            return MatchingJobResponseDto.from(activeJob);
+        }
+
+        throw new IllegalStateException("다른 팀 매칭 작업이 이미 진행 중입니다. 완료 후 다시 시도해주세요.");
     }
 
     @Transactional(readOnly = true)

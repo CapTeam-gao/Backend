@@ -82,6 +82,10 @@ public class AiStudentPayloadDto {
     }
 
     private static List<String> copyList(List<String> values) {
-        return values == null ? List.of() : new ArrayList<>(values);
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+
+        return new ArrayList<>(values);
     }
 }
