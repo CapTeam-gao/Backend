@@ -4,6 +4,7 @@ import com.capteam.gaobackend.dto.ai.AiMatchingRequestDto;
 import com.capteam.gaobackend.dto.ai.AiStudentAnalysisResponseDto;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.exception.MatchingJobCancelledException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -97,9 +98,17 @@ public class AiClient {
     }
 
     public AiTeamSummaryResponseDto runMatchingWithPrompt(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+        return runMatchingForGrade(students, null, regenerationPrompt);
+    }
+
+    public AiTeamSummaryResponseDto runMatchingForGrade(
+            List<AiStudentPayloadDto> students,
+            Grade grade,
+            String regenerationPrompt
+    ) {
         try {
             var request = restClient.post()
-                    .uri("/matching/run")
+                    .uri(matchingPath(grade, regenerationPrompt))
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
             request.body(buildMatchingRequestBody(students, regenerationPrompt));
             AiTeamSummaryResponseDto response = request.retrieve().body(AiTeamSummaryResponseDto.class);
@@ -117,13 +126,22 @@ public class AiClient {
     }
 
     public AiTeamSummaryResponseDto runMatching(List<AiStudentPayloadDto> students, String jobId, String regenerationPrompt) {
+        return runMatchingForGrade(students, null, jobId, regenerationPrompt);
+    }
+
+    public AiTeamSummaryResponseDto runMatchingForGrade(
+            List<AiStudentPayloadDto> students,
+            Grade grade,
+            String jobId,
+            String regenerationPrompt
+    ) {
         // 실행기가 AI 요청을 보내기 전에 이미 취소된 작업이면 외부 호출을 시작하지 않습니다.
         if (cancelledMatchingJobs.remove(jobId)) {
             throw new MatchingJobCancelledException(jobId);
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(aiServerUri("/matching/run"))
+                .uri(aiServerUri(matchingPath(grade, regenerationPrompt)))
                 .timeout(Duration.ofMinutes(10))
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
@@ -199,6 +217,15 @@ public class AiClient {
     private URI aiServerUri(String path) {
         String normalizedPath = path.startsWith("/") ? path : "/" + path;
         return URI.create(aiServerBaseUrl + normalizedPath);
+    }
+
+    private String matchingPath(Grade grade, String regenerationPrompt) {
+        if (grade != Grade.GRADE_2) {
+            return "/matching/run";
+        }
+        return regenerationPrompt == null || regenerationPrompt.isBlank()
+                ? "/matching/hackathon/run"
+                : "/matching/hackathon/regenerate";
     }
 
     private String normalizeBaseUrl(String baseUrl) {

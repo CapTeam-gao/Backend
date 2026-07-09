@@ -93,12 +93,12 @@ public class AdminTeamRecommendationService {
         Map<String, String> nameToUserId = prepared.nameToUserId();
         List<AiStudentPayloadDto> studentPayloads = prepared.studentPayloads();
 
-        // AI 서버 호출: /matching/run 내부에서 분석까지 처리하므로 runMatching만 호출
+        // 2학년은 해커톤 매칭, 그 외 학년은 기존 캡스톤 매칭 경로를 사용합니다.
         AiTeamSummaryResponseDto aiResult;
         try {
             aiResult = jobId == null
-                    ? aiClient.runMatchingWithPrompt(studentPayloads, regenerationPrompt)
-                    : aiClient.runMatching(studentPayloads, jobId, regenerationPrompt);
+                    ? aiClient.runMatchingForGrade(studentPayloads, grade, regenerationPrompt)
+                    : aiClient.runMatchingForGrade(studentPayloads, grade, jobId, regenerationPrompt);
         } catch (AiServerException e) {
             log.error("AI 서버 호출 실패.", e);
             throw new IllegalStateException("AI 서버 호출에 실패했습니다. AI 서버 상태를 확인해주세요.", e);
