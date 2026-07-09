@@ -94,13 +94,13 @@ class AdminTeamRecommendationServiceTest {
                         Map.of("홍길동", "stu2301"),
                         studentPayloads
                 ));
-        when(aiClient.runMatchingWithPrompt(studentPayloads, prompt)).thenReturn(aiResponse);
+        when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt)).thenReturn(aiResponse);
 
         adminTeamRecommendationService.createRecommendation(
                 new TeamRecommendationRequestDto(Grade.GRADE_2, "  " + prompt + "  ")
         );
 
-        verify(aiClient).runMatchingWithPrompt(studentPayloads, prompt);
+        verify(aiClient).runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt);
         verify(recommendationPersistenceService)
                 .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
     }
@@ -125,7 +125,7 @@ class AdminTeamRecommendationServiceTest {
                         Map.of("홍길동", "stu2301"),
                         studentPayloads
                 ));
-        when(aiClient.runMatchingWithPrompt(studentPayloads, null)).thenReturn(aiResponse);
+        when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, null)).thenReturn(aiResponse);
 
         adminTeamRecommendationService.createRecommendation(
                 new TeamRecommendationRequestDto(Grade.GRADE_2, null)
