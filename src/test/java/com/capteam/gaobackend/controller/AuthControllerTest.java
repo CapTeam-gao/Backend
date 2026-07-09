@@ -59,8 +59,12 @@ class AuthControllerTest {
 
         verify(authService).refreshToken("old-refresh-token");
         assertThat(response.getBody().accessToken()).isEqualTo("new-access-token");
+        assertThat(response.getBody().refreshToken()).isEqualTo("refresh-token");
         assertThat(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE))
                 .contains("refreshToken=refresh-token")
+                .contains("Max-Age=604800")
+                .contains("Path=/api/auth")
+                .contains("SameSite=Lax")
                 .contains("HttpOnly");
     }
 
