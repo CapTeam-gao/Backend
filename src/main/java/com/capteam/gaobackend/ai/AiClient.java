@@ -33,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class AiClient {
+    private static final int HACKATHON_TEAM_SIZE = 5;
+
 
     private final RestClient restClient;
     private final HttpClient cancellableHttpClient;
@@ -110,12 +112,13 @@ public class AiClient {
             var request = restClient.post()
                     .uri(matchingPath(grade, regenerationPrompt))
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            request.body(buildMatchingRequestBody(students, regenerationPrompt));
+            request.body(buildMatchingRequestBody(students, grade, regenerationPrompt));
             AiTeamSummaryResponseDto response = request.retrieve().body(AiTeamSummaryResponseDto.class);
             if (response == null) throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 응답이 비어 있습니다.");
             return response;
         } catch (RestClientResponseException e) {
-            throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: " + e.getStatusCode().value(), e);
+            throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: "
+                    + e.getStatusCode().value() + ", 응답: " + responseBody(e), e);
         } catch (RestClientException e) {
             throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 연결 주소를 확인해주세요: " + aiServerBaseUrl, e);
         }
@@ -146,7 +149,7 @@ public class AiClient {
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
                 .header("X-Matching-Job-Id", jobId)
-                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, regenerationPrompt)))
+                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, grade, regenerationPrompt)))
                 .build();
 
         CompletableFuture<HttpResponse<String>> responseFuture = cancellableHttpClient.sendAsync(
@@ -162,7 +165,8 @@ public class AiClient {
         try {
             HttpResponse<String> response = responseFuture.join();
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: " + response.statusCode());
+                throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: "
+                        + response.statusCode() + ", 응답: " + safeBody(response.body()));
             }
             return objectMapper.readValue(response.body(), AiTeamSummaryResponseDto.class);
         } catch (CancellationException e) {
@@ -198,20 +202,34 @@ public class AiClient {
                 .exceptionally(ignored -> null);
     }
 
-    private String writeJson(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+    private String writeJson(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
         try {
-            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, regenerationPrompt));
+            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, grade, regenerationPrompt));
         } catch (JsonProcessingException e) {
             throw new AiServerException("AI 팀 매칭 요청 데이터를 생성하지 못했습니다.", e);
         }
     }
 
-    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
         List<AiStudentPayloadDto> safeStudents = students == null ? List.of() : students;
+        if (grade == Grade.GRADE_2 && (regenerationPrompt == null || regenerationPrompt.isBlank())) {
+            return AiMatchingRequestDto.hackathon(safeStudents, HACKATHON_TEAM_SIZE);
+        }
         if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
             return safeStudents;
         }
         return AiMatchingRequestDto.of(safeStudents, regenerationPrompt);
+    }
+
+    private String responseBody(RestClientResponseException e) {
+        return safeBody(e.getResponseBodyAsString());
+    }
+
+    private String safeBody(String body) {
+        if (body == null || body.isBlank()) {
+            return "<empty>";
+        }
+        return body.length() > 2_000 ? body.substring(0, 2_000) + "...(truncated)" : body;
     }
 
     private URI aiServerUri(String path) {
