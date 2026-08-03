@@ -3,15 +3,18 @@ package com.capteam.gaobackend.service;
 import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
 import com.capteam.gaobackend.dto.user.request.UserSurveyRequestDto;
+import com.capteam.gaobackend.dto.user.response.StudentSearchResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserSurveyResponseDto;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserDevelopmentScore;
 import com.capteam.gaobackend.entity.UserPersonalityScore;
+import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserSurveyAnalysisService userSurveyAnalysisService;
     private static final Pattern PREFERRED_MEMBER_PATTERN = Pattern.compile("^(?:stu)?(\\d{4})\\s+(.+)$", Pattern.CASE_INSENSITIVE);
+    private static final int STUDENT_SEARCH_LIMIT = 6;
+    private static final int STUDENT_SEARCH_QUERY_LIMIT = STUDENT_SEARCH_LIMIT + 1;
 
 
     // 마이페이지 정보를 조회하는 기능입니다.
@@ -52,10 +57,34 @@ public class UserService {
                 dto.getSkill(),
                 dto.getExperience(),
                 dto.isWantsLeader(),
-                dto.getPreferredTeammates()
+                resolvePreferredTeammates(user, dto.getPreferredTeammates())
         );
 
         return UserMeResponseDto.from(user);
+    }
+
+    // 같은 학년 학생을 이름 또는 userId 일부로 검색하는 기능입니다.
+    @Transactional(readOnly = true)
+    public List<StudentSearchResponseDto> searchStudents(String keyword) {
+        User user = getAuthenticatedUser();
+        if (keyword == null || keyword.isBlank()) {
+            return Collections.emptyList();
+        }
+        if (user.getGrade() == null) {
+            return Collections.emptyList();
+        }
+
+        return userRepository.searchStudentsByKeyword(
+                        AccountRole.STUDENT,
+                        user.getGrade(),
+                        keyword.trim(),
+                        PageRequest.of(0, STUDENT_SEARCH_QUERY_LIMIT)
+                )
+                .stream()
+                .filter(student -> !student.getUserId().equals(user.getUserId()))
+                .limit(STUDENT_SEARCH_LIMIT)
+                .map(StudentSearchResponseDto::from)
+                .toList();
     }
 
     // 내 설문 저장 결과를 조회하는 기능입니다.
@@ -201,26 +230,42 @@ public class UserService {
     // 설문 요청에서 선호 팀원 목록을 userId 기준으로 결정하는 기능입니다.
     private List<String> resolvePreferredTeammates(User user, UserSurveyRequestDto dto) {
         List<String> inputs = dto.getPreferredTeammates() != null ? dto.getPreferredTeammates() : dto.getPreferredMembers();
-        List<String> cleaned = cleanDistinct(inputs);
+        return resolvePreferredTeammates(user, inputs);
+    }
+
+    // 선호 팀원 입력 목록을 userId 기준으로 정규화하고 검증하는 기능입니다.
+    private List<String> resolvePreferredTeammates(User user, List<String> inputs) {
+        List<String> cleaned = cleanValues(inputs);
 
         if (cleaned.size() > 3) {
             throw new IllegalArgumentException("선호 팀원은 최대 3명까지 등록할 수 있습니다.");
         }
 
         List<String> userIds = new ArrayList<>();
+        Set<String> uniqueUserIds = new LinkedHashSet<>();
         for (String input : cleaned) {
             String preferredUserId = resolvePreferredUserId(input);
             if (user.getUserId().equals(preferredUserId)) {
                 throw new IllegalArgumentException("본인은 선호 팀원으로 등록할 수 없습니다.");
             }
+            if (!uniqueUserIds.add(preferredUserId)) {
+                throw new IllegalArgumentException("같은 학생을 선호 팀원으로 중복 등록할 수 없습니다.");
+            }
+            userIds.add(preferredUserId);
+        }
 
+        List<String> resolvedUserIds = new ArrayList<>();
+        for (int index = 0; index < cleaned.size(); index++) {
+            String input = cleaned.get(index);
+            String preferredUserId = userIds.get(index);
             User preferredUser = userRepository.findById(preferredUserId)
                     .orElseThrow(() -> new IllegalArgumentException("선호 팀원을 찾을 수 없습니다: " + input));
             validatePreferredName(input, preferredUser);
-            userIds.add(preferredUser.getUserId());
+            validatePreferredStudent(user, preferredUser);
+            resolvedUserIds.add(preferredUser.getUserId());
         }
 
-        return userIds;
+        return resolvedUserIds;
     }
 
     // 선호 팀원 입력값에서 userId를 추출하는 기능입니다.
@@ -243,6 +288,16 @@ public class UserService {
         String name = matcher.group(2).trim();
         if (!preferredUser.getName().equals(name)) {
             throw new IllegalArgumentException("선호 팀원 학번과 이름이 일치하지 않습니다: " + input);
+        }
+    }
+
+    // 선호 팀원이 같은 학년의 학생 계정인지 검증하는 기능입니다.
+    private void validatePreferredStudent(User user, User preferredUser) {
+        if (preferredUser.getAccountRole() != AccountRole.STUDENT) {
+            throw new IllegalArgumentException("학생 계정만 선호 팀원으로 등록할 수 있습니다.");
+        }
+        if (user.getGrade() != null && preferredUser.getGrade() != user.getGrade()) {
+            throw new IllegalArgumentException("같은 학년 학생만 선호 팀원으로 등록할 수 있습니다.");
         }
     }
 
@@ -341,6 +396,17 @@ public class UserService {
     // 빈 문자열을 제거하고 중복 없는 목록으로 정리하는 기능입니다.
     private List<String> cleanDistinct(List<String> values) {
         Set<String> cleaned = new LinkedHashSet<>();
+        for (String value : safeList(values)) {
+            if (value != null && !value.isBlank()) {
+                cleaned.add(value.trim());
+            }
+        }
+        return List.copyOf(cleaned);
+    }
+
+    // 빈 문자열을 제거하되 중복 여부는 보존해서 검증할 수 있게 정리하는 기능입니다.
+    private List<String> cleanValues(List<String> values) {
+        List<String> cleaned = new ArrayList<>();
         for (String value : safeList(values)) {
             if (value != null && !value.isBlank()) {
                 cleaned.add(value.trim());

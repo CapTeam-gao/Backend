@@ -4,6 +4,7 @@ import com.capteam.gaobackend.dto.user.response.HeaderUserResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.user.request.UserProfileUpdateRequestDto;
 import com.capteam.gaobackend.dto.user.request.UserSurveyRequestDto;
+import com.capteam.gaobackend.dto.user.response.StudentSearchResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserMeResponseDto;
 import com.capteam.gaobackend.dto.user.response.UserSurveyResponseDto;
 import com.capteam.gaobackend.service.UserService;
@@ -11,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -43,6 +46,12 @@ public class UserController {
     @PostMapping("/survey")
     public ResponseEntity<ApiResponse<UserSurveyResponseDto>> submitMySurvey(@RequestBody UserSurveyRequestDto dto) {
         return ApiResponse.ok(userService.submitMySurvey(dto));
+    }
+
+    // 선호 팀원 선택 UI에서 사용할 같은 학년 학생 검색 기능입니다.
+    @GetMapping("/students/search")
+    public ResponseEntity<ApiResponse<List<StudentSearchResponseDto>>> searchStudents(@RequestParam String keyword) {
+        return ApiResponse.ok(userService.searchStudents(keyword));
     }
 
 
