@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
+import com.capteam.gaobackend.dto.team.ManualTeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
 import com.capteam.gaobackend.entity.TeamRecommendation;
 import com.capteam.gaobackend.entity.TeamRecommendationMember;
@@ -42,13 +43,7 @@ public class AdminTeamRecommendationPersistenceService {
     ) {
         Map<String, User> usersById = userRepository.findAllById(nameToUserId.values()).stream()
                 .collect(Collectors.toMap(User::getUserId, user -> user));
-        List<TeamRecommendation> existing = recommendationRepository
-                .findByGradeAndStatus(grade, RecommendationStatus.PENDING);
-        for (TeamRecommendation recommendation : existing) {
-            recommendationReasonRepository.deleteByRecommendationId(recommendation.getId());
-            recommendationMemberRepository.deleteByRecommendationId(recommendation.getId());
-            recommendationRepository.delete(recommendation);
-        }
+        deletePendingRecommendations(grade);
 
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
@@ -88,6 +83,59 @@ public class AdminTeamRecommendationPersistenceService {
             result.add(TeamRecommendationResponseDto.from(recommendation));
         }
         return result;
+    }
+
+    // 관리자가 직접 구성한 팀을 기존 PENDING 추천안과 교체해 저장하는 기능입니다.
+    @Transactional
+    public List<TeamRecommendationResponseDto> replacePendingManualRecommendations(
+            Grade grade,
+            List<ManualTeamRecommendationRequestDto.ManualTeamDto> teams,
+            Map<String, User> usersById
+    ) {
+        deletePendingRecommendations(grade);
+
+        List<TeamRecommendationResponseDto> result = new ArrayList<>();
+        for (ManualTeamRecommendationRequestDto.ManualTeamDto manualTeam : teams) {
+            TeamRecommendation recommendation = recommendationRepository.save(
+                    TeamRecommendation.builder()
+                            .grade(grade)
+                            .strengths("관리자가 직접 구성한 팀입니다.")
+                            .weaknesses(null)
+                            .build()
+            );
+
+            for (ManualTeamRecommendationRequestDto.ManualTeamMemberDto member : manualTeam.getMembers()) {
+                User user = usersById.get(member.getUserId().trim());
+                if (user == null) {
+                    throw new IllegalStateException("직접 구성 대상 학생을 찾을 수 없습니다: " + member.getUserId());
+                }
+                recommendationMemberRepository.save(TeamRecommendationMember.builder()
+                        .recommendation(recommendation)
+                        .user(user)
+                        .studentRole(member.getRole())
+                        .isRecommendedLeader(member.isLeader())
+                        .build());
+            }
+
+            recommendationReasonRepository.save(TeamRecommendationReason.builder()
+                    .recommendation(recommendation)
+                    .title("직접 구성")
+                    .description(manualTeam.getTeamNumber() + "팀은 관리자가 직접 구성한 추천안입니다.")
+                    .build());
+            result.add(TeamRecommendationResponseDto.from(recommendation));
+        }
+
+        return result;
+    }
+
+    private void deletePendingRecommendations(Grade grade) {
+        List<TeamRecommendation> existing = recommendationRepository
+                .findByGradeAndStatus(grade, RecommendationStatus.PENDING);
+        for (TeamRecommendation recommendation : existing) {
+            recommendationReasonRepository.deleteByRecommendationId(recommendation.getId());
+            recommendationMemberRepository.deleteByRecommendationId(recommendation.getId());
+            recommendationRepository.delete(recommendation);
+        }
     }
 
     private void saveRecommendationReasons(

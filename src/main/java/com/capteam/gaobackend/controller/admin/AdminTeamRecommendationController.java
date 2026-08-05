@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.common.ApiResponse;
+import com.capteam.gaobackend.dto.team.ManualTeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.MatchingJobResponseDto;
 import com.capteam.gaobackend.dto.team.SwapRecommendationMembersRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationDetailResponseDto;
@@ -9,6 +10,7 @@ import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.service.MatchingJobService;
 import com.capteam.gaobackend.service.admin.AdminTeamRecommendationService;
+import com.capteam.gaobackend.service.admin.ManualTeamRecommendationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,7 @@ public class AdminTeamRecommendationController {
 
     private final AdminTeamRecommendationService adminTeamRecommendationService;
     private final MatchingJobService matchingJobService;
+    private final ManualTeamRecommendationService manualTeamRecommendationService;
 
     // 팀 매칭 작업을 등록하고 실제 처리는 백그라운드에서 수행합니다.
     @PostMapping("/matching/run")
@@ -53,6 +56,13 @@ public class AdminTeamRecommendationController {
     public ResponseEntity<ApiResponse<List<TeamRecommendationResponseDto>>> createRecommendation(
             @RequestBody @Valid TeamRecommendationRequestDto dto) {
         return ApiResponse.ok(adminTeamRecommendationService.createRecommendation(dto));
+    }
+
+    // 관리자가 직접 구성한 팀을 추천안으로 저장하는 기능입니다.
+    @PostMapping("/manual")
+    public ResponseEntity<ApiResponse<List<TeamRecommendationResponseDto>>> createManualRecommendation(
+            @RequestBody ManualTeamRecommendationRequestDto dto) {
+        return ApiResponse.ok(manualTeamRecommendationService.createManualRecommendations(dto));
     }
 
     // 관리자가 생성된 팀 추천안 목록을 조회하는 기능입니다.
