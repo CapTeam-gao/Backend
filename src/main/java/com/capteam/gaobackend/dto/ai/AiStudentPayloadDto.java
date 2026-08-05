@@ -42,12 +42,22 @@ public class AiStudentPayloadDto {
     private Double timePressure;
     private Double staminaFocus;
 
+    // AI 서버의 기존 캡스톤 매칭 로직이 사용하는 성격 성향 호환 필드입니다.
+    private Double responsibility;
+    private Double collaboration;
+    private Double flexibility;
+    private Double emotionalStability;
+
     // 개발 성향 점수
     private Double implementation;
     private Double problemSolving;
     private Double completionQuality;
     private Double presentation;
     private Double leadership;
+
+    // AI 서버의 기존 캡스톤 매칭 로직이 사용하는 개발 성향 호환 필드입니다.
+    private Double learningAbility;
+    private Double planning;
 
     // User 엔티티를 AI 전송용 DTO로 변환하는 기능입니다.
     public static AiStudentPayloadDto from(User user) {
@@ -73,11 +83,17 @@ public class AiStudentPayloadDto {
                 .roleFlexibility(user.getPersonalityScores() != null ? user.getPersonalityScores().getRoleFlexibility() : null)
                 .timePressure(user.getPersonalityScores() != null ? user.getPersonalityScores().getTimePressure() : null)
                 .staminaFocus(user.getPersonalityScores() != null ? user.getPersonalityScores().getStaminaFocus() : null)
+                .responsibility(user.getPersonalityScores() != null ? user.getPersonalityScores().getIdeaPlanning() : null)
+                .collaboration(user.getPersonalityScores() != null ? user.getPersonalityScores().getRoleFlexibility() : null)
+                .flexibility(user.getPersonalityScores() != null ? user.getPersonalityScores().getTimePressure() : null)
+                .emotionalStability(user.getPersonalityScores() != null ? user.getPersonalityScores().getStaminaFocus() : null)
                 .implementation(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getImplementation() : null)
                 .problemSolving(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getProblemSolving() : null)
                 .completionQuality(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getCompletionQuality() : null)
                 .presentation(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getPresentation() : null)
                 .leadership(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getLeadership() : null)
+                .learningAbility(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getCompletionQuality() : null)
+                .planning(user.getDevelopmentScores() != null ? user.getDevelopmentScores().getPresentation() : null)
                 .build();
     }
 

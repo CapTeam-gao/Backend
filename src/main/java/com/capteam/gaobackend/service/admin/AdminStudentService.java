@@ -3,6 +3,7 @@ package com.capteam.gaobackend.service.admin;
 import com.capteam.gaobackend.dto.admin.AdminStudentDetailResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListPageResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListResponseDto;
+import com.capteam.gaobackend.dto.admin.AdminStudentSearchResponseDto;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
@@ -10,10 +11,12 @@ import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -22,6 +25,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AdminStudentService {
+
+    private static final int MANUAL_TEAM_STUDENT_SEARCH_LIMIT = 10;
 
     // 관리자 학생 목록/상세 조회에 필요한 팀원 정보를 조회하는 Repository 필드입니다.
     private final TeamUserRepository teamUserRepository;
@@ -85,6 +90,29 @@ public class AdminStudentService {
         return AdminStudentListPageResponseDto.of(students, filteredStudents);
     }
 
+    // 직접 팀 구성 화면에서 이름, 학번 또는 직군 한 단어로 학생을 검색하는 기능입니다.
+    public List<AdminStudentSearchResponseDto> searchStudentsForManualTeam(Grade grade, String keyword) {
+        if (grade == null) {
+            throw new IllegalArgumentException("학년을 선택해주세요.");
+        }
+        if (isBlank(keyword)) {
+            return List.of();
+        }
+
+        String trimmedKeyword = keyword.trim();
+        StudentRole studentRole = resolveStudentRoleKeyword(trimmedKeyword);
+        return userRepository.searchStudentsForManualTeam(
+                        AccountRole.STUDENT,
+                        grade,
+                        trimmedKeyword,
+                        studentRole,
+                        PageRequest.of(0, MANUAL_TEAM_STUDENT_SEARCH_LIMIT)
+                )
+                .stream()
+                .map(AdminStudentSearchResponseDto::from)
+                .toList();
+    }
+
 
     // 관리자가 특정 학생 상세 정보를 조회하는 기능입니다.
     public AdminStudentDetailResponseDto getStudentDetail(String userId) {
@@ -145,6 +173,29 @@ public class AdminStudentService {
     private boolean matchesStudentRole(User user, TeamUser teamUser, StudentRole studentRole) {
         StudentRole role = teamUser == null ? user.getStudentRole() : teamUser.getStudentRole();
         return studentRole == null || role == studentRole;
+    }
+
+    // 직접 팀 구성 검색어를 학생 희망 직군 enum으로 변환하는 기능입니다.
+    private StudentRole resolveStudentRoleKeyword(String keyword) {
+        String normalized = keyword.trim().toLowerCase(Locale.ROOT).replaceAll("[\\s_-]", "");
+        return switch (normalized) {
+            case "프론트엔드", "프론트", "frontend", "front", "react" -> StudentRole.FRONTEND;
+            case "백엔드", "백", "backend", "back", "spring" -> StudentRole.BACKEND;
+            case "ai", "인공지능", "데이터" -> StudentRole.AI;
+            case "앱", "app", "android", "ios" -> StudentRole.APP;
+            case "디자인", "design", "uiux" -> StudentRole.DESIGN;
+            case "devops", "인프라" -> StudentRole.DEVOPS;
+            case "게임", "게임개발", "game" -> StudentRole.GAME;
+            case "풀스택", "fullstack" -> StudentRole.FULLSTACK;
+            case "보안", "security", "시큐리티" -> StudentRole.SECURITY;
+            default -> {
+                try {
+                    yield StudentRole.valueOf(keyword.trim().toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    yield null;
+                }
+            }
+        };
     }
 
     // 팀원 정보가 있으면 프로젝트 기획서의 팀명을 찾아 반환하는 기능입니다.
