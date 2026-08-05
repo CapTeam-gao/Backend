@@ -14,6 +14,7 @@ import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @RequiredArgsConstructor
+@Slf4j
 @Service
 public class UserService {
 
@@ -127,9 +129,18 @@ public class UserService {
         );
 
         userSurveyAnalysisService.saveSurveyReliability(user, dto);
-        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+        tryAnalyzeSubmittedSurvey(user);
 
         return UserSurveyResponseDto.from(user);
+    }
+
+    // AI 서버 장애가 설문 저장 자체를 막지 않도록 분석 실패는 로그로만 남깁니다.
+    private void tryAnalyzeSubmittedSurvey(User user) {
+        try {
+            userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+        } catch (RuntimeException e) {
+            log.warn("설문은 저장했지만 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
+        }
     }
 
     // 현재 로그인한 사용자를 조회하는 기능입니다.
