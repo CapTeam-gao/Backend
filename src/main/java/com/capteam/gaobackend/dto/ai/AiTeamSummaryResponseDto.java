@@ -2,6 +2,8 @@ package com.capteam.gaobackend.dto.ai;
 
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -40,6 +42,7 @@ public class AiTeamSummaryResponseDto {
 
         // 역할군별 인원 수를 내려주는 필드입니다.
         @JsonProperty("role_counts")
+        @JsonDeserialize(using = RoleCountsDeserializer.class)
         private List<RoleCountDto> roleCounts;
 
         // 추천 팀장 이름을 내려주는 필드입니다.
@@ -85,6 +88,7 @@ public class AiTeamSummaryResponseDto {
     @Getter
     @Setter
     @NoArgsConstructor
+    @AllArgsConstructor
     public static class RoleCountDto {
         // backend/frontend 같은 역할군 이름을 내려주는 필드입니다.
         @JsonProperty("role_group")
