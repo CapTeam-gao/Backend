@@ -34,4 +34,22 @@ public interface UserRepository extends JpaRepository<User, String> {
                                         @Param("grade") Grade grade,
                                         @Param("keyword") String keyword,
                                         Pageable pageable);
+
+    @Query("""
+            select u
+            from User u
+            where u.accountRole = :accountRole
+              and u.grade = :grade
+              and (
+                    lower(u.name) like lower(concat('%', :keyword, '%'))
+                 or lower(u.userId) like lower(concat('%', :keyword, '%'))
+                 or (:studentRole is not null and u.studentRole = :studentRole)
+              )
+            order by u.userId asc
+            """)
+    List<User> searchStudentsForManualTeam(@Param("accountRole") AccountRole accountRole,
+                                            @Param("grade") Grade grade,
+                                            @Param("keyword") String keyword,
+                                            @Param("studentRole") com.capteam.gaobackend.enums.StudentRole studentRole,
+                                            Pageable pageable);
 }
