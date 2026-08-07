@@ -39,6 +39,9 @@ public class AdminStudentDetailResponseDto {
     // AI가 분석한 학생 실력 수준을 내려주는 필드입니다.
     private StudentLevel studentLevel;
 
+    // 프론트가 분석 중/성공/실패 화면을 분기하기 위한 상태값입니다.
+    private String analysisStatus;
+
     // 학생의 기술 스택 목록을 내려주는 필드입니다.
     private List<String> skill;
 
@@ -120,6 +123,7 @@ public class AdminStudentDetailResponseDto {
                 .studentRole(teamUser == null ? user.getStudentRole() : teamUser.getStudentRole())
                 .leaderRole(teamUser == null ? null : teamUser.getLeaderRole())
                 .studentLevel(userAnalysis == null ? null : userAnalysis.getStudentLevel())
+                .analysisStatus(resolveAnalysisStatus(user, userAnalysis))
                 .skill(user.getSkill())
                 .experience(user.getExperience())
                 .preferredTeammates(user.getPreferredTeammates())
@@ -151,5 +155,18 @@ public class AdminStudentDetailResponseDto {
             case "상", "중", "하", "높음", "낮음" -> null;
             default -> analysisResult;
         };
+    }
+
+    private static String resolveAnalysisStatus(User user, UserAnalysis userAnalysis) {
+        if (!user.isSurveyCompleted()) {
+            return "PENDING";
+        }
+
+        String analysisResult = resolveAnalysisResult(userAnalysis);
+        if (analysisResult != null && !analysisResult.isBlank()) {
+            return "SUCCESS";
+        }
+
+        return "PENDING";
     }
 }
