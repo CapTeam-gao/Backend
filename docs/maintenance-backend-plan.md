@@ -204,25 +204,19 @@ NotificationService
 ### 신규 API
 
 ```text
-POST /api/fcm-tokens
-DELETE /api/fcm-tokens
+POST /api/user/fcm-token
+DELETE /api/user/fcm-token
 ```
 
 토큰 등록 요청:
 
 ```json
 {
-  "token": "fcm-token-value"
+  "fcmToken": "fcm-token-value"
 }
 ```
 
-토큰 삭제 요청:
-
-```json
-{
-  "token": "fcm-token-value"
-}
-```
+토큰 삭제 요청은 body 없이 현재 로그인 사용자에게 연결된 FCM 토큰을 삭제한다.
 
 응답은 기존 공통 envelope를 따른다.
 
@@ -241,15 +235,18 @@ DELETE /api/fcm-tokens
 `Backend/build.gradle` 예시:
 
 ```gradle
-implementation 'com.google.firebase:firebase-admin:9.4.3'
+implementation 'com.google.firebase:firebase-admin:9.3.0'
 ```
 
-정확한 최신 버전은 구현 시점에 공식 Maven Repository 기준으로 확인한다.
+현재 프로젝트는 `firebase-admin` 9.3.0을 사용한다.
 
 설정값은 `application.properties` 또는 환경변수로 둔다.
 
 ```properties
-firebase.credentials.path=${FIREBASE_CREDENTIALS_PATH:}
+firebase.enabled=${FIREBASE_ENABLED:false}
+firebase.project-id=${FIREBASE_PROJECT_ID:}
+firebase.credentials-json=${FIREBASE_CREDENTIALS_JSON:}
+firebase.credentials-file=${FIREBASE_CREDENTIALS_FILE:}
 ```
 
 운영 서버에서는 서비스 계정 JSON 파일을 repo에 커밋하지 않는다.
@@ -1165,4 +1162,3 @@ Backend/docs/maintenance-backend-plan.md 문서를 기준으로,
 ```text
 팀 추천 결과 버전 저장과 재생성 전후 diff API를 구현해줘.
 ```
-
