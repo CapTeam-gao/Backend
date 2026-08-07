@@ -11,6 +11,7 @@ import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -57,7 +59,7 @@ public class TeamService {
     @Transactional
     public PreferredTeammateResponseDto updatePreferences(String userId, PreferredTeammateRequestDto request) {
         User user = findUser(userId);
-        List<PreferredTeammateRequestDto.PreferredTeammateDto> teammates = request.getPreferredTeammates();
+        List<String> teammates = request.getPreferredTeammates();
 
         if (teammates == null) {
             teammates = List.of();
@@ -67,16 +69,22 @@ public class TeamService {
         }
 
         Set<String> preferredIds = new LinkedHashSet<>();
-        for (PreferredTeammateRequestDto.PreferredTeammateDto teammate : teammates) {
-            if (user.getUserId().equals(teammate.getUserId())) {
+        List<String> resolvedIds = new ArrayList<>();
+        for (String teammateUserId : teammates) {
+            String normalizedUserId = teammateUserId == null ? null : teammateUserId.trim();
+            if (normalizedUserId == null || normalizedUserId.isEmpty()) {
+                throw new IllegalArgumentException("선호 팀원 userId는 비어 있을 수 없습니다.");
+            }
+            if (user.getUserId().equals(normalizedUserId)) {
                 throw new IllegalArgumentException("본인은 선호 팀원으로 등록할 수 없습니다.");
             }
-
-            User preferredUser = findUser(teammate.getUserId());
-            if (!preferredUser.getName().equals(teammate.getName())) {
-                throw new IllegalArgumentException("학번과 이름이 일치하지 않습니다: " + teammate.getUserId());
+            if (!preferredIds.add(normalizedUserId)) {
+                throw new IllegalArgumentException("같은 학생을 선호 팀원으로 중복 등록할 수 없습니다.");
             }
-            preferredIds.add(preferredUser.getUserId());
+
+            User preferredUser = findUser(normalizedUserId);
+            validatePreferredStudent(user, preferredUser);
+            resolvedIds.add(preferredUser.getUserId());
         }
 
         user.updateProfile(
@@ -84,7 +92,7 @@ public class TeamService {
                 user.getSkill(),
                 user.getExperience(),
                 user.isWantsLeader(),
-                List.copyOf(preferredIds)
+                List.copyOf(resolvedIds)
         );
 
         return getPreferences(userId);
@@ -182,6 +190,16 @@ public class TeamService {
     private User findUser(String userId) {
         return userRepository.findByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
+    }
+
+    // 선호 팀원이 같은 학년의 학생 계정인지 검증하는 기능입니다.
+    private void validatePreferredStudent(User user, User preferredUser) {
+        if (preferredUser.getAccountRole() != AccountRole.STUDENT) {
+            throw new IllegalArgumentException("학생 계정만 선호 팀원으로 등록할 수 있습니다.");
+        }
+        if (user.getGrade() != null && preferredUser.getGrade() != user.getGrade()) {
+            throw new IllegalArgumentException("같은 학년 학생만 선호 팀원으로 등록할 수 있습니다.");
+        }
     }
 
     // 로그인한 학생의 TeamUser 정보를 조회하고 팀 미배정이면 예외를 발생시키는 기능입니다.
