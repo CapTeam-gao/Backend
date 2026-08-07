@@ -36,7 +36,7 @@ public class UserSurveyRequestDto {
     // 선호 팀원 userId 목록을 저장하는 필드입니다.
     private List<String> preferredTeammates;
 
-    // 프론트 선택 UI에서 넘어오는 선호 팀원 문자열 목록을 받는 필드입니다.
+    // 과거 프론트 별칭으로 넘어오는 선호 팀원 userId 목록을 받는 필드입니다.
     private List<String> preferredMembers;
 
     // 성격 성향 항목별 평균 점수를 받는 필드입니다.

@@ -22,6 +22,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -80,12 +81,12 @@ class UserServiceTest {
     }
 
     @Test
-    void resolvesLegacyPreferredTeammateTextToUserId() {
+    void rejectsLegacyPreferredTeammateTextInput() {
         User user = student("stu1000", "나학생", Grade.GRADE_3);
-        User preferredUser = student("stu1001", "김민수", Grade.GRADE_3);
-        when(userRepository.findById("stu1001")).thenReturn(Optional.of(preferredUser));
 
-        assertThat(resolvePreferredTeammates(user, List.of("1001 김민수"))).containsExactly("stu1001");
+        assertThatThrownBy(() -> resolvePreferredTeammates(user, List.of("1001 김민수")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("선호 팀원을 찾을 수 없습니다: 1001 김민수");
     }
 
     @Test
@@ -148,6 +149,26 @@ class UserServiceTest {
         assertThat(result)
                 .extracting(StudentSearchResponseDto::getUserId)
                 .containsExactly("stu1001", "stu1002", "stu1003", "stu1004", "stu1005", "stu1006");
+    }
+
+    @Test
+    void searchesStudentsByNameKeyword() {
+        User user = student("stu1000", "나학생", Grade.GRADE_3);
+        User preferredUser = student("stu1001", "김민수", Grade.GRADE_3);
+        authenticate(user.getUserId());
+        when(userRepository.findById(user.getUserId())).thenReturn(Optional.of(user));
+        when(userRepository.searchStudentsByKeyword(
+                eq(AccountRole.STUDENT),
+                eq(Grade.GRADE_3),
+                eq("민수"),
+                any(Pageable.class)
+        )).thenReturn(List.of(preferredUser));
+
+        List<StudentSearchResponseDto> result = userService.searchStudents(" 민수 ");
+
+        assertThat(result)
+                .extracting(StudentSearchResponseDto::getUserId, StudentSearchResponseDto::getName)
+                .containsExactly(tuple("stu1001", "김민수"));
     }
 
     @Test

@@ -27,8 +27,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -37,7 +35,6 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserSurveyAnalysisService userSurveyAnalysisService;
-    private static final Pattern PREFERRED_MEMBER_PATTERN = Pattern.compile("^(?:stu)?(\\d{4})\\s+(.+)$", Pattern.CASE_INSENSITIVE);
     private static final int STUDENT_SEARCH_LIMIT = 6;
     private static final int STUDENT_SEARCH_QUERY_LIMIT = STUDENT_SEARCH_LIMIT + 1;
 
@@ -255,7 +252,7 @@ public class UserService {
         List<String> userIds = new ArrayList<>();
         Set<String> uniqueUserIds = new LinkedHashSet<>();
         for (String input : cleaned) {
-            String preferredUserId = resolvePreferredUserId(input);
+            String preferredUserId = input.trim();
             if (user.getUserId().equals(preferredUserId)) {
                 throw new IllegalArgumentException("본인은 선호 팀원으로 등록할 수 없습니다.");
             }
@@ -267,39 +264,14 @@ public class UserService {
 
         List<String> resolvedUserIds = new ArrayList<>();
         for (int index = 0; index < cleaned.size(); index++) {
-            String input = cleaned.get(index);
             String preferredUserId = userIds.get(index);
             User preferredUser = userRepository.findById(preferredUserId)
-                    .orElseThrow(() -> new IllegalArgumentException("선호 팀원을 찾을 수 없습니다: " + input));
-            validatePreferredName(input, preferredUser);
+                    .orElseThrow(() -> new IllegalArgumentException("선호 팀원을 찾을 수 없습니다: " + preferredUserId));
             validatePreferredStudent(user, preferredUser);
             resolvedUserIds.add(preferredUser.getUserId());
         }
 
         return resolvedUserIds;
-    }
-
-    // 선호 팀원 입력값에서 userId를 추출하는 기능입니다.
-    private String resolvePreferredUserId(String input) {
-        Matcher matcher = PREFERRED_MEMBER_PATTERN.matcher(input.trim());
-        if (matcher.matches()) {
-            return "stu" + matcher.group(1);
-        }
-
-        return input.trim();
-    }
-
-    // 선호 팀원 입력값의 학번과 이름이 실제 사용자와 일치하는지 검증하는 기능입니다.
-    private void validatePreferredName(String input, User preferredUser) {
-        Matcher matcher = PREFERRED_MEMBER_PATTERN.matcher(input.trim());
-        if (!matcher.matches()) {
-            return;
-        }
-
-        String name = matcher.group(2).trim();
-        if (!preferredUser.getName().equals(name)) {
-            throw new IllegalArgumentException("선호 팀원 학번과 이름이 일치하지 않습니다: " + input);
-        }
     }
 
     // 선호 팀원이 같은 학년의 학생 계정인지 검증하는 기능입니다.
