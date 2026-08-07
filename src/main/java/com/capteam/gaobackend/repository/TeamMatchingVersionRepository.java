@@ -34,6 +34,9 @@ public interface TeamMatchingVersionRepository extends JpaRepository<TeamMatchin
     // 현재 적용 중인 버전을 찾거나 적용 전환 대상을 좁히는 데 사용합니다.
     List<TeamMatchingVersion> findByGradeAndStatus(Grade grade, TeamMatchingVersionStatus status);
 
+    // 비동기 매칭 작업이 저장한 버전을 jobId로 찾아 프론트 폴링 응답에 versionId를 내려줄 때 사용합니다.
+    Optional<TeamMatchingVersion> findByJobId(String jobId);
+
     default Optional<TeamMatchingVersion> findFirstByGradeOrderByVersionNumberDesc(Grade grade) {
         return findLatestByGrade(grade, Pageable.ofSize(1)).stream().findFirst();
     }

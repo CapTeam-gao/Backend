@@ -18,18 +18,38 @@ public class MatchingJobResponseDto {
     private MatchingJobStatus status;
     private String errorMessage;
     private String regenerationPrompt;
+    private Long versionId;
+    private Long baseVersionId;
+    private String origin;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     public static MatchingJobResponseDto from(MatchingJob job) {
+        return from(job, null);
+    }
+
+    public static MatchingJobResponseDto from(MatchingJob job, Long versionId) {
         return MatchingJobResponseDto.builder()
                 .jobId(job.getId())
                 .grade(job.getGrade())
                 .status(job.getStatus())
                 .errorMessage(job.getErrorMessage())
                 .regenerationPrompt(job.getRegenerationPrompt())
+                .versionId(versionId)
+                .baseVersionId(job.getBaseVersionId())
+                .origin(resolveOrigin(job))
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())
                 .build();
+    }
+
+    private static String resolveOrigin(MatchingJob job) {
+        if (job.getBaseVersionId() != null) {
+            return "REGENERATION";
+        }
+        if (job.getRegenerationPrompt() != null && !job.getRegenerationPrompt().isBlank()) {
+            return "REGENERATION";
+        }
+        return "INITIAL";
     }
 }

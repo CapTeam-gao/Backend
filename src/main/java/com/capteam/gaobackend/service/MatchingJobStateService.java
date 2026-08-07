@@ -5,6 +5,7 @@ import com.capteam.gaobackend.entity.MatchingJob;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.MatchingJobStatus;
 import com.capteam.gaobackend.repository.MatchingJobRepository;
+import com.capteam.gaobackend.repository.TeamMatchingVersionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class MatchingJobStateService {
     );
 
     private final MatchingJobRepository matchingJobRepository;
+    private final TeamMatchingVersionRepository teamMatchingVersionRepository;
 
     // 중복 매칭 실행으로 추천안이 서로 덮어쓰이고 AI 서버가 동시에 과부하되는 것을 방지합니다.
     @Transactional
@@ -33,26 +35,37 @@ public class MatchingJobStateService {
 
     @Transactional
     public synchronized MatchingJobResponseDto create(Grade grade, String regenerationPrompt) {
+        return create(grade, regenerationPrompt, null);
+    }
+
+    @Transactional
+    public synchronized MatchingJobResponseDto create(Grade grade, String regenerationPrompt, Long baseVersionId) {
         MatchingJobResponseDto activeJob = matchingJobRepository
                 .findFirstByStatusInOrderByCreatedAtAsc(ACTIVE_STATUSES)
-                .map(job -> resolveActiveJob(job, grade, regenerationPrompt))
+                .map(job -> resolveActiveJob(job, grade, regenerationPrompt, baseVersionId))
                 .orElse(null);
 
         if (activeJob != null) {
             return activeJob;
         }
 
-        MatchingJob job = new MatchingJob(UUID.randomUUID().toString(), grade, regenerationPrompt);
-        return MatchingJobResponseDto.from(matchingJobRepository.save(job));
+        MatchingJob job = new MatchingJob(UUID.randomUUID().toString(), grade, regenerationPrompt, baseVersionId);
+        return toResponse(matchingJobRepository.save(job));
     }
 
-    private MatchingJobResponseDto resolveActiveJob(MatchingJob activeJob, Grade requestedGrade, String requestedPrompt) {
+    private MatchingJobResponseDto resolveActiveJob(
+            MatchingJob activeJob,
+            Grade requestedGrade,
+            String requestedPrompt,
+            Long requestedBaseVersionId
+    ) {
         boolean sameRequest =
                 activeJob.getGrade() == requestedGrade &&
-                        Objects.equals(activeJob.getRegenerationPrompt(), requestedPrompt);
+                        Objects.equals(activeJob.getRegenerationPrompt(), requestedPrompt) &&
+                        Objects.equals(activeJob.getBaseVersionId(), requestedBaseVersionId);
 
         if (sameRequest) {
-            return MatchingJobResponseDto.from(activeJob);
+            return toResponse(activeJob);
         }
 
         throw new IllegalStateException("다른 팀 매칭 작업이 이미 진행 중입니다. 완료 후 다시 시도해주세요.");
@@ -60,7 +73,7 @@ public class MatchingJobStateService {
 
     @Transactional(readOnly = true)
     public MatchingJobResponseDto get(String jobId) {
-        return MatchingJobResponseDto.from(findJob(jobId));
+        return toResponse(findJob(jobId));
     }
 
     @Transactional
@@ -92,7 +105,7 @@ public class MatchingJobStateService {
             throw new IllegalStateException("추천안 저장이 시작된 작업은 취소할 수 없습니다.");
         }
         job.cancel();
-        return MatchingJobResponseDto.from(job);
+        return toResponse(job);
     }
 
     @Transactional(readOnly = true)
@@ -103,5 +116,12 @@ public class MatchingJobStateService {
     private MatchingJob findJob(String jobId) {
         return matchingJobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("팀 매칭 작업을 찾을 수 없습니다: " + jobId));
+    }
+
+    private MatchingJobResponseDto toResponse(MatchingJob job) {
+        Long versionId = teamMatchingVersionRepository.findByJobId(job.getId())
+                .map(version -> version.getId())
+                .orElse(null);
+        return MatchingJobResponseDto.from(job, versionId);
     }
 }
