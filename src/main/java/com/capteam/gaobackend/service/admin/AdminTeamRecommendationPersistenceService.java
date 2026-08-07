@@ -3,14 +3,15 @@ package com.capteam.gaobackend.service.admin;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
 import com.capteam.gaobackend.dto.team.ManualTeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
+import com.capteam.gaobackend.entity.TeamMatchingVersion;
 import com.capteam.gaobackend.entity.TeamRecommendation;
 import com.capteam.gaobackend.entity.TeamRecommendationMember;
 import com.capteam.gaobackend.entity.TeamRecommendationReason;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.Grade;
-import com.capteam.gaobackend.enums.RecommendationStatus;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.enums.StudentLevel;
+import com.capteam.gaobackend.repository.TeamMatchingVersionRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationMemberRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationReasonRepository;
 import com.capteam.gaobackend.repository.TeamRecommendationRepository;
@@ -29,24 +30,51 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AdminTeamRecommendationPersistenceService {
 
+    // 새 추천안을 어떤 버전 묶음에 저장할지 발급하는 Repository 필드입니다.
+    private final TeamMatchingVersionRepository teamMatchingVersionRepository;
+
+    // 버전 아래 실제 추천안 row를 저장하는 Repository 필드입니다.
     private final TeamRecommendationRepository recommendationRepository;
+
+    // 추천안별 멤버 배정 정보를 저장하는 Repository 필드입니다.
     private final TeamRecommendationMemberRepository recommendationMemberRepository;
+
+    // 추천안 설명 카드 저장에 사용하는 Repository 필드입니다.
     private final TeamRecommendationReasonRepository recommendationReasonRepository;
+
+    // AI 결과의 userId/name을 실제 학생 엔티티로 연결하는 Repository 필드입니다.
     private final UserRepository userRepository;
 
-    // 취소 검증을 통과한 AI 결과만 하나의 트랜잭션에서 기존 추천안과 교체합니다.
+    // 취소 검증을 통과한 AI 결과를 새로운 DRAFT 버전으로 저장합니다.
     @Transactional
     public List<TeamRecommendationResponseDto> replacePendingRecommendations(
             Grade grade,
             Map<String, String> nameToUserId,
             List<AiTeamSummaryResponseDto.TeamDto> targetTeams
     ) {
+        return replacePendingRecommendations(grade, nameToUserId, targetTeams, null, null);
+    }
+
+    // 비동기 작업과 재생성 프롬프트를 버전 메타데이터에 남기기 위한 저장 진입점입니다.
+    @Transactional
+    public List<TeamRecommendationResponseDto> replacePendingRecommendations(
+            Grade grade,
+            Map<String, String> nameToUserId,
+            List<AiTeamSummaryResponseDto.TeamDto> targetTeams,
+            String jobId,
+            String regenerationPrompt
+    ) {
+        // 같은 학년 안에서 단조 증가하는 번호를 써야 버전 목록이 사람이 읽기 쉽습니다.
+        TeamMatchingVersion matchingVersion = createDraftVersion(grade, jobId, regenerationPrompt);
+
+        // AI 응답에는 userId 또는 이름이 올 수 있으므로 저장 전에 실학생 엔티티 맵을 고정합니다.
         Map<String, User> usersById = userRepository.findAllById(nameToUserId.values()).stream()
                 .collect(Collectors.toMap(User::getUserId, user -> user));
-        deletePendingRecommendations(grade);
 
+        // 저장 결과를 바로 응답으로 돌려주기 위해 생성한 추천안 목록을 모읍니다.
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
+            // 다른 학년 학생이 섞인 AI 결과는 현재 학년 사용자로 식별된 멤버만 저장합니다.
             List<AiTeamSummaryResponseDto.MemberDto> validMembers = aiTeam.getMembers().stream()
                     .filter(member -> AiTeamMemberUserResolver.resolveUserId(member, nameToUserId) != null)
                     .toList();
@@ -57,6 +85,7 @@ public class AdminTeamRecommendationPersistenceService {
 
             TeamRecommendation recommendation = recommendationRepository.save(
                     TeamRecommendation.builder()
+                            .matchingVersion(matchingVersion)
                             .grade(grade)
                             .strengths(aiTeam.getStrengths())
                             .weaknesses(aiTeam.getWeaknesses())
@@ -85,19 +114,22 @@ public class AdminTeamRecommendationPersistenceService {
         return result;
     }
 
-    // 관리자가 직접 구성한 팀을 기존 PENDING 추천안과 교체해 저장하는 기능입니다.
+    // 관리자가 직접 구성한 팀도 동일한 버전 단위로 저장해 나중에 apply/discard할 수 있게 합니다.
     @Transactional
     public List<TeamRecommendationResponseDto> replacePendingManualRecommendations(
             Grade grade,
             List<ManualTeamRecommendationRequestDto.ManualTeamDto> teams,
             Map<String, User> usersById
     ) {
-        deletePendingRecommendations(grade);
+        // 수동 구성도 AI 생성과 동일하게 새 버전 번호를 발급해 비교 대상이 남도록 합니다.
+        TeamMatchingVersion matchingVersion = createDraftVersion(grade, null, "MANUAL");
 
+        // 즉시 화면에 렌더링할 추천안 목록을 반환하기 위해 저장 결과를 모읍니다.
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (ManualTeamRecommendationRequestDto.ManualTeamDto manualTeam : teams) {
             TeamRecommendation recommendation = recommendationRepository.save(
                     TeamRecommendation.builder()
+                            .matchingVersion(matchingVersion)
                             .grade(grade)
                             .strengths("관리자가 직접 구성한 팀입니다.")
                             .weaknesses(null)
@@ -128,14 +160,19 @@ public class AdminTeamRecommendationPersistenceService {
         return result;
     }
 
-    private void deletePendingRecommendations(Grade grade) {
-        List<TeamRecommendation> existing = recommendationRepository
-                .findByGradeAndStatus(grade, RecommendationStatus.PENDING);
-        for (TeamRecommendation recommendation : existing) {
-            recommendationReasonRepository.deleteByRecommendationId(recommendation.getId());
-            recommendationMemberRepository.deleteByRecommendationId(recommendation.getId());
-            recommendationRepository.delete(recommendation);
-        }
+    // 버전 번호는 학년별 최신 번호 + 1 규칙으로 발급해 사람이 봐도 순서를 추적할 수 있게 합니다.
+    private TeamMatchingVersion createDraftVersion(Grade grade, String jobId, String regenerationPrompt) {
+        Integer nextVersionNumber = teamMatchingVersionRepository.findFirstByGradeOrderByVersionNumberDesc(grade)
+                .map(TeamMatchingVersion::getVersionNumber)
+                .map(versionNumber -> versionNumber + 1)
+                .orElse(1);
+
+        return teamMatchingVersionRepository.save(TeamMatchingVersion.builder()
+                .grade(grade)
+                .versionNumber(nextVersionNumber)
+                .jobId(jobId)
+                .regenerationPrompt(regenerationPrompt)
+                .build());
     }
 
     private void saveRecommendationReasons(

@@ -125,7 +125,13 @@ public class AdminTeamRecommendationService {
             throw new MatchingJobCancelledException(jobId);
         }
         // 저장 단계만 별도 트랜잭션으로 실행해 전체 추천안 교체를 원자적으로 처리합니다.
-        return recommendationPersistenceService.replacePendingRecommendations(grade, nameToUserId, targetTeams);
+        return recommendationPersistenceService.replacePendingRecommendations(
+                grade,
+                nameToUserId,
+                targetTeams,
+                jobId,
+                regenerationPrompt
+        );
     }
 
     private String normalizePrompt(String regenerationPrompt) {

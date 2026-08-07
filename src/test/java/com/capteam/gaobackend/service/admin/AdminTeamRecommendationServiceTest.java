@@ -97,7 +97,7 @@ class AdminTeamRecommendationServiceTest {
         when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt)).thenReturn(aiResponse);
 
         adminTeamRecommendationService.createRecommendation(
-                new TeamRecommendationRequestDto(Grade.GRADE_2, "  " + prompt + "  ")
+                new TeamRecommendationRequestDto(Grade.GRADE_2, "  " + prompt + "  ", null)
         );
 
         verify(aiClient).runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt);
@@ -128,7 +128,7 @@ class AdminTeamRecommendationServiceTest {
         when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, null)).thenReturn(aiResponse);
 
         adminTeamRecommendationService.createRecommendation(
-                new TeamRecommendationRequestDto(Grade.GRADE_2, null)
+                new TeamRecommendationRequestDto(Grade.GRADE_2, null, null)
         );
 
         verify(recommendationPersistenceService)

@@ -2,6 +2,8 @@ package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.team.ManualTeamRecommendationRequestDto;
+import com.capteam.gaobackend.dto.team.TeamMatchingVersionDiffResponseDto;
+import com.capteam.gaobackend.dto.team.TeamMatchingVersionResponseDto;
 import com.capteam.gaobackend.dto.team.MatchingJobResponseDto;
 import com.capteam.gaobackend.dto.team.SwapRecommendationMembersRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationDetailResponseDto;
@@ -11,6 +13,7 @@ import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.service.MatchingJobService;
 import com.capteam.gaobackend.service.admin.AdminTeamRecommendationService;
 import com.capteam.gaobackend.service.admin.ManualTeamRecommendationService;
+import com.capteam.gaobackend.service.admin.TeamMatchingVersionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +30,7 @@ public class AdminTeamRecommendationController {
     private final AdminTeamRecommendationService adminTeamRecommendationService;
     private final MatchingJobService matchingJobService;
     private final ManualTeamRecommendationService manualTeamRecommendationService;
+    private final TeamMatchingVersionService teamMatchingVersionService;
 
     // 팀 매칭 작업을 등록하고 실제 처리는 백그라운드에서 수행합니다.
     @PostMapping("/matching/run")
@@ -90,6 +94,47 @@ public class AdminTeamRecommendationController {
     public ResponseEntity<ApiResponse<List<TeamRecommendationDetailResponseDto>>> getRecommendationsByGrade(
             @PathVariable Grade grade) {
         return ApiResponse.ok(adminTeamRecommendationService.getRecommendationsByGrade(grade));
+    }
+
+    // 학년별 저장 버전 목록을 최신 버전부터 조회하는 기능입니다.
+    @GetMapping("/versions")
+    public ResponseEntity<ApiResponse<List<TeamMatchingVersionResponseDto>>> getVersions(
+            @RequestParam Grade grade
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.getVersions(grade));
+    }
+
+    // 특정 버전에 속한 추천안 상세를 기존 팀 추천 상세 shape 그대로 조회하는 기능입니다.
+    @GetMapping("/versions/{versionId}")
+    public ResponseEntity<ApiResponse<List<TeamRecommendationDetailResponseDto>>> getVersionDetails(
+            @PathVariable Long versionId
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.getVersionDetails(versionId));
+    }
+
+    // 두 버전 사이에서 이동 학생과 역할 변화를 계산해 diff 화면 데이터로 내려주는 기능입니다.
+    @GetMapping("/versions/diff")
+    public ResponseEntity<ApiResponse<TeamMatchingVersionDiffResponseDto>> getVersionDiff(
+            @RequestParam Long fromVersionId,
+            @RequestParam Long toVersionId
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.getVersionDiff(fromVersionId, toVersionId));
+    }
+
+    // 선택한 버전을 실제 확정 팀으로 반영하는 기능입니다.
+    @PostMapping("/versions/{versionId}/apply")
+    public ResponseEntity<ApiResponse<TeamMatchingVersionResponseDto>> applyVersion(
+            @PathVariable Long versionId
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.applyVersion(versionId));
+    }
+
+    // 검토가 끝난 초안 버전을 폐기 상태로 내려 화면 목록에서 구분하는 기능입니다.
+    @PostMapping("/versions/{versionId}/discard")
+    public ResponseEntity<ApiResponse<TeamMatchingVersionResponseDto>> discardVersion(
+            @PathVariable Long versionId
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.discardVersion(versionId));
     }
 
     // 관리자가 두 추천안의 학생을 교환하는 기능입니다.

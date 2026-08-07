@@ -30,6 +30,8 @@ class FrontendApiContractTest {
         frontendContracts.put("POST /api/auth/logout", RequestMethod.POST);
         frontendContracts.put("PUT /api/auth/password", RequestMethod.PUT);
         frontendContracts.put("GET /api/user/header", RequestMethod.GET);
+        frontendContracts.put("POST /api/user/fcm-token", RequestMethod.POST);
+        frontendContracts.put("DELETE /api/user/fcm-token", RequestMethod.DELETE);
         frontendContracts.put("GET /api/user/survey", RequestMethod.GET);
         frontendContracts.put("POST /api/user/survey", RequestMethod.POST);
         frontendContracts.put("GET /api/admin/dashboard", RequestMethod.GET);
