@@ -33,9 +33,18 @@ import java.util.Set;
 @Service
 public class UserService {
 
+    // 학생 검색, 설문 저장 검증, 본인 조회에 공통으로 사용하는 사용자 저장소입니다.
+    // 같은 학년 필터, 학생 계정 검증, userId 기반 선호 팀원 조회를 한 곳에서 처리하기 위해 주입합니다.
     private final UserRepository userRepository;
+
+    // 설문 저장 뒤 AI 학생 분석을 후처리로 연결하기 위한 협력 객체입니다.
+    // 검색/선호 팀원 저장과 직접 관련은 없지만 submitMySurvey 흐름에서 함께 사용됩니다.
     private final UserSurveyAnalysisService userSurveyAnalysisService;
+
+    // 설계서가 요구한 "최대 6건" 검색 제한을 서비스 레벨에서 강제하기 위한 상수입니다.
     private static final int STUDENT_SEARCH_LIMIT = 6;
+
+    // 본인 제외 후에도 6건을 채울 수 있게 DB에서는 1건을 더 조회하기 위한 상수입니다.
     private static final int STUDENT_SEARCH_QUERY_LIMIT = STUDENT_SEARCH_LIMIT + 1;
 
 
@@ -62,7 +71,8 @@ public class UserService {
         return UserMeResponseDto.from(user);
     }
 
-    // 같은 학년 학생을 이름 또는 userId 일부로 검색하는 기능입니다.
+    // 같은 학년 학생을 이름 또는 학번(userId 규칙) 일부로 검색하는 기능입니다.
+    // 이 프로젝트는 별도 학번 컬럼이 없어서 학생 userId의 숫자부를 학번으로 사용합니다. 예: stu2107 -> 2107
     @Transactional(readOnly = true)
     public List<StudentSearchResponseDto> searchStudents(String keyword) {
         User user = getAuthenticatedUser();
@@ -73,6 +83,7 @@ public class UserService {
             return Collections.emptyList();
         }
 
+        // 공백 입력으로 인한 불필요한 like 검색을 막고, 프론트의 부분 검색 계약과 동일하게 trim 후 조회합니다.
         return userRepository.searchStudentsByKeyword(
                         AccountRole.STUDENT,
                         user.getGrade(),
@@ -249,8 +260,8 @@ public class UserService {
             throw new IllegalArgumentException("선호 팀원은 최대 3명까지 등록할 수 있습니다.");
         }
 
-        List<String> userIds = new ArrayList<>();
         Set<String> uniqueUserIds = new LinkedHashSet<>();
+        List<String> userIds = new ArrayList<>();
         for (String input : cleaned) {
             String preferredUserId = input.trim();
             if (user.getUserId().equals(preferredUserId)) {

@@ -172,6 +172,26 @@ class UserServiceTest {
     }
 
     @Test
+    void searchesStudentsByNumericStudentNumberKeyword() {
+        User user = student("stu1000", "나학생", Grade.GRADE_3);
+        User preferredUser = student("stu2107", "박진욱", Grade.GRADE_3);
+        authenticate(user.getUserId());
+        when(userRepository.findById(user.getUserId())).thenReturn(Optional.of(user));
+        when(userRepository.searchStudentsByKeyword(
+                eq(AccountRole.STUDENT),
+                eq(Grade.GRADE_3),
+                eq("210"),
+                any(Pageable.class)
+        )).thenReturn(List.of(preferredUser));
+
+        List<StudentSearchResponseDto> result = userService.searchStudents(" 210 ");
+
+        assertThat(result)
+                .extracting(StudentSearchResponseDto::getUserId, StudentSearchResponseDto::getName)
+                .containsExactly(tuple("stu2107", "박진욱"));
+    }
+
+    @Test
     void returnsEmptySearchResultForBlankKeyword() {
         User user = student("stu1000", "나학생", Grade.GRADE_3);
         authenticate(user.getUserId());
