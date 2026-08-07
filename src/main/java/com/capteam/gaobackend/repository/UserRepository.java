@@ -30,6 +30,8 @@ public interface UserRepository extends JpaRepository<User, String> {
               )
             order by u.userId asc
             """)
+    // 이 프로젝트는 별도 학번 컬럼 없이 student userId(stu2107 등)에 학번이 포함되어 있으므로
+    // 학번 부분 검색도 userId like 검색으로 함께 처리합니다.
     List<User> searchStudentsByKeyword(@Param("accountRole") AccountRole accountRole,
                                         @Param("grade") Grade grade,
                                         @Param("keyword") String keyword,
