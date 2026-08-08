@@ -41,6 +41,15 @@ public class MatchingJob extends BaseTimeEntity {
     @Column(name = "base_version_id")
     private Long baseVersionId;
 
+    // 배치 단위 진행률 표시(6번)를 위한 카운터입니다. 현재 실행 경로는 단일 동기 호출이라
+    // 항상 0/0으로 남아있고, AI가 배치별로 완료를 알려주는 콜백을 실제로 호출하기 시작하면
+    // MatchingJobStateService 쪽에서 갱신하면 됩니다.
+    @Column(name = "total_batches", nullable = false)
+    private int totalBatches;
+
+    @Column(name = "completed_batches", nullable = false)
+    private int completedBatches;
+
     public MatchingJob(String id, Grade grade) {
         this(id, grade, null, null);
     }

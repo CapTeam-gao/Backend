@@ -21,6 +21,9 @@ public class MatchingJobResponseDto {
     private Long versionId;
     private Long baseVersionId;
     private String origin;
+    private int totalBatches;
+    private int completedBatches;
+    private Integer progressPercent;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -38,6 +41,9 @@ public class MatchingJobResponseDto {
                 .versionId(versionId)
                 .baseVersionId(job.getBaseVersionId())
                 .origin(resolveOrigin(job))
+                .totalBatches(job.getTotalBatches())
+                .completedBatches(job.getCompletedBatches())
+                .progressPercent(resolveProgressPercent(job))
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())
                 .build();
@@ -45,11 +51,20 @@ public class MatchingJobResponseDto {
 
     private static String resolveOrigin(MatchingJob job) {
         if (job.getBaseVersionId() != null) {
-            return "REGENERATION";
+            return "REGENERATE";
         }
         if (job.getRegenerationPrompt() != null && !job.getRegenerationPrompt().isBlank()) {
-            return "REGENERATION";
+            return "REGENERATE";
         }
-        return "INITIAL";
+        return "CREATE";
+    }
+
+    // AI가 아직 배치 진행률을 알려주지 않는 동안(totalBatches=0)에는 null을 내려
+    // 프론트가 "진행률 없음"과 "0%"를 구분할 수 있게 합니다.
+    private static Integer resolveProgressPercent(MatchingJob job) {
+        if (job.getTotalBatches() <= 0) {
+            return null;
+        }
+        return Math.min(100, job.getCompletedBatches() * 100 / job.getTotalBatches());
     }
 }
