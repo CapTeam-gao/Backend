@@ -102,7 +102,7 @@ class AdminTeamRecommendationServiceTest {
 
         verify(aiClient).runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt);
         verify(recommendationPersistenceService)
-                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
+                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team), null, prompt);
     }
 
     @Test
@@ -132,7 +132,7 @@ class AdminTeamRecommendationServiceTest {
         );
 
         verify(recommendationPersistenceService)
-                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
+                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team), null, null);
     }
 
     @Test
