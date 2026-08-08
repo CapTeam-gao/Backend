@@ -461,9 +461,43 @@ public class ChatService {
     @Transactional
     public void deleteMessage(Long messageId, String userId) {
         ChatMessage chatMessage = getEditableMessage(messageId, userId);
-        Long channelId = chatMessage.getChannel().getId();
+        ChatChannel channel = chatMessage.getChannel();
+        Long channelId = channel.getId();
+
+        if (messageId.equals(channel.getPinnedMessageId())) {
+            channel.unpinMessage();
+        }
+
         chatMessageRepository.delete(chatMessage);
         publishMessageEventAfterCommit(channelId, ChatMessageEventDto.deleted(messageId, channelId));
+    }
+
+    // 팀원이 채널에 메시지를 상단 고정하는 기능입니다.
+    @Transactional
+    public ChatChannelResponseDto pinMessage(Long channelId, Long messageId, String userId) {
+        ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅 메시지입니다."));
+
+        if (!message.getChannel().getId().equals(channelId)) {
+            throw new IllegalArgumentException("해당 채널의 메시지가 아닙니다.");
+        }
+
+        channel.pinMessage(messageId);
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(channel);
+        publishChannelEventAfterCommit(channel.getChatRoom().getId(), ChatChannelEventDto.updated(response));
+        return response;
+    }
+
+    // 팀원이 채널에 고정된 메시지를 해제하는 기능입니다.
+    @Transactional
+    public ChatChannelResponseDto unpinMessage(Long channelId, String userId) {
+        ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        channel.unpinMessage();
+
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(channel);
+        publishChannelEventAfterCommit(channel.getChatRoom().getId(), ChatChannelEventDto.updated(response));
+        return response;
     }
 
     // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
