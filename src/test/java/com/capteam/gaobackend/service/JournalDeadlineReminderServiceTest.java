@@ -47,15 +47,13 @@ class JournalDeadlineReminderServiceTest {
 
     @BeforeEach
     void setUp() {
-        LocalTime deadlineTime = LocalDateTime.now(ZoneId.of("Asia/Seoul"))
-                .withSecond(0)
-                .withNano(0)
-                .toLocalTime()
-                .plusMinutes(30);
+        LocalDateTime nowInSeoul = LocalDateTime.now(ZoneId.of("Asia/Seoul")).withSecond(0).withNano(0);
+        LocalTime deadlineTime = nowInSeoul.toLocalTime().plusMinutes(30);
         JournalReminderProperties properties = new JournalReminderProperties(
                 true,
                 "0 * * * * *",
                 "Asia/Seoul",
+                nowInSeoul.getDayOfWeek().getValue(),
                 deadlineTime,
                 30,
                 "일지 마감 30분 전입니다",
