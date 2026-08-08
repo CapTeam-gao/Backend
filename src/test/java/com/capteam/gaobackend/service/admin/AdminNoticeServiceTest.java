@@ -10,7 +10,10 @@ import com.capteam.gaobackend.repository.NoticeReadRepository;
 import com.capteam.gaobackend.repository.NoticeRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.NotificationLogRepository;
+import com.capteam.gaobackend.repository.UserFcmTokenRepository;
 import com.capteam.gaobackend.repository.UserRepository;
+import com.capteam.gaobackend.service.push.PushNotificationGateway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +44,9 @@ class AdminNoticeServiceTest {
     @Mock private TeamRepository teamRepository;
     @Mock private TeamUserRepository teamUserRepository;
     @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private UserFcmTokenRepository userFcmTokenRepository;
+    @Mock private NotificationLogRepository notificationLogRepository;
+    @Mock private PushNotificationGateway pushNotificationGateway;
 
     private AdminNoticeService adminNoticeService;
 
@@ -52,7 +58,10 @@ class AdminNoticeServiceTest {
                 userRepository,
                 teamRepository,
                 teamUserRepository,
-                messagingTemplate
+                messagingTemplate,
+                userFcmTokenRepository,
+                notificationLogRepository,
+                pushNotificationGateway
         );
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("admin", null)

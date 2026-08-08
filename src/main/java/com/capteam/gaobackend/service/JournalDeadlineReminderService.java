@@ -66,6 +66,12 @@ public class JournalDeadlineReminderService {
         // 서버 시간대가 달라져도 운영 기준 시각이 흔들리지 않게 프로퍼티 zone으로 현재 시각을 고정합니다.
         ZoneId zoneId = ZoneId.of(reminderProperties.zone());
         LocalDateTime now = LocalDateTime.now(zoneId).withSecond(0).withNano(0);
+
+        // 캡스톤 일지 작성 요일(기본 수요일)에만 발송 — 요일 조건이 없으면 매일 발송되는 버그가 있었음.
+        if (now.getDayOfWeek().getValue() != reminderProperties.dayOfWeek()) {
+            return;
+        }
+
         LocalDateTime reminderAt = LocalDateTime.of(
                 now.toLocalDate(),
                 reminderProperties.deadlineTime().minusMinutes(reminderProperties.minutesBefore())

@@ -9,6 +9,7 @@ import com.capteam.gaobackend.dto.chat.ChatMessageEventDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
+import com.capteam.gaobackend.dto.chat.ChatNotificationEventDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatUnreadEventDto;
 import com.capteam.gaobackend.dto.chat.ChatUnreadSummaryResponseDto;
@@ -16,20 +17,29 @@ import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatReadStatus;
 import com.capteam.gaobackend.entity.ChatRoom;
+import com.capteam.gaobackend.entity.NotificationLog;
 import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
+import com.capteam.gaobackend.entity.UserFcmToken;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.LeaderRole;
+import com.capteam.gaobackend.enums.NotificationStatus;
+import com.capteam.gaobackend.enums.NotificationType;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
 import com.capteam.gaobackend.repository.ChatReadStatusRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
+import com.capteam.gaobackend.repository.NotificationLogRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.UserFcmTokenRepository;
 import com.capteam.gaobackend.repository.UserRepository;
+import com.capteam.gaobackend.service.push.PushDispatchResult;
+import com.capteam.gaobackend.service.push.PushMessageRequest;
+import com.capteam.gaobackend.service.push.PushNotificationGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,7 +51,9 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +65,8 @@ public class ChatService {
     private static final String ADMIN_CHAT_UNREAD_DESTINATION = "/sub/admin/chat/unread";
     private static final String USER_CHAT_UNREAD_DESTINATION = "/queue/chat/unread";
     private static final String USER_CHAT_UNREAD_BROADCAST_DESTINATION_FORMAT = "/sub/chat/unread/%s";
+    private static final String USER_CHAT_NOTIFICATION_DESTINATION = "/queue/chat/notifications";
+    private static final String CHAT_PUSH_CLICK_URL = "/user/chat";
 
     // 채팅 메시지 저장, 조회, unread 계산에 사용하는 Repository 필드입니다.
     private final ChatMessageRepository chatMessageRepository;
@@ -83,6 +97,18 @@ public class ChatService {
 
     // 채팅 메시지/채널 변경 이벤트를 WebSocket 구독자에게 발행하는 필드입니다.
     private final SimpMessagingTemplate messagingTemplate;
+
+    // 수신자가 채팅 화면(웹소켓 chat 구독)을 보고 있는지 판단해 토스트/푸시를 분기하는 필드입니다.
+    private final ChatPresenceService chatPresenceService;
+
+    // 백그라운드 수신자에게 보낼 FCM 등록 토큰을 조회하는 Repository 필드입니다.
+    private final UserFcmTokenRepository userFcmTokenRepository;
+
+    // 채팅 푸시 발송 이력을 남기고 조회하기 위한 Repository 필드입니다.
+    private final NotificationLogRepository notificationLogRepository;
+
+    // 실제 FCM 전송을 Firebase 구현체에 위임하는 필드입니다.
+    private final PushNotificationGateway pushNotificationGateway;
 
 
     // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
@@ -298,7 +324,120 @@ public class ChatService {
         ChatMessageResponseDto response = ChatMessageResponseDto.from(savedMessage);
         publishAdminUnreadEventAfterCommit("MESSAGE_CREATED", channel.getChatRoom().getId(), channel.getId());
         publishTeamUnreadEventsAfterCommit("MESSAGE_CREATED", channel, sender.getUserId());
+        notifyTeamMembersOfNewMessage(channel, sender, savedMessage);
         return response;
+    }
+
+    // 새 메시지를 보낸 사람을 제외한 팀원 전원에게, 채팅 화면을 보고 있으면 토스트를, 아니면 FCM 푸시를 보내는 기능입니다.
+    private void notifyTeamMembersOfNewMessage(ChatChannel channel, User sender, ChatMessage message) {
+        String teamName = resolveDisplayTeamName(channel.getChatRoom());
+        String preview = message.getMessage() != null ? message.getMessage() : "파일을 보냈습니다.";
+
+        teamUserRepository.findByTeamId(channel.getChatRoom().getTeam().getId())
+                .stream()
+                .map(TeamUser::getUser)
+                .filter(recipient -> !recipient.getUserId().equals(sender.getUserId()))
+                .forEach(recipient -> notifyChatMessage(recipient, channel, message, teamName, sender.getName(), preview));
+    }
+
+    // 한 명의 수신자에게 온라인이면 토스트, 오프라인이면 FCM 푸시를 보내는 기능입니다.
+    private void notifyChatMessage(
+            User recipient,
+            ChatChannel channel,
+            ChatMessage message,
+            String teamName,
+            String senderName,
+            String preview
+    ) {
+        if (chatPresenceService.isOnline(recipient.getUserId())) {
+            ChatNotificationEventDto event = ChatNotificationEventDto.of(
+                    channel.getId(),
+                    channel.getChannelName(),
+                    teamName,
+                    senderName,
+                    preview,
+                    message.getCreatedAt()
+            );
+
+            publishAfterCommit(() -> messagingTemplate.convertAndSendToUser(
+                    recipient.getUserId(),
+                    USER_CHAT_NOTIFICATION_DESTINATION,
+                    event
+            ));
+            return;
+        }
+
+        publishAfterCommit(() -> sendChatPushNotification(recipient, channel, message, teamName, senderName, preview));
+    }
+
+    // 오프라인 수신자에게 FCM 푸시를 보내고 발송 이력을 남기는 기능입니다.
+    private void sendChatPushNotification(
+            User recipient,
+            ChatChannel channel,
+            ChatMessage message,
+            String teamName,
+            String senderName,
+            String preview
+    ) {
+        // NotificationLog.targetId는 (user, type, targetId) 유니크 제약이 있어 메시지마다 겹치지 않게
+        // 채팅 메시지 id를 쓴다. 클라이언트로 보내는 payload의 targetId(딥링크용)는 별개로 channelId를 쓴다.
+        String logTargetId = String.valueOf(message.getId());
+        LocalDateTime now = LocalDateTime.now();
+        List<String> tokens = userFcmTokenRepository.findAllByUserUserId(recipient.getUserId())
+                .stream()
+                .map(UserFcmToken::getToken)
+                .distinct()
+                .toList();
+
+        String title = teamName + " · " + senderName;
+
+        if (tokens.isEmpty()) {
+            notificationLogRepository.save(NotificationLog.builder()
+                    .user(recipient)
+                    .type(NotificationType.CHAT_MESSAGE)
+                    .targetId(logTargetId)
+                    .status(NotificationStatus.FAILED)
+                    .sentAt(now)
+                    .title(title)
+                    .body(preview)
+                    .errorMessage("등록된 FCM 토큰이 없습니다.")
+                    .build());
+            return;
+        }
+
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("type", NotificationType.CHAT_MESSAGE.name());
+        data.put("targetId", String.valueOf(channel.getId()));
+        data.put("clickUrl", CHAT_PUSH_CLICK_URL);
+
+        PushDispatchResult result = pushNotificationGateway.sendToTokens(
+                tokens,
+                new PushMessageRequest(title, preview, data)
+        );
+
+        String errorMessage = result.failureReasons().isEmpty()
+                ? null
+                : String.join(" | ", result.failureReasons());
+
+        NotificationLog notificationLog = NotificationLog.builder()
+                .user(recipient)
+                .type(NotificationType.CHAT_MESSAGE)
+                .targetId(logTargetId)
+                .status(NotificationStatus.FAILED)
+                .sentAt(now)
+                .title(title)
+                .body(preview)
+                .targetTokenCount(tokens.size())
+                .errorMessage(errorMessage)
+                .build();
+
+        if (result.successCount() > 0) {
+            notificationLog.markSent(now, result.successCount(), result.failureCount());
+        } else {
+            notificationLog.markFailed(now, errorMessage);
+        }
+
+        notificationLogRepository.save(notificationLog);
     }
 
     // 작성자가 본인이 보낸 텍스트 채팅 메시지를 수정하는 기능입니다.
