@@ -63,30 +63,30 @@ public class UserSurveyResponseDto {
     @Builder
     public static class PersonalityScoresDto {
 
+        // 아이디어 기획 성향 점수를 내려주는 필드입니다.
+        private Double ideaPlanning;
+
         // 소통 성향 점수를 내려주는 필드입니다.
         private Double communication;
 
-        // 책임감 성향 점수를 내려주는 필드입니다.
-        private Double responsibility;
+        // 역할 유연성 점수를 내려주는 필드입니다.
+        private Double roleFlexibility;
 
-        // 협업 성향 점수를 내려주는 필드입니다.
-        private Double collaboration;
+        // 시간 압박 대응 점수를 내려주는 필드입니다.
+        private Double timePressure;
 
-        // 유연성 성향 점수를 내려주는 필드입니다.
-        private Double flexibility;
-
-        // 감정 안정성 점수를 내려주는 필드입니다.
-        private Double emotionalStability;
+        // 체력/집중 유지 점수를 내려주는 필드입니다.
+        private Double staminaFocus;
 
         // 성격 성향 엔티티 값을 응답 DTO로 변환하는 기능입니다.
         public static PersonalityScoresDto from(UserPersonalityScore score) {
             UserPersonalityScore safeScore = score == null ? new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0) : score;
             return PersonalityScoresDto.builder()
+                    .ideaPlanning(safeScore.getIdeaPlanning())
                     .communication(safeScore.getCommunication())
-                    .responsibility(safeScore.getResponsibility())
-                    .collaboration(safeScore.getCollaboration())
-                    .flexibility(safeScore.getFlexibility())
-                    .emotionalStability(safeScore.getEmotionalStability())
+                    .roleFlexibility(safeScore.getRoleFlexibility())
+                    .timePressure(safeScore.getTimePressure())
+                    .staminaFocus(safeScore.getStaminaFocus())
                     .build();
         }
     }
@@ -95,30 +95,30 @@ public class UserSurveyResponseDto {
     @Builder
     public static class DevelopmentScoresDto {
 
-        // 리더십 성향 점수를 내려주는 필드입니다.
-        private Double leadership;
+        // 구현 실행력 점수를 내려주는 필드입니다.
+        private Double implementation;
 
         // 문제 해결력 점수를 내려주는 필드입니다.
         private Double problemSolving;
 
-        // 구현 실행력 점수를 내려주는 필드입니다.
-        private Double implementation;
+        // 완성도 점수를 내려주는 필드입니다.
+        private Double completionQuality;
 
-        // 학습 성장성 점수를 내려주는 필드입니다.
-        private Double learningAbility;
+        // 발표/전달력 점수를 내려주는 필드입니다.
+        private Double presentation;
 
-        // 기획 정리력 점수를 내려주는 필드입니다.
-        private Double planning;
+        // 리더십 성향 점수를 내려주는 필드입니다.
+        private Double leadership;
 
         // 개발 성향 엔티티 값을 응답 DTO로 변환하는 기능입니다.
         public static DevelopmentScoresDto from(UserDevelopmentScore score) {
             UserDevelopmentScore safeScore = score == null ? new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0) : score;
             return DevelopmentScoresDto.builder()
-                    .leadership(safeScore.getLeadership())
-                    .problemSolving(safeScore.getProblemSolving())
                     .implementation(safeScore.getImplementation())
-                    .learningAbility(safeScore.getLearningAbility())
-                    .planning(safeScore.getPlanning())
+                    .problemSolving(safeScore.getProblemSolving())
+                    .completionQuality(safeScore.getCompletionQuality())
+                    .presentation(safeScore.getPresentation())
+                    .leadership(safeScore.getLeadership())
                     .build();
         }
     }

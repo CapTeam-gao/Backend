@@ -115,8 +115,8 @@ class ChatServiceEventTest {
 
     @Test
     void getMyChatRoomIncludesMyMemberRole() {
-        when(chatAccessService.getMyChatRoom("stu2301")).thenReturn(room);
         when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.LEADER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.of(room));
         when(chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(channel));
 
         ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
@@ -138,14 +138,33 @@ class ChatServiceEventTest {
                 .serviceIntro("소개")
                 .mainFeatures("기능")
                 .build();
-        when(chatAccessService.getMyChatRoom("stu2301")).thenReturn(room);
         when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.LEADER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.of(room));
         when(teamProjectRepository.findByTeamId(1L)).thenReturn(Optional.of(teamProject));
         when(chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(channel));
 
         ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
 
         assertThat(response.getTeamName()).isEqualTo("가오팀");
+    }
+
+    @Test
+    void getMyChatRoomReturnsNullWhenUserHasNoTeam() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.empty());
+
+        ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
+
+        assertThat(response).isNull();
+    }
+
+    @Test
+    void getMyChatRoomReturnsNullWhenTeamHasNoChatRoom() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.MEMBER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.empty());
+
+        ChatRoomResponseDto response = chatService.getMyChatRoom("stu2301");
+
+        assertThat(response).isNull();
     }
 
     @Test
@@ -170,6 +189,25 @@ class ChatServiceEventTest {
 
         assertThat(response).hasSize(1);
         assertThat(response.get(0).getUnreadCount()).isEqualTo(2L);
+    }
+
+    @Test
+    void getMyChannelSummariesReturnsEmptyListWhenUserHasNoTeam() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.empty());
+
+        List<ChatChannelSummaryResponseDto> response = chatService.getMyChannelSummaries("stu2301");
+
+        assertThat(response).isEmpty();
+    }
+
+    @Test
+    void getMyChannelSummariesReturnsEmptyListWhenTeamHasNoChatRoom() {
+        when(teamUserRepository.findByUserUserId("stu2301")).thenReturn(Optional.of(teamUser(LeaderRole.MEMBER)));
+        when(chatRoomRepository.findByTeamId(1L)).thenReturn(Optional.empty());
+
+        List<ChatChannelSummaryResponseDto> response = chatService.getMyChannelSummaries("stu2301");
+
+        assertThat(response).isEmpty();
     }
 
     @Test

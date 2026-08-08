@@ -13,6 +13,8 @@ import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
@@ -25,8 +27,9 @@ public class UserSurveyAnalysisService {
     private final AiClient aiClient;
     private final UserAnalysisRepository userAnalysisRepository;
 
+    @Transactional
     public void saveSurveyReliability(User user, UserSurveyRequestDto dto) {
-        ResponseReliability responseReliability = dto.getResponseReliability();
+        ResponseReliability responseReliability = parseResponseReliability(dto.getResponseReliability());
         Integer inconsistentAnswers = validateNonNegative(dto.getInconsistentAnswers(), "전체 불일치 응답 수");
         Integer personalityInconsistentCount =
                 validateNonNegative(dto.getPersonalityInconsistentCount(), "성격 성향 불일치 응답 수");
@@ -50,14 +53,14 @@ public class UserSurveyAnalysisService {
         );
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void analyzeSubmittedSurvey(User user) {
         try {
             List<AiStudentAnalysisResponseDto> results =
                     aiClient.runAnalysisForResult(List.of(AiStudentPayloadDto.from(user)));
             AiStudentAnalysisResponseDto result = findUserAnalysisResult(user, results);
             if (result == null || result.getAnalysisResult() == null || result.getAnalysisResult().isBlank()) {
-                log.warn("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다. userId={}", user.getUserId());
-                return;
+                throw new IllegalStateException("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다. userId=" + user.getUserId());
             }
 
             StudentLevel studentLevel = parseStudentLevel(result.getStudentLevel());
@@ -70,7 +73,8 @@ public class UserSurveyAnalysisService {
                             .build())
             );
         } catch (AiServerException e) {
-            log.warn("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
+            log.error("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
+            throw new IllegalStateException("AI 학생 분석 생성에 실패했습니다.", e);
         }
     }
 
@@ -99,8 +103,25 @@ public class UserSurveyAnalysisService {
         String normalized = level.trim().toUpperCase(Locale.ROOT);
         return switch (normalized) {
             case "UPPER", "HIGH", "상" -> StudentLevel.UPPER;
+            // AI 서버가 한글 또는 여러 영문 alias로 중상/중하를 내려줘도 같은 enum으로 저장합니다.
+            case "UPPER_MIDDLE", "UPPER-MIDDLE", "HIGH_MIDDLE", "HIGH-MIDDLE", "중상" -> StudentLevel.UPPER_MIDDLE;
             case "MIDDLE", "MID", "MEDIUM", "중" -> StudentLevel.MIDDLE;
+            case "LOWER_MIDDLE", "LOWER-MIDDLE", "LOW_MIDDLE", "LOW-MIDDLE", "중하" -> StudentLevel.LOWER_MIDDLE;
             case "LOWER", "LOW", "하" -> StudentLevel.LOWER;
+            default -> null;
+        };
+    }
+
+    private ResponseReliability parseResponseReliability(String reliability) {
+        if (reliability == null || reliability.isBlank()) {
+            return null;
+        }
+
+        String normalized = reliability.trim().toUpperCase(Locale.ROOT);
+        return switch (normalized) {
+            case "HIGH", "높음", "상" -> ResponseReliability.HIGH;
+            case "MEDIUM", "MID", "보통", "중" -> ResponseReliability.MEDIUM;
+            case "LOW", "낮음", "하" -> ResponseReliability.LOW;
             default -> null;
         };
     }
@@ -113,3 +134,5 @@ public class UserSurveyAnalysisService {
         return value;
     }
 }
+//
+//

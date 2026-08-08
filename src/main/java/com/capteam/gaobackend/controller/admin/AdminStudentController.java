@@ -2,12 +2,15 @@ package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.admin.AdminStudentDetailResponseDto;
 import com.capteam.gaobackend.dto.admin.AdminStudentListPageResponseDto;
+import com.capteam.gaobackend.dto.admin.AdminStudentSearchResponseDto;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.service.admin.AdminStudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin/students")
@@ -27,6 +30,15 @@ public class AdminStudentController {
             @RequestParam(required = false) Boolean surveyCompleted
     ) {
         return ResponseEntity.ok(adminStudentService.getAllStudents(name, userId, studentRole, grade, surveyCompleted));
+    }
+
+    // 직접 팀 구성 화면에서 이름, 학번 또는 직군 검색어로 학생을 조회하는 기능입니다.
+    @GetMapping("/search")
+    public ResponseEntity<List<AdminStudentSearchResponseDto>> searchStudentsForManualTeam(
+            @RequestParam Grade grade,
+            @RequestParam String keyword
+    ) {
+        return ResponseEntity.ok(adminStudentService.searchStudentsForManualTeam(grade, keyword));
     }
 
 

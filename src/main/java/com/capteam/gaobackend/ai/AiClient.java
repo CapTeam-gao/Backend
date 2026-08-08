@@ -4,6 +4,7 @@ import com.capteam.gaobackend.dto.ai.AiMatchingRequestDto;
 import com.capteam.gaobackend.dto.ai.AiStudentAnalysisResponseDto;
 import com.capteam.gaobackend.dto.ai.AiStudentPayloadDto;
 import com.capteam.gaobackend.dto.ai.AiTeamSummaryResponseDto;
+import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.exception.MatchingJobCancelledException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -32,6 +33,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class AiClient {
+    private static final int HACKATHON_TEAM_SIZE = 5;
+
 
     private final RestClient restClient;
     private final HttpClient cancellableHttpClient;
@@ -41,23 +44,23 @@ public class AiClient {
     // HTTP 요청 등록 직전에 취소가 들어오는 경쟁 조건을 처리하기 위한 임시 취소 목록입니다.
     private final Set<String> cancelledMatchingJobs = ConcurrentHashMap.newKeySet();
 
-    @Value("${ai.server.base-url}")
-    private String aiServerBaseUrl;
+    private final String aiServerBaseUrl;
 
     public AiClient(@Value("${ai.server.base-url}") String aiServerBaseUrl, ObjectMapper objectMapper) {
+        String normalizedAiServerBaseUrl = normalizeBaseUrl(aiServerBaseUrl);
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);       // 연결 타임아웃 10초
         factory.setReadTimeout(600_000);          // 읽기 타임아웃 10분 (AI 매칭 시간 고려)
 
         this.restClient = RestClient.builder()
-                .baseUrl(aiServerBaseUrl)
+                .baseUrl(normalizedAiServerBaseUrl)
                 .requestFactory(factory)
                 .build();
         this.cancellableHttpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         this.objectMapper = objectMapper;
-        this.aiServerBaseUrl = aiServerBaseUrl;
+        this.aiServerBaseUrl = normalizedAiServerBaseUrl;
     }
 
     // 백엔드 학생 데이터를 JSON으로 AI 서버에 전달해 분석을 실행하는 기능입니다.
@@ -97,16 +100,25 @@ public class AiClient {
     }
 
     public AiTeamSummaryResponseDto runMatchingWithPrompt(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+        return runMatchingForGrade(students, null, regenerationPrompt);
+    }
+
+    public AiTeamSummaryResponseDto runMatchingForGrade(
+            List<AiStudentPayloadDto> students,
+            Grade grade,
+            String regenerationPrompt
+    ) {
         try {
             var request = restClient.post()
-                    .uri("/matching/run")
+                    .uri(matchingPath(grade, regenerationPrompt))
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            request.body(buildMatchingRequestBody(students, regenerationPrompt));
+            request.body(buildMatchingRequestBody(students, grade, regenerationPrompt));
             AiTeamSummaryResponseDto response = request.retrieve().body(AiTeamSummaryResponseDto.class);
             if (response == null) throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 응답이 비어 있습니다.");
             return response;
         } catch (RestClientResponseException e) {
-            throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: " + e.getStatusCode().value(), e);
+            throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: "
+                    + e.getStatusCode().value() + ", 응답: " + responseBody(e), e);
         } catch (RestClientException e) {
             throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 연결 주소를 확인해주세요: " + aiServerBaseUrl, e);
         }
@@ -117,18 +129,27 @@ public class AiClient {
     }
 
     public AiTeamSummaryResponseDto runMatching(List<AiStudentPayloadDto> students, String jobId, String regenerationPrompt) {
+        return runMatchingForGrade(students, null, jobId, regenerationPrompt);
+    }
+
+    public AiTeamSummaryResponseDto runMatchingForGrade(
+            List<AiStudentPayloadDto> students,
+            Grade grade,
+            String jobId,
+            String regenerationPrompt
+    ) {
         // 실행기가 AI 요청을 보내기 전에 이미 취소된 작업이면 외부 호출을 시작하지 않습니다.
         if (cancelledMatchingJobs.remove(jobId)) {
             throw new MatchingJobCancelledException(jobId);
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(aiServerBaseUrl + "/matching/run"))
+                .uri(aiServerUri(matchingPath(grade, regenerationPrompt)))
                 .timeout(Duration.ofMinutes(10))
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
                 .header("X-Matching-Job-Id", jobId)
-                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, regenerationPrompt)))
+                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, grade, regenerationPrompt)))
                 .build();
 
         CompletableFuture<HttpResponse<String>> responseFuture = cancellableHttpClient.sendAsync(
@@ -144,7 +165,8 @@ public class AiClient {
         try {
             HttpResponse<String> response = responseFuture.join();
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: " + response.statusCode());
+                throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 상태 코드: "
+                        + response.statusCode() + ", 응답: " + safeBody(response.body()));
             }
             return objectMapper.readValue(response.body(), AiTeamSummaryResponseDto.class);
         } catch (CancellationException e) {
@@ -172,7 +194,7 @@ public class AiClient {
 
         HttpRequest cancelRequest = HttpRequest.newBuilder()
                 // AI 서버가 이 API를 구현해야 이미 시작된 LLM 호출까지 확실히 중단됩니다.
-                .uri(URI.create(aiServerBaseUrl + "/matching/jobs/" + jobId))
+                .uri(aiServerUri("/matching/jobs/" + jobId))
                 .timeout(Duration.ofSeconds(5))
                 .DELETE()
                 .build();
@@ -180,20 +202,55 @@ public class AiClient {
                 .exceptionally(ignored -> null);
     }
 
-    private String writeJson(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+    private String writeJson(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
         try {
-            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, regenerationPrompt));
+            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, grade, regenerationPrompt));
         } catch (JsonProcessingException e) {
             throw new AiServerException("AI 팀 매칭 요청 데이터를 생성하지 못했습니다.", e);
         }
     }
 
-    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, String regenerationPrompt) {
+    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
         List<AiStudentPayloadDto> safeStudents = students == null ? List.of() : students;
+        if (grade == Grade.GRADE_2 && (regenerationPrompt == null || regenerationPrompt.isBlank())) {
+            return AiMatchingRequestDto.hackathon(safeStudents, HACKATHON_TEAM_SIZE);
+        }
         if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
             return safeStudents;
         }
         return AiMatchingRequestDto.of(safeStudents, regenerationPrompt);
+    }
+
+    private String responseBody(RestClientResponseException e) {
+        return safeBody(e.getResponseBodyAsString());
+    }
+
+    private String safeBody(String body) {
+        if (body == null || body.isBlank()) {
+            return "<empty>";
+        }
+        return body.length() > 2_000 ? body.substring(0, 2_000) + "...(truncated)" : body;
+    }
+
+    private URI aiServerUri(String path) {
+        String normalizedPath = path.startsWith("/") ? path : "/" + path;
+        return URI.create(aiServerBaseUrl + normalizedPath);
+    }
+
+    private String matchingPath(Grade grade, String regenerationPrompt) {
+        if (grade != Grade.GRADE_2) {
+            return "/matching/run";
+        }
+        return regenerationPrompt == null || regenerationPrompt.isBlank()
+                ? "/matching/hackathon/run"
+                : "/matching/hackathon/regenerate";
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isBlank()) {
+            throw new IllegalArgumentException("ai.server.base-url is required");
+        }
+        return baseUrl.replaceAll("/+$", "");
     }
 
     private List<AiStudentAnalysisResponseDto> readAnalysisResults(String responseBody) {

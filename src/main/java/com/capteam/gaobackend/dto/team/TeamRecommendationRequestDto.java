@@ -22,4 +22,7 @@ public class TeamRecommendationRequestDto {
     // 추천안 재생성 시 AI에게 전달할 추가 요구사항입니다.
     @Size(max = 1000)
     private String regenerationPrompt;
+
+    // 어떤 버전을 기준으로 재생성했는지 diff 연결점을 남기기 위해 선택적으로 받습니다.
+    private Long baseVersionId;
 }

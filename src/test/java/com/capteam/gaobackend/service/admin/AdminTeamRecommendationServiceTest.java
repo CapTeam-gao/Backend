@@ -94,13 +94,43 @@ class AdminTeamRecommendationServiceTest {
                         Map.of("홍길동", "stu2301"),
                         studentPayloads
                 ));
-        when(aiClient.runMatchingWithPrompt(studentPayloads, prompt)).thenReturn(aiResponse);
+        when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt)).thenReturn(aiResponse);
 
         adminTeamRecommendationService.createRecommendation(
-                new TeamRecommendationRequestDto(Grade.GRADE_2, "  " + prompt + "  ")
+                new TeamRecommendationRequestDto(Grade.GRADE_2, "  " + prompt + "  ", null)
         );
 
-        verify(aiClient).runMatchingWithPrompt(studentPayloads, prompt);
+        verify(aiClient).runMatchingForGrade(studentPayloads, Grade.GRADE_2, prompt);
+        verify(recommendationPersistenceService)
+                .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
+    }
+
+    @Test
+    void matchesAiMemberByUserIdWhenNameIsDifferent() {
+        AiStudentPayloadDto studentPayload = AiStudentPayloadDto.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .build();
+        List<AiStudentPayloadDto> studentPayloads = List.of(studentPayload);
+        AiTeamSummaryResponseDto.MemberDto member = new AiTeamSummaryResponseDto.MemberDto();
+        member.setUserId("stu2301");
+        member.setName("AI가 바꾼 이름");
+        AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
+        team.setMembers(List.of(member));
+        AiTeamSummaryResponseDto aiResponse = new AiTeamSummaryResponseDto();
+        aiResponse.setTeams(List.of(team));
+
+        when(matchingPreparationService.prepare(Grade.GRADE_2))
+                .thenReturn(new AdminTeamMatchingPreparationService.PreparedMatching(
+                        Map.of("홍길동", "stu2301"),
+                        studentPayloads
+                ));
+        when(aiClient.runMatchingForGrade(studentPayloads, Grade.GRADE_2, null)).thenReturn(aiResponse);
+
+        adminTeamRecommendationService.createRecommendation(
+                new TeamRecommendationRequestDto(Grade.GRADE_2, null, null)
+        );
+
         verify(recommendationPersistenceService)
                 .replacePendingRecommendations(Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(team));
     }

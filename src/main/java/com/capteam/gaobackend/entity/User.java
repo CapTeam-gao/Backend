@@ -51,10 +51,12 @@ public class User extends BaseTimeEntity {
     private StudentRole studentRole;
 
     @ElementCollection
+    @Column(columnDefinition = "TEXT")
     // 학생이 보유한 기술 스택을 저장하는 필드입니다.
     private List<String> skill;
 
     @ElementCollection
+    @Column(columnDefinition = "TEXT")
     // 학생의 구현 경험을 저장하는 필드입니다.
     private List<String> experience;
 
@@ -84,22 +86,22 @@ public class User extends BaseTimeEntity {
 
     @Embedded
     @AttributeOverrides({
+            @AttributeOverride(name = "ideaPlanning", column = @Column(name = "personality_responsibility")),
             @AttributeOverride(name = "communication", column = @Column(name = "personality_communication")),
-            @AttributeOverride(name = "responsibility", column = @Column(name = "personality_responsibility")),
-            @AttributeOverride(name = "collaboration", column = @Column(name = "personality_collaboration")),
-            @AttributeOverride(name = "flexibility", column = @Column(name = "personality_flexibility")),
-            @AttributeOverride(name = "emotionalStability", column = @Column(name = "personality_emotional_stability"))
+            @AttributeOverride(name = "roleFlexibility", column = @Column(name = "personality_collaboration")),
+            @AttributeOverride(name = "timePressure", column = @Column(name = "personality_flexibility")),
+            @AttributeOverride(name = "staminaFocus", column = @Column(name = "personality_emotional_stability"))
     })
     // 성격 성향 항목별 점수를 저장하는 필드입니다.
     private UserPersonalityScore personalityScores = new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0);
 
     @Embedded
     @AttributeOverrides({
-            @AttributeOverride(name = "leadership", column = @Column(name = "development_leadership")),
-            @AttributeOverride(name = "problemSolving", column = @Column(name = "development_problem_solving")),
             @AttributeOverride(name = "implementation", column = @Column(name = "development_implementation")),
-            @AttributeOverride(name = "learningAbility", column = @Column(name = "development_learning_ability")),
-            @AttributeOverride(name = "planning", column = @Column(name = "development_planning"))
+            @AttributeOverride(name = "problemSolving", column = @Column(name = "development_problem_solving")),
+            @AttributeOverride(name = "completionQuality", column = @Column(name = "development_learning_ability")),
+            @AttributeOverride(name = "presentation", column = @Column(name = "development_planning")),
+            @AttributeOverride(name = "leadership", column = @Column(name = "development_leadership"))
     })
     // 개발 성향 항목별 점수를 저장하는 필드입니다.
     private UserDevelopmentScore developmentScores = new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0);

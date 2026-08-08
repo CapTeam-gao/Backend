@@ -10,6 +10,7 @@ import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
+import com.capteam.gaobackend.dto.chat.ChatUnreadEventDto;
 import com.capteam.gaobackend.dto.chat.ChatUnreadSummaryResponseDto;
 import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
@@ -50,6 +51,8 @@ public class ChatService {
     private static final String CHAT_CHANNEL_EVENTS_DESTINATION_FORMAT = "/sub/chat/rooms/%d/channels";
     private static final String CHAT_MESSAGE_EVENTS_DESTINATION_FORMAT = "/sub/chat/%d/events";
     private static final String ADMIN_CHAT_UNREAD_DESTINATION = "/sub/admin/chat/unread";
+    private static final String USER_CHAT_UNREAD_DESTINATION = "/queue/chat/unread";
+    private static final String USER_CHAT_UNREAD_BROADCAST_DESTINATION_FORMAT = "/sub/chat/unread/%s";
 
     // 채팅 메시지 저장, 조회, unread 계산에 사용하는 Repository 필드입니다.
     private final ChatMessageRepository chatMessageRepository;
@@ -84,8 +87,16 @@ public class ChatService {
 
     // 로그인한 사용자가 속한 팀의 채팅방과 채널 목록을 조회하는 기능입니다.
     public ChatRoomResponseDto getMyChatRoom(String userId) {
-        ChatRoom room = chatAccessService.getMyChatRoom(userId);
-        TeamUser myTeamUser = getMyTeamUser(userId);
+        TeamUser myTeamUser = teamUserRepository.findByUserUserId(userId).orElse(null);
+        if (myTeamUser == null) {
+            return null;
+        }
+
+        ChatRoom room = chatRoomRepository.findByTeamId(myTeamUser.getTeam().getId()).orElse(null);
+        if (room == null) {
+            return null;
+        }
+
         return buildRoomResponse(room, myTeamUser);
     }
 
@@ -97,7 +108,13 @@ public class ChatService {
 
     // 내 팀 채팅방의 채널별 마지막 메시지와 읽지 않은 메시지 수를 조회하는 기능입니다.
     public List<ChatChannelSummaryResponseDto> getMyChannelSummaries(String userId) {
-        ChatRoom room = chatAccessService.getMyChatRoom(userId);
+        ChatRoom room = teamUserRepository.findByUserUserId(userId)
+                .flatMap(teamUser -> chatRoomRepository.findByTeamId(teamUser.getTeam().getId()))
+                .orElse(null);
+
+        if (room == null) {
+            return List.of();
+        }
 
         // 헤더나 메인 화면 알림용 목록입니다.
         // 채널별 마지막 메시지와 읽지 않은 메시지 수를 같이 내려줍니다.
@@ -280,6 +297,7 @@ public class ChatService {
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
         ChatMessageResponseDto response = ChatMessageResponseDto.from(savedMessage);
         publishAdminUnreadEventAfterCommit("MESSAGE_CREATED", channel.getChatRoom().getId(), channel.getId());
+        publishTeamUnreadEventsAfterCommit("MESSAGE_CREATED", channel, sender.getUserId());
         return response;
     }
 
@@ -316,6 +334,7 @@ public class ChatService {
         User user = chatAccessService.getUser(userId);
 
         saveReadStatus(channel, user);
+        publishUserUnreadEventAfterCommit("CHANNEL_READ", channel, userId);
     }
 
     // 관리자가 특정 채널의 학생 메시지를 읽음 처리하는 기능입니다.
@@ -437,6 +456,25 @@ public class ChatService {
                 ));
     }
 
+    // 특정 사용자의 팀 채팅 전체 unreadCount를 계산하는 기능입니다.
+    private long countUserTotalUnread(Long roomId, String userId) {
+        return chatChannelRepository.findByChatRoomIdOrderByCreatedAtAsc(roomId)
+                .stream()
+                .mapToLong(channel -> countUserUnread(channel, userId))
+                .sum();
+    }
+
+    // 특정 사용자의 특정 채널 unreadCount를 계산하는 기능입니다.
+    private long countUserUnread(ChatChannel channel, String userId) {
+        return chatReadStatusRepository.findByChannelIdAndUserUserId(channel.getId(), userId)
+                .map(readStatus -> chatMessageRepository.countByChannelIdAndCreatedAtAfterAndSenderUserIdNot(
+                        channel.getId(),
+                        readStatus.getLastReadAt(),
+                        userId
+                ))
+                .orElseGet(() -> chatMessageRepository.countByChannelIdAndSenderUserIdNot(channel.getId(), userId));
+    }
+
     // 메시지가 존재하고, 현재 사용자가 메시지 채널에 접근 가능하며 작성자인지 확인하는 기능입니다.
     private ChatMessage getEditableMessage(Long messageId, String userId) {
         ChatMessage chatMessage = chatMessageRepository.findById(messageId)
@@ -496,10 +534,7 @@ public class ChatService {
 
     private void publishAdminUnreadEventAfterCommit(String type, Long roomId, Long channelId) {
         userRepository.findByAccountRole(AccountRole.ADMIN)
-                .stream()
-                .findFirst()
-                .map(User::getUserId)
-                .ifPresent(adminId -> publishAdminUnreadEventAfterCommit(type, roomId, channelId, adminId));
+                .forEach(admin -> publishAdminUnreadEventAfterCommit(type, roomId, channelId, admin.getUserId()));
     }
 
     private void publishAdminUnreadEventAfterCommit(String type, Long roomId, Long channelId, String adminId) {
@@ -513,6 +548,33 @@ public class ChatService {
         );
 
         publishAfterCommit(() -> messagingTemplate.convertAndSend(ADMIN_CHAT_UNREAD_DESTINATION, event));
+    }
+
+    private void publishTeamUnreadEventsAfterCommit(String type, ChatChannel channel, String senderId) {
+        teamUserRepository.findByTeamId(channel.getChatRoom().getTeam().getId())
+                .stream()
+                .map(TeamUser::getUser)
+                .filter(user -> !user.getUserId().equals(senderId))
+                .forEach(user -> publishUserUnreadEventAfterCommit(type, channel, user.getUserId()));
+    }
+
+    private void publishUserUnreadEventAfterCommit(String type, ChatChannel channel, String userId) {
+        Long roomId = channel.getChatRoom().getId();
+        ChatUnreadEventDto event = ChatUnreadEventDto.of(
+                type,
+                roomId,
+                channel.getId(),
+                countUserUnread(channel, userId),
+                countUserTotalUnread(roomId, userId)
+        );
+
+        publishAfterCommit(() -> {
+            messagingTemplate.convertAndSendToUser(userId, USER_CHAT_UNREAD_DESTINATION, event);
+            messagingTemplate.convertAndSend(
+                    USER_CHAT_UNREAD_BROADCAST_DESTINATION_FORMAT.formatted(userId),
+                    event
+            );
+        });
     }
 
     private void publishAfterCommit(Runnable publisher) {

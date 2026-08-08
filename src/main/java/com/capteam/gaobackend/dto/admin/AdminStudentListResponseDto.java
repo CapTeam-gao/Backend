@@ -46,6 +46,36 @@ public class AdminStudentListResponseDto {
     // 학생이 설문조사를 완료했는지 관리자 목록에서 표시하기 위한 필드입니다.
     private boolean surveyCompleted;
 
+    // 구현 실행력 점수를 내려주는 필드입니다.
+    private Double implementation;
+
+    // 문제 해결력 점수를 내려주는 필드입니다.
+    private Double problemSolving;
+
+    // 완성도 점수를 내려주는 필드입니다.
+    private Double completionQuality;
+
+    // 발표/전달력 점수를 내려주는 필드입니다.
+    private Double presentation;
+
+    // 리더십 성향 점수를 내려주는 필드입니다.
+    private Double leadership;
+
+    // 아이디어 기획 성향 점수를 내려주는 필드입니다.
+    private Double ideaPlanning;
+
+    // 소통 성향 점수를 내려주는 필드입니다.
+    private Double communication;
+
+    // 역할 유연성 점수를 내려주는 필드입니다.
+    private Double roleFlexibility;
+
+    // 시간 압박 대응 점수를 내려주는 필드입니다.
+    private Double timePressure;
+
+    // 체력/집중 유지 점수를 내려주는 필드입니다.
+    private Double staminaFocus;
+
     // AI 분석 정보 없이 TeamUser만으로 학생 목록 응답 DTO를 만드는 기능입니다.
     public static AdminStudentListResponseDto from(TeamUser teamUser) {
         return from(teamUser, null);
@@ -63,6 +93,15 @@ public class AdminStudentListResponseDto {
 
     // User와 선택적인 팀원/AI 분석/프로젝트 팀명을 관리자 학생 목록 응답 DTO로 변환하는 기능입니다.
     public static AdminStudentListResponseDto from(User user, TeamUser teamUser, UserAnalysis userAnalysis, String projectTeamName) {
+        var developmentScore = user.getDevelopmentScores();
+        var safeDevelopmentScore = developmentScore == null
+                ? new com.capteam.gaobackend.entity.UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0)
+                : developmentScore;
+        var personalityScore = user.getPersonalityScores();
+        var safePersonalityScore = personalityScore == null
+                ? new com.capteam.gaobackend.entity.UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+                : personalityScore;
+
         return AdminStudentListResponseDto.builder()
                 .userId(user.getUserId())
                 .name(user.getName())
@@ -74,6 +113,16 @@ public class AdminStudentListResponseDto {
                 .studentLevel(userAnalysis == null ? null : userAnalysis.getStudentLevel())
                 .skill(user.getSkill())
                 .surveyCompleted(user.isSurveyCompleted())
+                .implementation(safeDevelopmentScore.getImplementation())
+                .problemSolving(safeDevelopmentScore.getProblemSolving())
+                .completionQuality(safeDevelopmentScore.getCompletionQuality())
+                .presentation(safeDevelopmentScore.getPresentation())
+                .leadership(safeDevelopmentScore.getLeadership())
+                .ideaPlanning(safePersonalityScore.getIdeaPlanning())
+                .communication(safePersonalityScore.getCommunication())
+                .roleFlexibility(safePersonalityScore.getRoleFlexibility())
+                .timePressure(safePersonalityScore.getTimePressure())
+                .staminaFocus(safePersonalityScore.getStaminaFocus())
                 .build();
     }
 }

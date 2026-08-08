@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -70,7 +70,7 @@ class UserSurveyAnalysisServiceTest {
     }
 
     @Test
-    void doesNotFailSurveyWhenAiAnalysisFails() {
+    void failsSurveyWhenAiAnalysisFails() {
         User user = User.builder()
                 .userId("stu2301")
                 .name("홍길동")
@@ -80,6 +80,49 @@ class UserSurveyAnalysisServiceTest {
         when(aiClient.runAnalysisForResult(any()))
                 .thenThrow(new AiServerException("AI 서버 오류"));
 
-        assertThatNoException().isThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user));
+        assertThatThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("AI 학생 분석 생성에 실패했습니다.");
+    }
+
+    @Test
+    void failsSurveyWhenAiResponseDoesNotContainAnalysisResult() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        AiStudentAnalysisResponseDto aiResult = new AiStudentAnalysisResponseDto();
+        aiResult.setUserId("stu2301");
+        aiResult.setName("홍길동");
+        aiResult.setStudentLevel("MIDDLE");
+
+        when(aiClient.runAnalysisForResult(any())).thenReturn(List.of(aiResult));
+
+        assertThatThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다.");
+    }
+
+    @Test
+    void savesUpperMiddleStudentLevelFromAiResponse() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        AiStudentAnalysisResponseDto aiResult = new AiStudentAnalysisResponseDto();
+        aiResult.setUserId("stu2301");
+        aiResult.setName("홍길동");
+        aiResult.setAnalysisResult("중상 수준입니다.");
+        aiResult.setStudentLevel("중상");
+
+        when(aiClient.runAnalysisForResult(any())).thenReturn(List.of(aiResult));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.empty());
+
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+
+        verify(userAnalysisRepository).save(analysisCaptor.capture());
+        assertThat(analysisCaptor.getValue().getStudentLevel()).isEqualTo(StudentLevel.UPPER_MIDDLE);
     }
 }

@@ -35,12 +35,16 @@ public class MatchingJobService {
     }
 
     public MatchingJobResponseDto start(TeamRecommendationRequestDto request) {
-        return start(request.getGrade(), normalizePrompt(request.getRegenerationPrompt()));
+        return start(request.getGrade(), normalizePrompt(request.getRegenerationPrompt()), request.getBaseVersionId());
     }
 
     public MatchingJobResponseDto start(Grade grade, String regenerationPrompt) {
+        return start(grade, regenerationPrompt, null);
+    }
+
+    public MatchingJobResponseDto start(Grade grade, String regenerationPrompt, Long baseVersionId) {
         // 작업을 먼저 DB에 등록한 뒤 즉시 jobId를 반환할 수 있도록 비동기로 실행합니다.
-        MatchingJobResponseDto job = matchingJobStateService.create(grade, regenerationPrompt);
+        MatchingJobResponseDto job = matchingJobStateService.create(grade, regenerationPrompt, baseVersionId);
         try {
             matchingJobExecutor.execute(() -> matchingJobWorker.run(job.getJobId(), grade, regenerationPrompt));
         } catch (RuntimeException e) {
