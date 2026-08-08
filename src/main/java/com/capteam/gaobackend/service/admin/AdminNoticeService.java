@@ -2,14 +2,20 @@ package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.notice.*;
 import com.capteam.gaobackend.entity.*;
+import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Important;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.enums.NoticeType;
+import com.capteam.gaobackend.enums.NotificationStatus;
+import com.capteam.gaobackend.enums.NotificationType;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.enums.TeamStatus;
 import com.capteam.gaobackend.exception.UserNotFoundException;
 import com.capteam.gaobackend.repository.*;
+import com.capteam.gaobackend.service.push.PushDispatchResult;
+import com.capteam.gaobackend.service.push.PushMessageRequest;
+import com.capteam.gaobackend.service.push.PushNotificationGateway;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +56,15 @@ public class AdminNoticeService {
 
     // 공지 생성 완료 후 사용자 대시보드에 실시간 알림 이벤트를 보내는 WebSocket 발행 필드입니다.
     private final SimpMessagingTemplate messagingTemplate;
+
+    // 공지 등록 시 전체 학생에게 보낼 FCM 등록 토큰을 조회하는 Repository 필드입니다.
+    private final UserFcmTokenRepository userFcmTokenRepository;
+
+    // 공지 푸시 발송 이력을 남기고 중복 발송을 막기 위한 Repository 필드입니다.
+    private final NotificationLogRepository notificationLogRepository;
+
+    // 실제 FCM 전송을 Firebase 구현체에 위임하는 필드입니다.
+    private final PushNotificationGateway pushNotificationGateway;
 
     // ──────────────────────────────────────────
     // 공지 목록 조회 (최신순)
@@ -121,6 +137,7 @@ public class AdminNoticeService {
 
         NoticeDetailResponseDto response = NoticeDetailResponseDto.from(notice);
         publishNoticeCreatedEventAfterCommit(response);
+        sendNoticeFcmPushAfterCommit(notice);
         return response;
     }
 
@@ -300,5 +317,98 @@ public class AdminNoticeService {
                 NOTICE_CREATED_DESTINATION,
                 event
         );
+    }
+
+    // 공지 저장 트랜잭션이 정상 커밋된 뒤 전체 학생에게 FCM 푸시를 보내는 기능입니다.
+    private void sendNoticeFcmPushAfterCommit(Notice notice) {
+        Long noticeId = notice.getId();
+        String title = notice.getTitle();
+        String preview = notice.getContent();
+
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sendNoticeFcmPush(noticeId, title, preview);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendNoticeFcmPush(noticeId, title, preview);
+            }
+        });
+    }
+
+    // 전체 학생(관리자 제외)에게 공지 등록 FCM 푸시를 보내고, 학생별로 발송 이력을 남겨 중복 발송을 막는 기능입니다.
+    private void sendNoticeFcmPush(Long noticeId, String title, String preview) {
+        String targetId = String.valueOf(noticeId);
+
+        for (User student : userRepository.findByAccountRole(AccountRole.STUDENT)) {
+            if (notificationLogRepository.existsByUserUserIdAndTypeAndTargetId(
+                    student.getUserId(),
+                    NotificationType.NOTICE_CREATED,
+                    targetId
+            )) {
+                continue;
+            }
+
+            sendNoticePushToStudent(student, noticeId, targetId, title, preview);
+        }
+    }
+
+    private void sendNoticePushToStudent(User student, Long noticeId, String targetId, String title, String preview) {
+        LocalDateTime now = LocalDateTime.now();
+        List<String> tokens = userFcmTokenRepository.findAllByUserUserId(student.getUserId())
+                .stream()
+                .map(UserFcmToken::getToken)
+                .distinct()
+                .toList();
+
+        if (tokens.isEmpty()) {
+            notificationLogRepository.save(NotificationLog.builder()
+                    .user(student)
+                    .type(NotificationType.NOTICE_CREATED)
+                    .targetId(targetId)
+                    .status(NotificationStatus.FAILED)
+                    .sentAt(now)
+                    .title(title)
+                    .body(preview)
+                    .errorMessage("등록된 FCM 토큰이 없습니다.")
+                    .build());
+            return;
+        }
+
+        Map<String, String> data = new LinkedHashMap<>();
+        data.put("type", NotificationType.NOTICE_CREATED.name());
+        data.put("targetId", targetId);
+        data.put("clickUrl", "/user/notice/" + noticeId);
+
+        PushDispatchResult result = pushNotificationGateway.sendToTokens(
+                tokens,
+                new PushMessageRequest(title, preview, data)
+        );
+
+        String errorMessage = result.failureReasons().isEmpty()
+                ? null
+                : String.join(" | ", result.failureReasons());
+
+        NotificationLog notificationLog = NotificationLog.builder()
+                .user(student)
+                .type(NotificationType.NOTICE_CREATED)
+                .targetId(targetId)
+                .status(NotificationStatus.FAILED)
+                .sentAt(now)
+                .title(title)
+                .body(preview)
+                .targetTokenCount(tokens.size())
+                .errorMessage(errorMessage)
+                .build();
+
+        if (result.successCount() > 0) {
+            notificationLog.markSent(now, result.successCount(), result.failureCount());
+        } else {
+            notificationLog.markFailed(now, errorMessage);
+        }
+
+        notificationLogRepository.save(notificationLog);
     }
 }
