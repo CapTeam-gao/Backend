@@ -321,7 +321,10 @@ public class ChatService {
                 .build();
 
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
-        ChatMessageResponseDto response = ChatMessageResponseDto.from(savedMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(
+                savedMessage,
+                countReadMembers(savedMessage)
+        );
         publishAdminUnreadEventAfterCommit("MESSAGE_CREATED", channel.getChatRoom().getId(), channel.getId());
         publishTeamUnreadEventsAfterCommit("MESSAGE_CREATED", channel, sender.getUserId());
         notifyTeamMembersOfNewMessage(channel, sender, savedMessage);
@@ -452,7 +455,10 @@ public class ChatService {
         chatMessage.updateMessage(messageText);
         chatMessageRepository.flush();
 
-        ChatMessageResponseDto response = ChatMessageResponseDto.from(chatMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(
+                chatMessage,
+                countReadMembers(chatMessage)
+        );
         publishMessageEventAfterCommit(response.getChannelId(), ChatMessageEventDto.updated(response));
         return response;
     }
@@ -542,7 +548,16 @@ public class ChatService {
         chatAccessService.getAccessibleChannel(channelId, userId);
 
         return chatMessageRepository.findByChannelIdOrderByCreatedAtDesc(channelId, pageable)
-                .map(ChatMessageResponseDto::from);
+                .map(message -> ChatMessageResponseDto.from(message, countReadMembers(message)));
+    }
+
+    // 채널 인원(발신자 제외) 중 이 메시지가 온 시점 이후로 읽은 사람 수를 계산하는 기능입니다.
+    private long countReadMembers(ChatMessage message) {
+        return chatReadStatusRepository.countByChannelIdAndUserUserIdNotAndLastReadAtGreaterThanEqual(
+                message.getChannel().getId(),
+                message.getSender().getUserId(),
+                message.getCreatedAt()
+        );
     }
 
 
