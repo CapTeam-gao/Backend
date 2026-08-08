@@ -59,6 +59,9 @@ public class TeamDetailResponseDto {
         // 팀원이 보유한 기술 스택 목록을 내려주는 필드입니다.
         private List<String> skill;
 
+        // 팀원이 직접 적은 담당 업무입니다. 아직 안 적었으면 null입니다.
+        private String assignedTask;
+
         // TeamUser 엔티티를 팀 상세 팀원 응답 DTO로 변환하는 기능입니다.
         public static TeamMemberDto from(TeamUser teamUser) {
             return TeamMemberDto.builder()
@@ -67,6 +70,7 @@ public class TeamDetailResponseDto {
                     .studentRole(teamUser.getStudentRole())
                     .leaderRole(teamUser.getLeaderRole())
                     .skill(teamUser.getUser().getSkill())
+                    .assignedTask(teamUser.getAssignedTask())
                     .build();
         }
     }

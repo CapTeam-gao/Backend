@@ -4,6 +4,7 @@ import com.capteam.gaobackend.dto.team.PreferredTeammateRequestDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateResponseDto;
 import com.capteam.gaobackend.dto.team.MyTeamResponseDto;
 import com.capteam.gaobackend.dto.team.TeamDetailResponseDto;
+import com.capteam.gaobackend.dto.team.TeamMemberTaskRequestDto;
 import com.capteam.gaobackend.dto.team.TeamMemberUpdateRequestDto;
 import com.capteam.gaobackend.dto.team.TeamProjectRequestDto;
 import com.capteam.gaobackend.dto.team.TeamSummaryResponseDto;
@@ -17,6 +18,7 @@ import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -184,6 +186,20 @@ public class TeamService {
                 request.getStudentRole(),
                 request.getLeaderRole()
         );
+    }
+
+    // 팀원이 본인의 담당 업무를 수정하는 기능입니다. 팀장을 포함해 본인 것만 수정할 수 있습니다.
+    @Transactional
+    public void updateAssignedTask(String requesterId, String targetUserId, TeamMemberTaskRequestDto request) {
+        if (!requesterId.equals(targetUserId)) {
+            throw new AccessDeniedException("본인의 담당 업무만 수정할 수 있습니다.");
+        }
+
+        TeamUser teamUser = teamUserRepository.findByUserUserId(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("소속된 팀이 없습니다."));
+
+        String assignedTask = request.getAssignedTask() == null ? null : request.getAssignedTask().trim();
+        teamUser.updateAssignedTask(assignedTask == null || assignedTask.isEmpty() ? null : assignedTask);
     }
 
     // userId로 사용자를 조회하고 없으면 예외를 발생시키는 기능입니다.

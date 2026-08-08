@@ -40,6 +40,10 @@ public class TeamUser extends BaseTimeEntity{
     @Column(name = "leader_role",nullable = false)
     private LeaderRole leaderRole;
 
+    // 팀 확정 후 팀원이 스스로 적어두는 담당 업무입니다. 본인만 수정할 수 있습니다.
+    @Column(name = "assigned_task", length = 500)
+    private String assignedTask;
+
     @Builder
     public TeamUser(Team team, User user, StudentRole studentRole, LeaderRole leaderRole) {
         this.team = team;
@@ -52,5 +56,9 @@ public class TeamUser extends BaseTimeEntity{
         this.team = team;
         this.studentRole = studentRole;
         this.leaderRole = leaderRole;
+    }
+
+    public void updateAssignedTask(String assignedTask) {
+        this.assignedTask = assignedTask;
     }
 }
