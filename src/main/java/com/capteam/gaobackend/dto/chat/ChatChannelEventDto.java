@@ -41,12 +41,14 @@ public class ChatChannelEventDto {
         private Long id;
         private Long roomId;
         private String channelName;
+        private Long pinnedMessageId;
 
         private static ChannelPayload from(ChatChannelResponseDto channel) {
             return ChannelPayload.builder()
                     .id(channel.getId())
                     .roomId(channel.getRoomId())
                     .channelName(channel.getChannelName())
+                    .pinnedMessageId(channel.getPinnedMessageId())
                     .build();
         }
     }
