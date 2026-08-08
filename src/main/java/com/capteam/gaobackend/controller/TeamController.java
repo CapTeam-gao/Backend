@@ -3,7 +3,6 @@ package com.capteam.gaobackend.controller;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.dto.team.MyTeamResponseDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateRequestDto;
-import com.capteam.gaobackend.dto.team.TeamMemberTaskRequestDto;
 import com.capteam.gaobackend.dto.team.PreferredTeammateResponseDto;
 import com.capteam.gaobackend.dto.team.TeamDetailResponseDto;
 import com.capteam.gaobackend.dto.team.TeamProjectRequestDto;
@@ -76,15 +75,5 @@ public class TeamController {
             @RequestBody @Valid TeamProjectRequestDto request,
             Authentication authentication) {
         return ApiResponse.ok(teamService.upsertMyTeamProject(authentication.getName(), request));
-    }
-
-    // 팀원이 본인의 담당 업무를 수정하는 기능입니다. 본인 것만 수정할 수 있습니다.
-    @PatchMapping("/members/{userId}/task")
-    public ResponseEntity<ApiResponse<String>> updateAssignedTask(
-            @PathVariable String userId,
-            @RequestBody TeamMemberTaskRequestDto request,
-            Authentication authentication) {
-        teamService.updateAssignedTask(authentication.getName(), userId, request);
-        return ApiResponse.ok("담당 업무가 수정되었습니다.");
     }
 }
