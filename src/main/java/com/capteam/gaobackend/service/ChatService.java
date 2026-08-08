@@ -321,7 +321,10 @@ public class ChatService {
                 .build();
 
         ChatMessage savedMessage = chatMessageRepository.save(chatMessage);
-        ChatMessageResponseDto response = ChatMessageResponseDto.from(savedMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(
+                savedMessage,
+                countReadMembers(savedMessage)
+        );
         publishAdminUnreadEventAfterCommit("MESSAGE_CREATED", channel.getChatRoom().getId(), channel.getId());
         publishTeamUnreadEventsAfterCommit("MESSAGE_CREATED", channel, sender.getUserId());
         notifyTeamMembersOfNewMessage(channel, sender, savedMessage);
@@ -452,7 +455,10 @@ public class ChatService {
         chatMessage.updateMessage(messageText);
         chatMessageRepository.flush();
 
-        ChatMessageResponseDto response = ChatMessageResponseDto.from(chatMessage);
+        ChatMessageResponseDto response = ChatMessageResponseDto.from(
+                chatMessage,
+                countReadMembers(chatMessage)
+        );
         publishMessageEventAfterCommit(response.getChannelId(), ChatMessageEventDto.updated(response));
         return response;
     }
@@ -461,9 +467,43 @@ public class ChatService {
     @Transactional
     public void deleteMessage(Long messageId, String userId) {
         ChatMessage chatMessage = getEditableMessage(messageId, userId);
-        Long channelId = chatMessage.getChannel().getId();
+        ChatChannel channel = chatMessage.getChannel();
+        Long channelId = channel.getId();
+
+        if (messageId.equals(channel.getPinnedMessageId())) {
+            channel.unpinMessage();
+        }
+
         chatMessageRepository.delete(chatMessage);
         publishMessageEventAfterCommit(channelId, ChatMessageEventDto.deleted(messageId, channelId));
+    }
+
+    // 팀원이 채널에 메시지를 상단 고정하는 기능입니다.
+    @Transactional
+    public ChatChannelResponseDto pinMessage(Long channelId, Long messageId, String userId) {
+        ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        ChatMessage message = chatMessageRepository.findById(messageId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 채팅 메시지입니다."));
+
+        if (!message.getChannel().getId().equals(channelId)) {
+            throw new IllegalArgumentException("해당 채널의 메시지가 아닙니다.");
+        }
+
+        channel.pinMessage(messageId);
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(channel);
+        publishChannelEventAfterCommit(channel.getChatRoom().getId(), ChatChannelEventDto.updated(response));
+        return response;
+    }
+
+    // 팀원이 채널에 고정된 메시지를 해제하는 기능입니다.
+    @Transactional
+    public ChatChannelResponseDto unpinMessage(Long channelId, String userId) {
+        ChatChannel channel = chatAccessService.getAccessibleChannel(channelId, userId);
+        channel.unpinMessage();
+
+        ChatChannelResponseDto response = ChatChannelResponseDto.from(channel);
+        publishChannelEventAfterCommit(channel.getChatRoom().getId(), ChatChannelEventDto.updated(response));
+        return response;
     }
 
     // 사용자가 채널을 마지막으로 읽은 시간을 현재 시각으로 저장하는 기능입니다.
@@ -508,7 +548,16 @@ public class ChatService {
         chatAccessService.getAccessibleChannel(channelId, userId);
 
         return chatMessageRepository.findByChannelIdOrderByCreatedAtDesc(channelId, pageable)
-                .map(ChatMessageResponseDto::from);
+                .map(message -> ChatMessageResponseDto.from(message, countReadMembers(message)));
+    }
+
+    // 채널 인원(발신자 제외) 중 이 메시지가 온 시점 이후로 읽은 사람 수를 계산하는 기능입니다.
+    private long countReadMembers(ChatMessage message) {
+        return chatReadStatusRepository.countByChannelIdAndUserUserIdNotAndLastReadAtGreaterThanEqual(
+                message.getChannel().getId(),
+                message.getSender().getUserId(),
+                message.getCreatedAt()
+        );
     }
 
 

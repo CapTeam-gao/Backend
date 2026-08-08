@@ -53,4 +53,5 @@ public class TeamUser extends BaseTimeEntity{
         this.studentRole = studentRole;
         this.leaderRole = leaderRole;
     }
+
 }

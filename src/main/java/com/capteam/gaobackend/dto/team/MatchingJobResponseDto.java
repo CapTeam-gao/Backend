@@ -7,9 +7,10 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class MatchingJobResponseDto {
 
     // 프론트가 상태 조회와 취소 요청에 사용하는 작업 식별자입니다.
@@ -21,6 +22,16 @@ public class MatchingJobResponseDto {
     private Long versionId;
     private Long baseVersionId;
     private String origin;
+    private int totalBatches;
+    private int completedBatches;
+    private Integer progressPercent;
+
+    // 스트리밍 중 지금까지 완료된 팀 목록입니다(MatchingJobService가 versionId로 조회해서 채워줌).
+    // 아직 배치가 하나도 안 왔거나 최종 결과가 나온 뒤에는 빈 목록입니다 — 최종 결과는
+    // 항상 기존 GET /grade/{grade}로 조회합니다.
+    @Builder.Default
+    private List<TeamRecommendationDetailResponseDto> partialTeams = List.of();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -38,6 +49,9 @@ public class MatchingJobResponseDto {
                 .versionId(versionId)
                 .baseVersionId(job.getBaseVersionId())
                 .origin(resolveOrigin(job))
+                .totalBatches(job.getTotalBatches())
+                .completedBatches(job.getCompletedBatches())
+                .progressPercent(resolveProgressPercent(job))
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())
                 .build();
@@ -45,11 +59,20 @@ public class MatchingJobResponseDto {
 
     private static String resolveOrigin(MatchingJob job) {
         if (job.getBaseVersionId() != null) {
-            return "REGENERATION";
+            return "REGENERATE";
         }
         if (job.getRegenerationPrompt() != null && !job.getRegenerationPrompt().isBlank()) {
-            return "REGENERATION";
+            return "REGENERATE";
         }
-        return "INITIAL";
+        return "CREATE";
+    }
+
+    // AI가 아직 배치 진행률을 알려주지 않는 동안(totalBatches=0)에는 null을 내려
+    // 프론트가 "진행률 없음"과 "0%"를 구분할 수 있게 합니다.
+    private static Integer resolveProgressPercent(MatchingJob job) {
+        if (job.getTotalBatches() <= 0) {
+            return null;
+        }
+        return Math.min(100, job.getCompletedBatches() * 100 / job.getTotalBatches());
     }
 }

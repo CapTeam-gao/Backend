@@ -43,8 +43,16 @@ public class ChatMessageResponseDto {
     // 메시지 마지막 수정 시각을 내려주는 필드입니다.
     private LocalDateTime updatedAt;
 
-    // ChatMessage 엔티티를 프론트 응답 DTO로 변환하는 기능입니다.
+    // 채널 인원(발신자 제외) 중 이 메시지를 읽은 인원 수를 내려주는 필드입니다.
+    private long readCount;
+
+    // ChatMessage 엔티티를 프론트 응답 DTO로 변환하는 기능입니다. readCount를 모르는 호출부(마지막 메시지
+    // 미리보기 등)를 위해 기본값 0을 쓰는 오버로드입니다.
     public static ChatMessageResponseDto from(ChatMessage chatMessage) {
+        return from(chatMessage, 0);
+    }
+
+    public static ChatMessageResponseDto from(ChatMessage chatMessage, long readCount) {
         return ChatMessageResponseDto.builder()
                 .id(chatMessage.getId())
                 .channelId(chatMessage.getChannel().getId())
@@ -57,6 +65,7 @@ public class ChatMessageResponseDto {
                 .fileSize(chatMessage.getFileSize())
                 .createdAt(chatMessage.getCreatedAt())
                 .updatedAt(chatMessage.getUpdatedAt())
+                .readCount(readCount)
                 .build();
     }
 }

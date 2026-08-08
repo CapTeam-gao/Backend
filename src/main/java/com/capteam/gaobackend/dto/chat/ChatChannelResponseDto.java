@@ -27,6 +27,9 @@ public class ChatChannelResponseDto {
     // 채널 생성 시각을 내려주는 필드입니다.
     private LocalDateTime createdAt;
 
+    // 채널에 고정된 메시지 id입니다. 고정된 메시지가 없으면 null입니다.
+    private Long pinnedMessageId;
+
     // ChatChannel 엔티티를 프론트 응답 DTO로 변환하는 기능입니다.
     public static ChatChannelResponseDto from(ChatChannel channel) {
         return ChatChannelResponseDto.builder()
@@ -36,6 +39,7 @@ public class ChatChannelResponseDto {
                 .createdByUserId(channel.getCreatedBy().getUserId())
                 .createdByName(channel.getCreatedBy().getName())
                 .createdAt(channel.getCreatedAt())
+                .pinnedMessageId(channel.getPinnedMessageId())
                 .build();
     }
 }

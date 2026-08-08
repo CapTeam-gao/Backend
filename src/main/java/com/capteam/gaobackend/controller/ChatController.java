@@ -8,6 +8,7 @@ import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
+import com.capteam.gaobackend.dto.chat.ChatPinRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.ChatFileStorageService;
@@ -156,6 +157,25 @@ public class ChatController {
         // 이후 channel-summaries의 unreadCount가 줄어듭니다.
         chatService.markAsRead(channelId, authentication.getName());
         return ApiResponse.ok("읽음 처리되었습니다.");
+    }
+
+    // 채널에 메시지를 상단 고정하는 기능입니다.
+    @PostMapping("/channels/{channelId}/pin")
+    public ResponseEntity<ApiResponse<ChatChannelResponseDto>> pinMessage(
+            @PathVariable Long channelId,
+            @RequestBody ChatPinRequestDto request,
+            Authentication authentication
+    ) {
+        return ApiResponse.ok(chatService.pinMessage(channelId, request.getMessageId(), authentication.getName()));
+    }
+
+    // 채널에 고정된 메시지를 해제하는 기능입니다.
+    @DeleteMapping("/channels/{channelId}/pin")
+    public ResponseEntity<ApiResponse<ChatChannelResponseDto>> unpinMessage(
+            @PathVariable Long channelId,
+            Authentication authentication
+    ) {
+        return ApiResponse.ok(chatService.unpinMessage(channelId, authentication.getName()));
     }
 
     // 특정 채널이 속한 팀의 팀원별 온라인 상태를 조회하는 기능입니다.

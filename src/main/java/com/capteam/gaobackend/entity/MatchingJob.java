@@ -41,6 +41,15 @@ public class MatchingJob extends BaseTimeEntity {
     @Column(name = "base_version_id")
     private Long baseVersionId;
 
+    // 배치 단위 진행률 표시(6번)를 위한 카운터입니다. AI가
+    // POST /internal/matching/jobs/{jobId}/batch-complete로 배치 완료를 알려줄 때마다
+    // MatchingBatchCallbackService가 갱신합니다. AI가 아직 이 콜백을 안 보내는 경우엔 0/0으로 남습니다.
+    @Column(name = "total_batches", nullable = false)
+    private int totalBatches;
+
+    @Column(name = "completed_batches", nullable = false)
+    private int completedBatches;
+
     public MatchingJob(String id, Grade grade) {
         this(id, grade, null, null);
     }
@@ -87,6 +96,14 @@ public class MatchingJob extends BaseTimeEntity {
         }
         status = MatchingJobStatus.FAILED;
         errorMessage = message;
+    }
+
+    public void updateTotalBatches(int totalBatches) {
+        this.totalBatches = totalBatches;
+    }
+
+    public void incrementCompletedBatches() {
+        this.completedBatches++;
     }
 
     public boolean cancel() {

@@ -52,6 +52,8 @@ public class SecurityConfig {
                         // 실제 인증은 STOMP CONNECT 프레임에서 JwtChannelInterceptor가 Authorization 헤더를 검사합니다.
                         .requestMatchers("/ws", "/ws/**").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // 사용자 JWT가 아니라 서버 간 API 키로 InternalMatchingController가 직접 인증을 검사합니다.
+                        .requestMatchers("/internal/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

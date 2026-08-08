@@ -28,6 +28,10 @@ public class TeamRecommendationDetailResponseDto {
     // 추천안 승인 상태를 내려주는 필드입니다.
     private RecommendationStatus status;
 
+    // 이 추천안이 속한 버전 id입니다. 재생성 시 baseVersionId로, 변경사항 비교 시
+    // fromVersionId로 씁니다. 없으면(구버전 데이터 등) null입니다.
+    private Long matchingVersionId;
+
     // AI가 생성한 팀 강점 설명을 내려주는 필드입니다.
     private String strengths;
 
@@ -106,6 +110,11 @@ public class TeamRecommendationDetailResponseDto {
                 .id(recommendation.getId())
                 .grade(recommendation.getGrade())
                 .status(recommendation.getStatus())
+                .matchingVersionId(
+                        recommendation.getMatchingVersion() == null
+                                ? null
+                                : recommendation.getMatchingVersion().getId()
+                )
                 .strengths(recommendation.getStrengths())
                 .weaknesses(recommendation.getWeaknesses())
                 .members(members.stream()
