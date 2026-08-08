@@ -23,10 +23,13 @@ import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
 import com.capteam.gaobackend.repository.ChatReadStatusRepository;
 import com.capteam.gaobackend.repository.ChatRoomRepository;
+import com.capteam.gaobackend.repository.NotificationLogRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
 import com.capteam.gaobackend.repository.TeamProjectRepository;
 import com.capteam.gaobackend.repository.TeamUserRepository;
+import com.capteam.gaobackend.repository.UserFcmTokenRepository;
 import com.capteam.gaobackend.repository.UserRepository;
+import com.capteam.gaobackend.service.push.PushNotificationGateway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -60,6 +63,10 @@ class ChatServiceEventTest {
     @Mock private TeamUserRepository teamUserRepository;
     @Mock private UserRepository userRepository;
     @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private ChatPresenceService chatPresenceService;
+    @Mock private UserFcmTokenRepository userFcmTokenRepository;
+    @Mock private NotificationLogRepository notificationLogRepository;
+    @Mock private PushNotificationGateway pushNotificationGateway;
 
     private ChatService chatService;
     private Team team;
@@ -80,7 +87,11 @@ class ChatServiceEventTest {
                 teamProjectRepository,
                 teamUserRepository,
                 userRepository,
-                messagingTemplate
+                messagingTemplate,
+                chatPresenceService,
+                userFcmTokenRepository,
+                notificationLogRepository,
+                pushNotificationGateway
         );
 
         team = Team.builder()
