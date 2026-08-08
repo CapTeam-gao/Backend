@@ -67,6 +67,33 @@ public class AdminTeamRecommendationPersistenceService {
         // 같은 학년 안에서 단조 증가하는 번호를 써야 버전 목록이 사람이 읽기 쉽습니다.
         TeamMatchingVersion matchingVersion = createDraftVersion(grade, jobId, regenerationPrompt);
 
+        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams);
+    }
+
+    // 배치 스트리밍 콜백으로 도착한 팀 일부를, 이미 진행 중인 job의 버전에 이어서 저장합니다.
+    // (동일 jobId로 처음 오는 배치면 버전을 새로 만들고, 이후 배치는 같은 버전에 계속 추가합니다.)
+    @Transactional
+    public List<TeamRecommendationResponseDto> appendBatchTeams(
+            Grade grade,
+            String jobId,
+            String regenerationPrompt,
+            Map<String, String> nameToUserId,
+            List<AiTeamSummaryResponseDto.TeamDto> targetTeams
+    ) {
+        TeamMatchingVersion matchingVersion = teamMatchingVersionRepository.findByJobId(jobId)
+                .orElseGet(() -> createDraftVersion(grade, jobId, regenerationPrompt));
+
+        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams);
+    }
+
+    // AI 팀 목록을 주어진 버전 아래에 저장하는 공통 로직입니다. 전체 교체(replacePendingRecommendations)와
+    // 배치 이어붙이기(appendBatchTeams) 모두 이 메서드로 실제 저장을 수행합니다.
+    private List<TeamRecommendationResponseDto> saveTeams(
+            TeamMatchingVersion matchingVersion,
+            Grade grade,
+            Map<String, String> nameToUserId,
+            List<AiTeamSummaryResponseDto.TeamDto> targetTeams
+    ) {
         // AI 응답에는 userId 또는 이름이 올 수 있으므로 저장 전에 실학생 엔티티 맵을 고정합니다.
         Map<String, User> usersById = userRepository.findAllById(nameToUserId.values()).stream()
                 .collect(Collectors.toMap(User::getUserId, user -> user));

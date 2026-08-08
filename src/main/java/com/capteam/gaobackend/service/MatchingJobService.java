@@ -2,19 +2,33 @@ package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.ai.AiClient;
 import com.capteam.gaobackend.dto.team.MatchingJobResponseDto;
+import com.capteam.gaobackend.dto.team.TeamRecommendationDetailResponseDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.MatchingJobStatus;
+import com.capteam.gaobackend.service.admin.TeamMatchingVersionService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Set;
+
 @Service
 public class MatchingJobService {
+
+    // 스트리밍 도중(아직 최종 확정 전)에만 partialTeams를 채워줍니다. 끝난 작업은 기존
+    // GET /grade/{grade} 또는 versions API로 최종 결과를 조회하면 되니 굳이 다시 조립하지 않습니다.
+    private static final Set<MatchingJobStatus> STREAMING_STATUSES = Set.of(
+            MatchingJobStatus.QUEUED,
+            MatchingJobStatus.RUNNING,
+            MatchingJobStatus.COMPLETING
+    );
 
     private final MatchingJobStateService matchingJobStateService;
     private final MatchingJobWorker matchingJobWorker;
     private final AiClient aiClient;
+    private final TeamMatchingVersionService teamMatchingVersionService;
 
     private final AsyncTaskExecutor matchingJobExecutor;
 
@@ -22,11 +36,13 @@ public class MatchingJobService {
             MatchingJobStateService matchingJobStateService,
             MatchingJobWorker matchingJobWorker,
             AiClient aiClient,
+            TeamMatchingVersionService teamMatchingVersionService,
             @Qualifier("matchingJobExecutor") AsyncTaskExecutor matchingJobExecutor
     ) {
         this.matchingJobStateService = matchingJobStateService;
         this.matchingJobWorker = matchingJobWorker;
         this.aiClient = aiClient;
+        this.teamMatchingVersionService = teamMatchingVersionService;
         this.matchingJobExecutor = matchingJobExecutor;
     }
 
@@ -62,7 +78,15 @@ public class MatchingJobService {
     }
 
     public MatchingJobResponseDto get(String jobId) {
-        return matchingJobStateService.get(jobId);
+        MatchingJobResponseDto job = matchingJobStateService.get(jobId);
+
+        if (job.getVersionId() == null || !STREAMING_STATUSES.contains(job.getStatus())) {
+            return job;
+        }
+
+        List<TeamRecommendationDetailResponseDto> partialTeams =
+                teamMatchingVersionService.getVersionDetails(job.getVersionId());
+        return job.toBuilder().partialTeams(partialTeams).build();
     }
 
     public MatchingJobResponseDto cancel(String jobId) {

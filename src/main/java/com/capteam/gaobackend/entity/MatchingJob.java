@@ -41,9 +41,9 @@ public class MatchingJob extends BaseTimeEntity {
     @Column(name = "base_version_id")
     private Long baseVersionId;
 
-    // 배치 단위 진행률 표시(6번)를 위한 카운터입니다. 현재 실행 경로는 단일 동기 호출이라
-    // 항상 0/0으로 남아있고, AI가 배치별로 완료를 알려주는 콜백을 실제로 호출하기 시작하면
-    // MatchingJobStateService 쪽에서 갱신하면 됩니다.
+    // 배치 단위 진행률 표시(6번)를 위한 카운터입니다. AI가
+    // POST /internal/matching/jobs/{jobId}/batch-complete로 배치 완료를 알려줄 때마다
+    // MatchingBatchCallbackService가 갱신합니다. AI가 아직 이 콜백을 안 보내는 경우엔 0/0으로 남습니다.
     @Column(name = "total_batches", nullable = false)
     private int totalBatches;
 
@@ -96,6 +96,14 @@ public class MatchingJob extends BaseTimeEntity {
         }
         status = MatchingJobStatus.FAILED;
         errorMessage = message;
+    }
+
+    public void updateTotalBatches(int totalBatches) {
+        this.totalBatches = totalBatches;
+    }
+
+    public void incrementCompletedBatches() {
+        this.completedBatches++;
     }
 
     public boolean cancel() {

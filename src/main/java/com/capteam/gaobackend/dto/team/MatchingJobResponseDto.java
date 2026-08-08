@@ -7,9 +7,10 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
-@Builder
+@Builder(toBuilder = true)
 public class MatchingJobResponseDto {
 
     // 프론트가 상태 조회와 취소 요청에 사용하는 작업 식별자입니다.
@@ -24,6 +25,13 @@ public class MatchingJobResponseDto {
     private int totalBatches;
     private int completedBatches;
     private Integer progressPercent;
+
+    // 스트리밍 중 지금까지 완료된 팀 목록입니다(MatchingJobService가 versionId로 조회해서 채워줌).
+    // 아직 배치가 하나도 안 왔거나 최종 결과가 나온 뒤에는 빈 목록입니다 — 최종 결과는
+    // 항상 기존 GET /grade/{grade}로 조회합니다.
+    @Builder.Default
+    private List<TeamRecommendationDetailResponseDto> partialTeams = List.of();
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
