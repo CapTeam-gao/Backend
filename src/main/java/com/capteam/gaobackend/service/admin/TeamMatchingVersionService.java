@@ -88,6 +88,12 @@ public class TeamMatchingVersionService {
 
     // 두 버전 사이에서 실제로 이동했거나 역할이 바뀐 학생만 골라 diff 응답을 구성합니다.
     public TeamMatchingVersionDiffResponseDto getVersionDiff(Long fromVersionId, Long toVersionId) {
+        // 존재하지 않는 버전 id가 들어오면 빈 diff를 조용히 돌려주지 말고 바로 에러로 알립니다.
+        // (getVersion()이 없으면 findByMatchingVersionIdOrderByIdAsc가 빈 리스트를 반환해
+        //  "버전이 없음"과 "버전은 있는데 변경 없음"을 구분할 수 없게 됩니다.)
+        getVersion(fromVersionId);
+        getVersion(toVersionId);
+
         // 비교 시작 버전 상세를 먼저 펼쳐 두면 학생별 이전 위치를 빠르게 찾을 수 있습니다.
         Map<String, StudentPlacement> fromPlacements = buildPlacementMap(getVersionRecommendations(fromVersionId));
 
@@ -238,7 +244,11 @@ public class TeamMatchingVersionService {
         return placements;
     }
 
-    // recommendation id와 역할이 모두 같으면 화면 diff에 포함할 변화가 없는 것으로 판단합니다.
+    // 버그 이력: recommendationId(팀 추천안 row의 PK)로 비교했더니 재생성마다 모든 팀 row가
+    // 새로 생성되어 "1팀→1팀"처럼 실제로는 안 바뀐 배정까지 전부 "이동"으로 잘못 표시됐다.
+    // recommendationId는 버전마다 새로 발급되는 값이라 두 버전을 비교하는 동등성 기준으로 쓸 수 없다
+    // (버전 간에 안정적으로 유지되는 값은 teamName뿐이다 — buildPlacementMap() 참고).
+    // 따라서 "같은 배정"의 기준은 반드시 teamName + 역할로 판단해야 한다.
     private boolean isSamePlacement(StudentPlacement fromPlacement, StudentPlacement toPlacement) {
         if (fromPlacement == null && toPlacement == null) {
             return true;
@@ -246,7 +256,7 @@ public class TeamMatchingVersionService {
         if (fromPlacement == null || toPlacement == null) {
             return false;
         }
-        return Objects.equals(fromPlacement.getRecommendationId(), toPlacement.getRecommendationId())
+        return Objects.equals(fromPlacement.getTeamName(), toPlacement.getTeamName())
                 && fromPlacement.getStudentRole() == toPlacement.getStudentRole();
     }
 
@@ -390,10 +400,11 @@ public class TeamMatchingVersionService {
     @Builder
     private static class StudentPlacement {
 
-        // 추천안 id를 저장해 학생이 어느 팀 카드로 이동했는지 식별합니다.
+        // 추천안(TeamRecommendation row)의 PK. 버전마다 새로 생성되는 값이라 버전 간
+        // 비교(동일 배정 여부 판단)에는 쓸 수 없다 — DTO의 fromTeamId/toTeamId(링크용)에만 사용할 것.
         private Long recommendationId;
 
-        // 버전 화면에서 보이는 팀 이름을 같이 보관해 diff 응답을 바로 구성합니다.
+        // 버전 간에도 안정적으로 유지되는 값 — "같은 배정인지" 비교는 반드시 이 필드로 한다.
         private String teamName;
 
         // userId만으로는 표가 읽기 어려워 이름을 함께 보관합니다.
