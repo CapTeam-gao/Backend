@@ -65,13 +65,6 @@ public class TeamMatchingVersionService {
     // 실제 Team 엔티티 한 팀에 들어갈 최대 인원 제한을 apply 단계에서도 동일하게 지킵니다.
     private static final int MAX_TEAM_MEMBER_COUNT = 5;
 
-    // 학년별 버전 목록을 최신 버전부터 내려 비교 화면의 기본 정렬을 단순하게 만듭니다.
-    public List<TeamMatchingVersionResponseDto> getVersions(Grade grade) {
-        return teamMatchingVersionRepository.findByGradeOrderByVersionNumberDesc(grade).stream()
-                .map(TeamMatchingVersionResponseDto::from)
-                .toList();
-    }
-
     // 특정 버전 아래의 추천안을 기존 상세 DTO shape 그대로 내려 프론트 재사용 범위를 넓힙니다.
     public List<TeamRecommendationDetailResponseDto> getVersionDetails(Long versionId) {
         // 먼저 버전 존재를 검증해 잘못된 id 요청을 조기에 막습니다.

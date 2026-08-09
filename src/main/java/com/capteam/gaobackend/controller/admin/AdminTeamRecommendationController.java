@@ -96,14 +96,6 @@ public class AdminTeamRecommendationController {
         return ApiResponse.ok(adminTeamRecommendationService.getRecommendationsByGrade(grade));
     }
 
-    // 학년별 저장 버전 목록을 최신 버전부터 조회하는 기능입니다.
-    @GetMapping("/versions")
-    public ResponseEntity<ApiResponse<List<TeamMatchingVersionResponseDto>>> getVersions(
-            @RequestParam Grade grade
-    ) {
-        return ApiResponse.ok(teamMatchingVersionService.getVersions(grade));
-    }
-
     // 특정 버전에 속한 추천안 상세를 기존 팀 추천 상세 shape 그대로 조회하는 기능입니다.
     @GetMapping("/versions/{versionId}")
     public ResponseEntity<ApiResponse<List<TeamRecommendationDetailResponseDto>>> getVersionDetails(
