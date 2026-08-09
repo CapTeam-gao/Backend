@@ -19,6 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,8 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -176,6 +179,106 @@ class AdminTeamRecommendationPersistenceServiceTest {
                         StudentRole.SECURITY,
                         StudentRole.GAME
                 );
+    }
+
+    // 회귀 테스트: AI가 같은 팀을 team_update → team_ready처럼 두 번 보내도(배치 스트리밍),
+    // TeamRecommendation row가 두 개로 늘어나지 않고 기존 row가 최신 내용으로 갱신되어야 한다.
+    @Test
+    void appendBatchTeamsUpsertsSameTeamInsteadOfDuplicating() {
+        TeamMatchingVersion version = TeamMatchingVersion.builder()
+                .grade(Grade.GRADE_2)
+                .versionNumber(5)
+                .jobId("job-1")
+                .build();
+        ReflectionTestUtils.setField(version, "id", 1L);
+        User user = user("stu2301", "홍길동");
+
+        when(teamMatchingVersionRepository.findByJobId("job-1")).thenReturn(Optional.of(version));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
+        when(recommendationRepository.findByMatchingVersionIdAndAiTeamName(1L, "1팀"))
+                .thenReturn(Optional.empty());
+        when(recommendationRepository.save(any(TeamRecommendation.class)))
+                .thenAnswer(invocation -> {
+                    TeamRecommendation recommendation = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(recommendation, "id", 100L);
+                    return recommendation;
+                });
+
+        AiTeamSummaryResponseDto.TeamDto firstBatch = new AiTeamSummaryResponseDto.TeamDto();
+        firstBatch.setTeamName("1팀");
+        firstBatch.setStrengths("초기 강점");
+        firstBatch.setMembers(List.of(member("홍길동", "backend", "구현 강점")));
+        firstBatch.setLeader("홍길동");
+
+        persistenceService.appendBatchTeams(
+                Grade.GRADE_2, "job-1", null, Map.of("홍길동", "stu2301"), List.of(firstBatch));
+
+        ArgumentCaptor<TeamRecommendation> savedCaptor = ArgumentCaptor.forClass(TeamRecommendation.class);
+        verify(recommendationRepository, times(1)).save(savedCaptor.capture());
+        TeamRecommendation created = savedCaptor.getValue();
+
+        // team_ready로 같은 팀이 더 완성된 내용으로 다시 도착
+        when(recommendationRepository.findByMatchingVersionIdAndAiTeamName(1L, "1팀"))
+                .thenReturn(Optional.of(created));
+
+        AiTeamSummaryResponseDto.TeamDto secondBatch = new AiTeamSummaryResponseDto.TeamDto();
+        secondBatch.setTeamName("1팀");
+        secondBatch.setStrengths("최종 강점");
+        secondBatch.setMembers(List.of(member("홍길동", "backend", "구현 강점")));
+        secondBatch.setLeader("홍길동");
+
+        persistenceService.appendBatchTeams(
+                Grade.GRADE_2, "job-1", null, Map.of("홍길동", "stu2301"), List.of(secondBatch));
+
+        // 새 row가 또 생기지 않고(save 여전히 1번), 기존 row 내용만 갱신됨
+        verify(recommendationRepository, times(1)).save(any(TeamRecommendation.class));
+        assertThat(created.getStrengths()).isEqualTo("최종 강점");
+        verify(recommendationMemberRepository).deleteByRecommendationId(100L);
+        verify(recommendationReasonRepository).deleteByRecommendationId(100L);
+    }
+
+    // 회귀 테스트: 배치 스트리밍이 만들어둔 버전을 최종 저장 시점에 재사용하고, 그 버전에
+    // 남아있던 임시 결과(batch leftover)를 지운 뒤 최종 결과로 다시 채워야 한다.
+    // (재사용하지 않고 새 버전을 또 만들면 같은 job에 버전이 두 개 남는다.)
+    @Test
+    void replacePendingRecommendationsReusesJobVersionAndClearsBatchLeftovers() {
+        TeamMatchingVersion existingVersion = TeamMatchingVersion.builder()
+                .grade(Grade.GRADE_2)
+                .versionNumber(5)
+                .jobId("job-1")
+                .build();
+        ReflectionTestUtils.setField(existingVersion, "id", 1L);
+
+        TeamRecommendation leftoverFromStreaming = TeamRecommendation.builder()
+                .matchingVersion(existingVersion)
+                .grade(Grade.GRADE_2)
+                .aiTeamName("1팀")
+                .build();
+        ReflectionTestUtils.setField(leftoverFromStreaming, "id", 100L);
+
+        User user = user("stu2301", "홍길동");
+
+        when(teamMatchingVersionRepository.findByJobId("job-1")).thenReturn(Optional.of(existingVersion));
+        when(recommendationRepository.findByMatchingVersionId(1L)).thenReturn(List.of(leftoverFromStreaming));
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
+        when(recommendationRepository.save(any(TeamRecommendation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiTeamSummaryResponseDto.TeamDto finalTeam = new AiTeamSummaryResponseDto.TeamDto();
+        finalTeam.setTeamName("1팀");
+        finalTeam.setStrengths("최종 결과");
+        finalTeam.setMembers(List.of(member("홍길동", "backend", "구현 강점")));
+        finalTeam.setLeader("홍길동");
+
+        persistenceService.replacePendingRecommendations(
+                Grade.GRADE_2, Map.of("홍길동", "stu2301"), List.of(finalTeam), "job-1", null);
+
+        // 새 버전을 만들지 않고 배치가 쓰던 버전을 그대로 재사용해야 한다.
+        verify(teamMatchingVersionRepository, never()).save(any(TeamMatchingVersion.class));
+        // 스트리밍 중 남아있던 임시 결과는 지워져야 한다.
+        verify(recommendationMemberRepository).deleteByRecommendationId(100L);
+        verify(recommendationReasonRepository).deleteByRecommendationId(100L);
+        verify(recommendationRepository).deleteAll(List.of(leftoverFromStreaming));
     }
 
     private User user(String userId, String name) {
