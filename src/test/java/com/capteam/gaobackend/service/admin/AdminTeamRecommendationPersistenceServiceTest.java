@@ -181,10 +181,13 @@ class AdminTeamRecommendationPersistenceServiceTest {
                 );
     }
 
-    // 회귀 테스트: AI가 같은 팀을 team_update → team_ready처럼 두 번 보내도(배치 스트리밍),
-    // TeamRecommendation row가 두 개로 늘어나지 않고 기존 row가 최신 내용으로 갱신되어야 한다.
+    // 회귀 테스트: AI가 같은 학생들을 team_update → team_ready처럼 두 번 보고해도(배치 스트리밍),
+    // TeamRecommendation row가 두 개로 늘어나지 않고 기존 row가 지워진 뒤 새로 만들어져야 한다.
+    // team_name("1팀" 등)이 호출마다 같다는 보장이 없어서, 실제로 겹치는 학생이 있는지로
+    // "같은 팀이 다시 보고된 것"을 판단해야 한다 — 실제로 team_name으로만 판단했다가
+    // 같은 학생이 여러 팀에 중복으로 남는 사고가 있었다.
     @Test
-    void appendBatchTeamsUpsertsSameTeamInsteadOfDuplicating() {
+    void appendBatchTeamsReplacesTeamWhenSameMembersReportedAgainEvenIfTeamNameDiffers() {
         TeamMatchingVersion version = TeamMatchingVersion.builder()
                 .grade(Grade.GRADE_2)
                 .versionNumber(5)
@@ -195,8 +198,7 @@ class AdminTeamRecommendationPersistenceServiceTest {
 
         when(teamMatchingVersionRepository.findByJobId("job-1")).thenReturn(Optional.of(version));
         when(userRepository.findAllById(any())).thenReturn(List.of(user));
-        when(recommendationRepository.findByMatchingVersionIdAndAiTeamName(1L, "1팀"))
-                .thenReturn(Optional.empty());
+        when(recommendationRepository.findByMatchingVersionId(1L)).thenReturn(List.of());
         when(recommendationRepository.save(any(TeamRecommendation.class)))
                 .thenAnswer(invocation -> {
                     TeamRecommendation recommendation = invocation.getArgument(0);
@@ -217,12 +219,15 @@ class AdminTeamRecommendationPersistenceServiceTest {
         verify(recommendationRepository, times(1)).save(savedCaptor.capture());
         TeamRecommendation created = savedCaptor.getValue();
 
-        // team_ready로 같은 팀이 더 완성된 내용으로 다시 도착
-        when(recommendationRepository.findByMatchingVersionIdAndAiTeamName(1L, "1팀"))
-                .thenReturn(Optional.of(created));
+        // team_ready 단계에서 AI가 같은 학생(홍길동)을 이번엔 "2팀"이라는 다른 이름으로 다시 보고함
+        when(recommendationRepository.findByMatchingVersionId(1L)).thenReturn(List.of(created));
+        when(recommendationMemberRepository.findByRecommendationId(100L)).thenReturn(
+                List.of(TeamRecommendationMember.builder().recommendation(created).user(user)
+                        .studentRole(StudentRole.BACKEND).isRecommendedLeader(true).build())
+        );
 
         AiTeamSummaryResponseDto.TeamDto secondBatch = new AiTeamSummaryResponseDto.TeamDto();
-        secondBatch.setTeamName("1팀");
+        secondBatch.setTeamName("2팀");
         secondBatch.setStrengths("최종 강점");
         secondBatch.setMembers(List.of(member("홍길동", "backend", "구현 강점")));
         secondBatch.setLeader("홍길동");
@@ -230,11 +235,12 @@ class AdminTeamRecommendationPersistenceServiceTest {
         persistenceService.appendBatchTeams(
                 Grade.GRADE_2, "job-1", null, Map.of("홍길동", "stu2301"), List.of(secondBatch));
 
-        // 새 row가 또 생기지 않고(save 여전히 1번), 기존 row 내용만 갱신됨
-        verify(recommendationRepository, times(1)).save(any(TeamRecommendation.class));
-        assertThat(created.getStrengths()).isEqualTo("최종 강점");
+        // 기존 row(100L)는 지워지고, 같은 팀이 새 row로 다시 만들어짐(총 save 2번) —
+        // 중요한 건 "홍길동이 속한 팀"이 하나만 남아야 한다는 점이다.
         verify(recommendationMemberRepository).deleteByRecommendationId(100L);
         verify(recommendationReasonRepository).deleteByRecommendationId(100L);
+        verify(recommendationRepository).delete(created);
+        verify(recommendationRepository, times(2)).save(any(TeamRecommendation.class));
     }
 
     // 회귀 테스트: 배치 스트리밍이 만들어둔 버전을 최종 저장 시점에 재사용하고, 그 버전에
@@ -252,7 +258,6 @@ class AdminTeamRecommendationPersistenceServiceTest {
         TeamRecommendation leftoverFromStreaming = TeamRecommendation.builder()
                 .matchingVersion(existingVersion)
                 .grade(Grade.GRADE_2)
-                .aiTeamName("1팀")
                 .build();
         ReflectionTestUtils.setField(leftoverFromStreaming, "id", 100L);
 
