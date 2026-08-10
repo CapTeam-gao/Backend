@@ -44,6 +44,8 @@ public class MatchingBatchCallbackService {
             AdminTeamMatchingPreparationService.PreparedMatching prepared =
                     matchingPreparationService.prepare(job.getGrade());
 
+            // appendBatchTeams는 팀 이름 기준으로 upsert하므로, 같은 batch_index가
+            // 재전송되어 여기까지 다시 들어와도 팀 row가 중복 저장되지는 않습니다.
             recommendationPersistenceService.appendBatchTeams(
                     job.getGrade(),
                     jobId,
@@ -56,6 +58,11 @@ public class MatchingBatchCallbackService {
         if (totalBatches != null && totalBatches > 0) {
             job.updateTotalBatches(totalBatches);
         }
-        job.incrementCompletedBatches();
+
+        // 같은 batch_index를 재전송받은 경우엔 completedBatches를 다시 올리지 않습니다.
+        boolean isFirstTimeForThisBatch = job.markBatchReceived(batchIndex);
+        if (isFirstTimeForThisBatch) {
+            job.incrementCompletedBatches();
+        }
     }
 }
