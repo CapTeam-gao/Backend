@@ -107,6 +107,9 @@ public class ChatService {
     // 채팅 푸시 발송 이력을 남기고 조회하기 위한 Repository 필드입니다.
     private final NotificationLogRepository notificationLogRepository;
 
+    // 원본 채팅 트랜잭션 커밋 이후에도 발송 로그를 별도 트랜잭션으로 저장하는 필드입니다.
+    private final NotificationLogPersistenceService notificationLogPersistenceService;
+
     // 실제 FCM 전송을 Firebase 구현체에 위임하는 필드입니다.
     private final PushNotificationGateway pushNotificationGateway;
 
@@ -395,7 +398,7 @@ public class ChatService {
         String title = teamName + " · " + senderName;
 
         if (tokens.isEmpty()) {
-            notificationLogRepository.save(NotificationLog.builder()
+            notificationLogPersistenceService.save(NotificationLog.builder()
                     .user(recipient)
                     .type(NotificationType.CHAT_MESSAGE)
                     .targetId(logTargetId)
@@ -440,7 +443,7 @@ public class ChatService {
             notificationLog.markFailed(now, errorMessage);
         }
 
-        notificationLogRepository.save(notificationLog);
+        notificationLogPersistenceService.save(notificationLog);
     }
 
     // 작성자가 본인이 보낸 텍스트 채팅 메시지를 수정하는 기능입니다.

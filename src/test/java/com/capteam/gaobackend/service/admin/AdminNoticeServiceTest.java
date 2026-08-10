@@ -1,11 +1,14 @@
 package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.notice.NoticeCreatedEventDto;
+import com.capteam.gaobackend.dto.notice.NoticeCreateRequestDto;
+import com.capteam.gaobackend.entity.NotificationLog;
 import com.capteam.gaobackend.entity.Notice;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Important;
 import com.capteam.gaobackend.enums.Grade;
+import com.capteam.gaobackend.enums.NotificationStatus;
 import com.capteam.gaobackend.repository.NoticeReadRepository;
 import com.capteam.gaobackend.repository.NoticeRepository;
 import com.capteam.gaobackend.repository.TeamRepository;
@@ -14,6 +17,7 @@ import com.capteam.gaobackend.repository.NotificationLogRepository;
 import com.capteam.gaobackend.repository.UserFcmTokenRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import com.capteam.gaobackend.service.push.PushNotificationGateway;
+import com.capteam.gaobackend.service.NotificationLogPersistenceService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +31,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +51,7 @@ class AdminNoticeServiceTest {
     @Mock private SimpMessagingTemplate messagingTemplate;
     @Mock private UserFcmTokenRepository userFcmTokenRepository;
     @Mock private NotificationLogRepository notificationLogRepository;
+    @Mock private NotificationLogPersistenceService notificationLogPersistenceService;
     @Mock private PushNotificationGateway pushNotificationGateway;
 
     private AdminNoticeService adminNoticeService;
@@ -61,6 +67,7 @@ class AdminNoticeServiceTest {
                 messagingTemplate,
                 userFcmTokenRepository,
                 notificationLogRepository,
+                notificationLogPersistenceService,
                 pushNotificationGateway
         );
         SecurityContextHolder.getContext().setAuthentication(
@@ -95,6 +102,39 @@ class AdminNoticeServiceTest {
         assertThat(noticeCaptor.getValue().getWriter()).isSameAs(admin);
         assertThat(noticeCaptor.getValue().getImportant()).isEqualTo(Important.IMPORTANT);
         verify(messagingTemplate).convertAndSend(eq("/sub/notices"), any(NoticeCreatedEventDto.class));
+    }
+
+    @Test
+    void persistsFailedNotificationLogWhenStudentHasNoFcmToken() {
+        User admin = User.builder()
+                .userId("admin")
+                .name("관리자")
+                .accountRole(AccountRole.ADMIN)
+                .build();
+        User student = User.builder()
+                .userId("stu2301")
+                .name("학생")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        NoticeCreateRequestDto request = new NoticeCreateRequestDto();
+        ReflectionTestUtils.setField(request, "title", "테스트 공지");
+        ReflectionTestUtils.setField(request, "content", "테스트 본문");
+        ReflectionTestUtils.setField(request, "important", Important.COMMON);
+
+        when(userRepository.findById("admin")).thenReturn(Optional.of(admin));
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> {
+            Notice savedNotice = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedNotice, "id", 11L);
+            return savedNotice;
+        });
+        when(userRepository.findByAccountRole(AccountRole.STUDENT)).thenReturn(List.of(student));
+
+        adminNoticeService.createNotice(request);
+
+        ArgumentCaptor<NotificationLog> logCaptor = ArgumentCaptor.forClass(NotificationLog.class);
+        verify(notificationLogPersistenceService).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo(NotificationStatus.FAILED);
+        assertThat(logCaptor.getValue().getErrorMessage()).isEqualTo("등록된 FCM 토큰이 없습니다.");
     }
 
     @Test

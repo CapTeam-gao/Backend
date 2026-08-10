@@ -16,6 +16,7 @@ import com.capteam.gaobackend.repository.*;
 import com.capteam.gaobackend.service.push.PushDispatchResult;
 import com.capteam.gaobackend.service.push.PushMessageRequest;
 import com.capteam.gaobackend.service.push.PushNotificationGateway;
+import com.capteam.gaobackend.service.NotificationLogPersistenceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -62,6 +63,9 @@ public class AdminNoticeService {
 
     // 공지 푸시 발송 이력을 남기고 중복 발송을 막기 위한 Repository 필드입니다.
     private final NotificationLogRepository notificationLogRepository;
+
+    // 공지 저장 트랜잭션 커밋 이후에도 알림 로그를 독립 트랜잭션으로 저장하는 필드입니다.
+    private final NotificationLogPersistenceService notificationLogPersistenceService;
 
     // 실제 FCM 전송을 Firebase 구현체에 위임하는 필드입니다.
     private final PushNotificationGateway pushNotificationGateway;
@@ -364,7 +368,7 @@ public class AdminNoticeService {
                 .toList();
 
         if (tokens.isEmpty()) {
-            notificationLogRepository.save(NotificationLog.builder()
+            notificationLogPersistenceService.save(NotificationLog.builder()
                     .user(student)
                     .type(NotificationType.NOTICE_CREATED)
                     .targetId(targetId)
@@ -409,6 +413,6 @@ public class AdminNoticeService {
             notificationLog.markFailed(now, errorMessage);
         }
 
-        notificationLogRepository.save(notificationLog);
+        notificationLogPersistenceService.save(notificationLog);
     }
 }

@@ -12,12 +12,14 @@ import com.capteam.gaobackend.dto.chat.ChatUnreadSummaryResponseDto;
 import com.capteam.gaobackend.entity.ChatChannel;
 import com.capteam.gaobackend.entity.ChatMessage;
 import com.capteam.gaobackend.entity.ChatRoom;
+import com.capteam.gaobackend.entity.NotificationLog;
 import com.capteam.gaobackend.entity.Team;
 import com.capteam.gaobackend.entity.TeamProject;
 import com.capteam.gaobackend.entity.TeamUser;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.LeaderRole;
+import com.capteam.gaobackend.enums.NotificationStatus;
 import com.capteam.gaobackend.enums.StudentRole;
 import com.capteam.gaobackend.repository.ChatChannelRepository;
 import com.capteam.gaobackend.repository.ChatMessageRepository;
@@ -66,6 +68,7 @@ class ChatServiceEventTest {
     @Mock private ChatPresenceService chatPresenceService;
     @Mock private UserFcmTokenRepository userFcmTokenRepository;
     @Mock private NotificationLogRepository notificationLogRepository;
+    @Mock private NotificationLogPersistenceService notificationLogPersistenceService;
     @Mock private PushNotificationGateway pushNotificationGateway;
 
     private ChatService chatService;
@@ -91,6 +94,7 @@ class ChatServiceEventTest {
                 chatPresenceService,
                 userFcmTokenRepository,
                 notificationLogRepository,
+                notificationLogPersistenceService,
                 pushNotificationGateway
         );
 
@@ -253,6 +257,40 @@ class ChatServiceEventTest {
         assertThat(eventCaptor.getValue().getChannelId()).isEqualTo(10L);
         assertThat(eventCaptor.getValue().getUnreadCount()).isEqualTo(1L);
         assertThat(eventCaptor.getValue().getTotalUnreadCount()).isEqualTo(1L);
+    }
+
+    @Test
+    void persistsFailedPushLogWhenOfflineTeammateHasNoFcmToken() {
+        User recipient = User.builder()
+                .userId("stu2302")
+                .name("위재성")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        TeamUser recipientTeamUser = TeamUser.builder()
+                .team(team)
+                .user(recipient)
+                .studentRole(StudentRole.BACKEND)
+                .leaderRole(LeaderRole.MEMBER)
+                .build();
+        ChatMessageRequestDto request = new ChatMessageRequestDto();
+        ReflectionTestUtils.setField(request, "message", "새 메시지");
+
+        when(chatAccessService.getUser("stu2301")).thenReturn(user);
+        when(chatAccessService.getAccessibleChannel(10L, "stu2301")).thenReturn(channel);
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "id", 2L);
+            return savedMessage;
+        });
+        when(teamUserRepository.findByTeamId(1L)).thenReturn(List.of(recipientTeamUser));
+        when(chatPresenceService.isOnline("stu2302")).thenReturn(false);
+
+        chatService.saveMessage(10L, "stu2301", request);
+
+        ArgumentCaptor<NotificationLog> logCaptor = ArgumentCaptor.forClass(NotificationLog.class);
+        verify(notificationLogPersistenceService).save(logCaptor.capture());
+        assertThat(logCaptor.getValue().getStatus()).isEqualTo(NotificationStatus.FAILED);
+        assertThat(logCaptor.getValue().getErrorMessage()).isEqualTo("등록된 FCM 토큰이 없습니다.");
     }
 
     @Test
