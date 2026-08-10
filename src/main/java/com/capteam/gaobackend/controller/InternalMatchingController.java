@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.controller;
 
 import com.capteam.gaobackend.dto.ai.AiMatchingBatchCompleteRequestDto;
+import com.capteam.gaobackend.dto.ai.AiMatchingStageRequestDto;
 import com.capteam.gaobackend.dto.common.ApiResponse;
 import com.capteam.gaobackend.service.MatchingBatchCallbackService;
 import lombok.RequiredArgsConstructor;
@@ -42,5 +43,19 @@ public class InternalMatchingController {
         );
 
         return ApiResponse.ok("배치가 저장되었습니다.");
+    }
+
+    @PostMapping("/jobs/{jobId}/stage")
+    public ResponseEntity<ApiResponse<String>> updateStage(
+            @PathVariable String jobId,
+            @RequestHeader(API_KEY_HEADER) String apiKey,
+            @RequestBody AiMatchingStageRequestDto request
+    ) {
+        if (!internalMatchingApiKey.equals(apiKey)) {
+            throw new AccessDeniedException("내부 API 키가 올바르지 않습니다.");
+        }
+
+        matchingBatchCallbackService.recordStage(jobId, request.getProgressStep());
+        return ApiResponse.ok("진행 단계가 저장되었습니다.");
     }
 }

@@ -56,6 +56,11 @@ public class MatchingJob extends BaseTimeEntity {
     @Column(name = "completed_batches", nullable = false)
     private int completedBatches;
 
+    // 프론트 로딩 화면의 1~4단계를 나타냅니다. 값은 0부터 시작하며
+    // AI가 실제 워크플로우 단계에 진입할 때 내부 콜백으로 단조 증가시킵니다.
+    @Column(name = "progress_step", nullable = false)
+    private int progressStep;
+
     // AI가 네트워크 재시도 등으로 같은 batch_index를 다시 보내도 completedBatches가
     // 중복으로 올라가지 않도록(멱등 처리) 이미 받은 batch_index를 기억해둡니다.
     @ElementCollection
@@ -117,6 +122,13 @@ public class MatchingJob extends BaseTimeEntity {
 
     public void incrementCompletedBatches() {
         this.completedBatches++;
+    }
+
+    public void updateProgressStep(int progressStep) {
+        if (progressStep < 0 || progressStep > 3) {
+            throw new IllegalArgumentException("팀 매칭 진행 단계는 0~3이어야 합니다.");
+        }
+        this.progressStep = Math.max(this.progressStep, progressStep);
     }
 
     // 처음 보는 batch_index면 true를 반환하며 기억해두고, 이미 받은 적 있으면 false를

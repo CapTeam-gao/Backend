@@ -30,6 +30,19 @@ public class MatchingBatchCallbackService {
     private final AdminTeamRecommendationPersistenceService recommendationPersistenceService;
 
     @Transactional
+    public void recordStage(String jobId, int progressStep) {
+        MatchingJob job = matchingJobRepository.findWithLockById(jobId)
+                .orElseThrow(() -> new IllegalArgumentException("팀 매칭 작업을 찾을 수 없습니다: " + jobId));
+
+        if (!ACCEPTING_BATCHES_STATUSES.contains(job.getStatus())) {
+            log.warn("진행 단계 콜백 무시. jobId={}, progressStep={}, status={}", jobId, progressStep, job.getStatus());
+            return;
+        }
+
+        job.updateProgressStep(progressStep);
+    }
+
+    @Transactional
     public void recordBatch(String jobId, int batchIndex, Integer totalBatches, List<AiTeamSummaryResponseDto.TeamDto> teams) {
         MatchingJob job = matchingJobRepository.findWithLockById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("팀 매칭 작업을 찾을 수 없습니다: " + jobId));

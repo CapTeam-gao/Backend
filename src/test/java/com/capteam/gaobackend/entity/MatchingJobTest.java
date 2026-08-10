@@ -9,6 +9,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MatchingJobTest {
 
     @Test
+    void 진행단계는_뒤로가지_않는다() {
+        MatchingJob job = new MatchingJob("job-id", Grade.GRADE_2);
+
+        job.updateProgressStep(2);
+        job.updateProgressStep(1);
+
+        assertThat(job.getProgressStep()).isEqualTo(2);
+    }
+
+    @Test
     void runningJobCanBeCancelledBeforePersistenceStarts() {
         MatchingJob job = new MatchingJob("job-id", Grade.GRADE_2);
 
