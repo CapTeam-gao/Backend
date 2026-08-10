@@ -309,11 +309,14 @@ public class AdminTeamRecommendationPersistenceService {
         }
 
         if (!savedAnyReason) {
-            recommendationReasonRepository.save(TeamRecommendationReason.builder()
-                    .recommendation(recommendation)
-                    .title("팀 배정 이유")
-                    .description(buildAiDescription(aiTeam))
-                    .build());
+            String fallbackDescription = buildAiDescription(aiTeam);
+            if (!fallbackDescription.isBlank()) {
+                recommendationReasonRepository.save(TeamRecommendationReason.builder()
+                        .recommendation(recommendation)
+                        .title("팀 배정 이유")
+                        .description(fallbackDescription)
+                        .build());
+            }
         }
     }
 
