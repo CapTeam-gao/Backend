@@ -12,19 +12,12 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Set;
 
 @Service
 public class MatchingJobService {
 
-    // 스트리밍 도중(아직 최종 확정 전)에만 partialTeams를 채워줍니다. 끝난 작업은 기존
-    // GET /grade/{grade} 또는 versions API로 최종 결과를 조회하면 되니 굳이 다시 조립하지 않습니다.
-    private static final Set<MatchingJobStatus> STREAMING_STATUSES = Set.of(
-            MatchingJobStatus.QUEUED,
-            MatchingJobStatus.RUNNING,
-            MatchingJobStatus.COMPLETING
-    );
-
+    // 작업 중간과 완료 직후 모두 같은 versionId의 팀 목록을 내려줍니다.
+    // 프론트가 짧은 폴링 타이밍을 놓쳐도 해당 작업의 partial/final 결과를 잃지 않게 합니다.
     private final MatchingJobStateService matchingJobStateService;
     private final MatchingJobWorker matchingJobWorker;
     private final AiClient aiClient;
@@ -80,7 +73,7 @@ public class MatchingJobService {
     public MatchingJobResponseDto get(String jobId) {
         MatchingJobResponseDto job = matchingJobStateService.get(jobId);
 
-        if (job.getVersionId() == null || !STREAMING_STATUSES.contains(job.getStatus())) {
+        if (job.getVersionId() == null) {
             return job;
         }
 
