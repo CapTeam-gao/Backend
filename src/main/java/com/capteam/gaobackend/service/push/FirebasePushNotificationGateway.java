@@ -2,6 +2,7 @@ package com.capteam.gaobackend.service.push;
 
 import com.capteam.gaobackend.config.FirebaseProperties;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -87,6 +88,8 @@ public class FirebasePushNotificationGateway implements PushNotificationGateway 
                     return null;
                 }
 
+                String projectId = resolveProjectId(credentials);
+
                 String appName = "gao-fcm-app";
                 FirebaseApp app = FirebaseApp.getApps().stream()
                         .filter(existing -> existing.getName().equals(appName))
@@ -94,7 +97,7 @@ public class FirebasePushNotificationGateway implements PushNotificationGateway 
                         .orElseGet(() -> FirebaseApp.initializeApp(
                                 FirebaseOptions.builder()
                                         .setCredentials(credentials)
-                                        .setProjectId(firebaseProperties.projectId())
+                                        .setProjectId(projectId)
                                         .build(),
                                 appName
                         ));
@@ -119,5 +122,26 @@ public class FirebasePushNotificationGateway implements PushNotificationGateway 
         }
 
         return null;
+    }
+
+    private String resolveProjectId(GoogleCredentials credentials) {
+        String configuredProjectId = firebaseProperties.projectId();
+        if (credentials instanceof ServiceAccountCredentials serviceAccountCredentials) {
+            String credentialsProjectId = serviceAccountCredentials.getProjectId();
+            if (credentialsProjectId != null && !credentialsProjectId.isBlank()) {
+                if (configuredProjectId != null
+                        && !configuredProjectId.isBlank()
+                        && !configuredProjectId.equals(credentialsProjectId)) {
+                    log.warn(
+                            "Firebase 프로젝트 ID가 서비스 계정과 다릅니다. 서비스 계정 값을 사용합니다. configured={}, credentials={}",
+                            configuredProjectId,
+                            credentialsProjectId
+                    );
+                }
+                return credentialsProjectId;
+            }
+        }
+
+        return configuredProjectId;
     }
 }
