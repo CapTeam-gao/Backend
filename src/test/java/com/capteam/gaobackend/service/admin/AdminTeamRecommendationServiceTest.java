@@ -54,6 +54,7 @@ class AdminTeamRecommendationServiceTest {
     @Mock private AdminTeamRecommendationPersistenceService recommendationPersistenceService;
     @Mock private AdminTeamMatchingPreparationService matchingPreparationService;
     @Mock private TeamAssignmentNoticeService teamAssignmentNoticeService;
+    @Mock private TeamMatchingVersionService teamMatchingVersionService;
 
     private AdminTeamRecommendationService adminTeamRecommendationService;
 
@@ -71,7 +72,8 @@ class AdminTeamRecommendationServiceTest {
                 chatChannelRepository,
                 recommendationPersistenceService,
                 matchingPreparationService,
-                teamAssignmentNoticeService
+                teamAssignmentNoticeService,
+                teamMatchingVersionService
         );
     }
 
@@ -211,13 +213,12 @@ class AdminTeamRecommendationServiceTest {
                 .isRecommendedLeader(true)
                 .build();
 
-        when(recommendationRepository.findByGrade(Grade.GRADE_3)).thenReturn(List.of(recommendation));
         when(recommendationRepository.findById(10L)).thenReturn(Optional.of(recommendation));
         when(recommendationMemberRepository.findByRecommendationId(10L)).thenReturn(List.of(member));
         when(teamRepository.countByGrade(Grade.GRADE_3)).thenReturn(0L);
         when(chatRoomRepository.findByTeamId(any())).thenReturn(Optional.empty());
 
-        adminTeamRecommendationService.acceptAllByGrade(Grade.GRADE_3);
+        adminTeamRecommendationService.acceptRecommendations(List.of(10L));
 
         verify(teamAssignmentNoticeService).createNotice(Grade.GRADE_3);
     }

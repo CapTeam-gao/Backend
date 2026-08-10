@@ -7,6 +7,7 @@ import com.capteam.gaobackend.dto.team.SwapRecommendationMembersRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationDetailResponseDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationRequestDto;
 import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
+import com.capteam.gaobackend.dto.team.TeamMatchingVersionResponseDto;
 import com.capteam.gaobackend.entity.*;
 import com.capteam.gaobackend.enums.*;
 import com.capteam.gaobackend.exception.AiServerException;
@@ -59,6 +60,7 @@ public class AdminTeamRecommendationService {
     private final AdminTeamRecommendationPersistenceService recommendationPersistenceService;
     private final AdminTeamMatchingPreparationService matchingPreparationService;
     private final TeamAssignmentNoticeService teamAssignmentNoticeService;
+    private final TeamMatchingVersionService teamMatchingVersionService;
 
     private static final int MAX_TEAM_MEMBER_COUNT = 5;
 
@@ -299,22 +301,8 @@ public class AdminTeamRecommendationService {
     // 학년별 추천 상세 목록 조회 (프론트 팀 검토 화면용)
     // ──────────────────────────────────────────
     public List<TeamRecommendationDetailResponseDto> getRecommendationsByGrade(Grade grade) {
-        return recommendationRepository.findByGrade(grade).stream()
-                .map(rec -> {
-                    List<TeamRecommendationMember> members =
-                            recommendationMemberRepository.findByRecommendationId(rec.getId());
-                    List<TeamRecommendationReason> reasons =
-                            recommendationReasonRepository.findByRecommendationId(rec.getId());
-                    Map<String, StudentLevel> levelMap = members.stream()
-                            .collect(Collectors.toMap(
-                                    m -> m.getUser().getUserId(),
-                                    m -> userAnalysisRepository.findById(m.getUser().getUserId())
-                                            .map(UserAnalysis::getStudentLevel)
-                                            .orElse(null)
-                            ));
-                    return TeamRecommendationDetailResponseDto.from(rec, members, reasons, levelMap);
-                })
-                .toList();
+        TeamMatchingVersionResponseDto latestVersion = teamMatchingVersionService.getLatestVersion(grade);
+        return teamMatchingVersionService.getVersionDetails(latestVersion.getVersionId());
     }
 
     // ──────────────────────────────────────────
@@ -353,23 +341,24 @@ public class AdminTeamRecommendationService {
     }
 
     // ──────────────────────────────────────────
-    // 학년 전체 추천안 일괄 수락 → 팀 생성
+    // 지정된 추천안만 일괄 수락 → 팀 생성
     // ──────────────────────────────────────────
     @Transactional
-    public void acceptAllByGrade(Grade grade) {
-        List<TeamRecommendation> pending = recommendationRepository.findByGrade(grade).stream()
-                .filter(r -> r.getStatus() == RecommendationStatus.PENDING)
+    public void acceptRecommendations(List<Long> recommendationIds) {
+        if (recommendationIds == null || recommendationIds.isEmpty()) {
+            throw new IllegalArgumentException("수락할 추천안이 없습니다.");
+        }
+
+        List<Team> createdTeams = recommendationIds.stream()
+                .distinct()
+                .map(this::acceptRecommendationAndCreateTeam)
                 .toList();
 
-        if (pending.isEmpty()) {
-            throw new IllegalStateException("수락할 PENDING 상태의 추천안이 없습니다.");
+        if (createdTeams.stream().map(Team::getGrade).distinct().count() != 1) {
+            throw new IllegalArgumentException("서로 다른 학년의 추천안은 한 번에 수락할 수 없습니다.");
         }
 
-        for (TeamRecommendation rec : pending) {
-            acceptRecommendationAndCreateTeam(rec.getId());
-        }
-
-        teamAssignmentNoticeService.createNotice(grade);
+        teamAssignmentNoticeService.createNotice(createdTeams.get(0).getGrade());
     }
 
 }

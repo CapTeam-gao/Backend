@@ -144,11 +144,4 @@ public class AdminTeamRecommendationController {
         return ApiResponse.ok("팀원이 교환되었습니다.");
     }
 
-    // 관리자가 특정 학년의 전체 추천안을 일괄 수락해 팀을 생성하는 기능입니다.
-    @PostMapping("/accept-all/{grade}")
-    public ResponseEntity<ApiResponse<Void>> acceptAllByGrade(@PathVariable Grade grade) {
-        adminTeamRecommendationService.acceptAllByGrade(grade);
-        return ApiResponse.ok("모든 팀이 생성되었습니다.");
-    }
-
 }

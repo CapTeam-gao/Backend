@@ -55,7 +55,6 @@ class FrontendApiContractTest {
         frontendContracts.put("GET /api/admin/team-recommendations/{recommendationId}", RequestMethod.GET);
         frontendContracts.put("POST /api/admin/team-recommendations/swap", RequestMethod.POST);
         frontendContracts.put("POST /api/admin/team-recommendations/{recommendationId}/accept", RequestMethod.POST);
-        frontendContracts.put("POST /api/admin/team-recommendations/accept-all/{grade}", RequestMethod.POST);
         frontendContracts.put("GET /api/admin/teams", RequestMethod.GET);
         frontendContracts.put("GET /api/admin/teams/{teamId}", RequestMethod.GET);
         frontendContracts.put("GET /api/teams/my-team", RequestMethod.GET);

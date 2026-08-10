@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.service.admin;
 
 import com.capteam.gaobackend.dto.team.ManualTeamRecommendationRequestDto;
+import com.capteam.gaobackend.dto.team.TeamRecommendationResponseDto;
 import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.Grade;
@@ -57,6 +58,9 @@ class ManualTeamRecommendationServiceTest {
                         member("stu2302", StudentRole.BACKEND, false)
                 )))
         );
+        when(recommendationPersistenceService.replacePendingManualRecommendations(
+                eq(Grade.GRADE_2), any(), any()
+        )).thenReturn(List.of(TeamRecommendationResponseDto.builder().id(10L).build()));
 
         manualTeamRecommendationService.createManualRecommendations(request);
 
@@ -101,6 +105,9 @@ class ManualTeamRecommendationServiceTest {
                 Grade.GRADE_2,
                 List.of(frontendTeam("1팀", List.of("stu2301", "stu2302"), "stu2301"))
         );
+        when(recommendationPersistenceService.replacePendingManualRecommendations(
+                eq(Grade.GRADE_2), any(), any()
+        )).thenReturn(List.of(TeamRecommendationResponseDto.builder().id(10L).build()));
 
         manualTeamRecommendationService.createAndAcceptManualTeams(request);
 
@@ -109,7 +116,7 @@ class ManualTeamRecommendationServiceTest {
                 any(),
                 any()
         );
-        verify(adminTeamRecommendationService).acceptAllByGrade(Grade.GRADE_2);
+        verify(adminTeamRecommendationService).acceptRecommendations(List.of(10L));
     }
 
     @Test

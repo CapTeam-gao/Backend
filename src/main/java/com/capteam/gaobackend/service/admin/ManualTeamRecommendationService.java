@@ -53,8 +53,12 @@ public class ManualTeamRecommendationService {
     // 프론트 직접 구성 완료 API에서 사용합니다. 추천안 저장과 실제 팀 생성을 하나의 트랜잭션으로 처리합니다.
     @Transactional
     public void createAndAcceptManualTeams(ManualTeamRecommendationRequestDto dto) {
-        createManualRecommendations(dto);
-        adminTeamRecommendationService.acceptAllByGrade(dto.getGrade());
+        List<TeamRecommendationResponseDto> recommendations = createManualRecommendations(dto);
+        adminTeamRecommendationService.acceptRecommendations(
+                recommendations.stream()
+                        .map(TeamRecommendationResponseDto::getId)
+                        .toList()
+        );
     }
 
     private void validateRequiredFields(ManualTeamRecommendationRequestDto dto) {
