@@ -47,12 +47,16 @@ public class MatchingBatchCallbackService {
             return;
         }
 
+        if (teams != null && teams.size() > 1) {
+            throw new IllegalArgumentException("팀 단위 콜백은 한 번에 한 팀만 보낼 수 있습니다.");
+        }
+
         if (teams != null && !teams.isEmpty()) {
             AdminTeamMatchingPreparationService.PreparedMatching prepared =
                     matchingPreparationService.prepare(job.getGrade());
 
-            // appendBatchTeams는 팀 이름 기준으로 upsert하므로, 같은 batch_index가
-            // 재전송되어 여기까지 다시 들어와도 팀 row가 중복 저장되지는 않습니다.
+            // 한 콜백에는 한 팀만 저장합니다. 같은 batch_index가 재전송되어
+            // 여기까지 다시 들어와도 job 멱등성 검사로 중복 저장되지 않습니다.
             recommendationPersistenceService.appendBatchTeams(
                     job.getGrade(),
                     jobId,

@@ -16,10 +16,11 @@ public class AiMatchingBatchCompleteRequestDto {
     @JsonProperty("batch_index")
     private int batchIndex;
 
-    // 전체 배치 개수. AI가 매 배치마다 같은 값을 보내면 됩니다(진행률 계산용).
+    // 전체 팀 개수. AI가 팀 하나를 보낼 때마다 같은 값을 보내면 됩니다(진행률 계산용).
     @JsonProperty("total_batches")
     private Integer totalBatches;
 
-    // 이번 배치에서 완료된 팀 목록입니다. /matching/run 최종 응답의 teams와 같은 모양을 그대로 씁니다.
+    // 이번 콜백에서 완료된 팀 하나입니다. 배열 형식은 기존 JSON 호환성을 위해 유지하지만
+    // 서버는 여러 팀이 들어오면 거부합니다.
     private List<AiTeamSummaryResponseDto.TeamDto> teams;
 }
