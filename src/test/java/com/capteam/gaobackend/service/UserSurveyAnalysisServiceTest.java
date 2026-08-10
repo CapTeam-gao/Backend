@@ -7,6 +7,7 @@ import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.enums.AccountRole;
 import com.capteam.gaobackend.enums.StudentLevel;
+import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +22,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,10 +67,14 @@ class UserSurveyAnalysisServiceTest {
         assertThat(analysisCaptor.getValue().getUserId()).isEqualTo("stu2301");
         assertThat(analysisCaptor.getValue().getAnalysisResult()).isEqualTo("문제 해결력이 강한 백엔드 성향입니다.");
         assertThat(analysisCaptor.getValue().getStudentLevel()).isEqualTo(StudentLevel.MIDDLE);
+        assertThat(analysisCaptor.getValue().getStatus()).isEqualTo(UserAnalysisStatus.SUCCEEDED);
     }
 
+    // 회귀 테스트: AI 호출이 실패해도 설문 저장을 막던 예외를 다시 던지지 않고(그러면
+    // REQUIRES_NEW 트랜잭션이 롤백돼 FAILED 상태 저장까지 함께 사라짐), status만
+    // FAILED로 남겨야 관리자 화면이 "분석 중"이 아니라 "분석 실패"로 보여줄 수 있다.
     @Test
-    void failsSurveyWhenAiAnalysisFails() {
+    void marksAnalysisFailedInsteadOfThrowingWhenAiAnalysisFails() {
         User user = User.builder()
                 .userId("stu2301")
                 .name("홍길동")
@@ -79,14 +83,16 @@ class UserSurveyAnalysisServiceTest {
 
         when(aiClient.runAnalysisForResult(any()))
                 .thenThrow(new AiServerException("AI 서버 오류"));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("AI 학생 분석 생성에 실패했습니다.");
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+
+        verify(userAnalysisRepository).save(analysisCaptor.capture());
+        assertThat(analysisCaptor.getValue().getStatus()).isEqualTo(UserAnalysisStatus.FAILED);
     }
 
     @Test
-    void failsSurveyWhenAiResponseDoesNotContainAnalysisResult() {
+    void marksAnalysisFailedWhenAiResponseDoesNotContainAnalysisResult() {
         User user = User.builder()
                 .userId("stu2301")
                 .name("홍길동")
@@ -98,10 +104,40 @@ class UserSurveyAnalysisServiceTest {
         aiResult.setStudentLevel("MIDDLE");
 
         when(aiClient.runAnalysisForResult(any())).thenReturn(List.of(aiResult));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userSurveyAnalysisService.analyzeSubmittedSurvey(user))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다.");
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+
+        verify(userAnalysisRepository).save(analysisCaptor.capture());
+        assertThat(analysisCaptor.getValue().getStatus()).isEqualTo(UserAnalysisStatus.FAILED);
+    }
+
+    // 회귀 테스트: 이전에 FAILED로 남았던 학생이 재시도(재제출 등)로 성공하면
+    // 기존 row가 SUCCEEDED로 갱신되어야 "분석 실패"에 갇히지 않는다.
+    @Test
+    void updatesExistingFailedAnalysisToSucceededOnRetrySuccess() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        UserAnalysis existingFailed = UserAnalysis.builder()
+                .user(user)
+                .status(UserAnalysisStatus.FAILED)
+                .build();
+        AiStudentAnalysisResponseDto aiResult = new AiStudentAnalysisResponseDto();
+        aiResult.setUserId("stu2301");
+        aiResult.setName("홍길동");
+        aiResult.setAnalysisResult("재시도 후 분석 성공");
+        aiResult.setStudentLevel("MIDDLE");
+
+        when(aiClient.runAnalysisForResult(any())).thenReturn(List.of(aiResult));
+        when(userAnalysisRepository.findById("stu2301")).thenReturn(Optional.of(existingFailed));
+
+        userSurveyAnalysisService.analyzeSubmittedSurvey(user);
+
+        assertThat(existingFailed.getStatus()).isEqualTo(UserAnalysisStatus.SUCCEEDED);
+        assertThat(existingFailed.getAnalysisResult()).isEqualTo("재시도 후 분석 성공");
     }
 
     @Test

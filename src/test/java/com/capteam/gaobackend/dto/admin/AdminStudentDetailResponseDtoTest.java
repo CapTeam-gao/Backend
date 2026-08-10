@@ -11,7 +11,9 @@ import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.StudentRole;
+import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -74,5 +76,86 @@ class AdminStudentDetailResponseDtoTest {
 
         assertThat(response.getTeamName()).isEqualTo("1팀");
         assertThat(response.getProjectTeamName()).isEqualTo("가오팀");
+    }
+
+    // 회귀 테스트: 예전엔 analysisResult 텍스트 유무로만 완료를 판단해서, AI 분석이
+    // 실패한 학생도 "분석 실패"가 아니라 계속 "분석 중"(PENDING)으로만 보였다.
+    @Test
+    void reportsFailedStatusWhenAnalysisMarkedFailed() {
+        User user = surveyCompletedUser();
+        UserAnalysis analysis = UserAnalysis.builder()
+                .user(user)
+                .status(UserAnalysisStatus.FAILED)
+                .build();
+
+        AdminStudentDetailResponseDto response = AdminStudentDetailResponseDto.from(
+                user, null, analysis,
+                new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0),
+                new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+
+        assertThat(response.getAnalysisStatus()).isEqualTo("FAILED");
+    }
+
+    @Test
+    void reportsSuccessStatusWhenAnalysisSucceeded() {
+        User user = surveyCompletedUser();
+        UserAnalysis analysis = UserAnalysis.builder()
+                .user(user)
+                .analysisResult("실행력이 뛰어난 프론트엔드 성향입니다.")
+                .studentLevel(StudentLevel.UPPER)
+                .status(UserAnalysisStatus.SUCCEEDED)
+                .build();
+
+        AdminStudentDetailResponseDto response = AdminStudentDetailResponseDto.from(
+                user, null, analysis,
+                new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0),
+                new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+
+        assertThat(response.getAnalysisStatus()).isEqualTo("SUCCESS");
+    }
+
+    // status 필드가 생기기 전에 분석이 끝난 과거 row(레거시 데이터)도 여전히
+    // "분석 완료"로 보여야 한다.
+    @Test
+    void reportsSuccessStatusForLegacyAnalysisWithoutStatusField() {
+        User user = surveyCompletedUser();
+        UserAnalysis analysis = UserAnalysis.builder()
+                .user(user)
+                .analysisResult("문제 해결력이 강한 백엔드 성향입니다.")
+                .studentLevel(StudentLevel.UPPER)
+                .build();
+
+        AdminStudentDetailResponseDto response = AdminStudentDetailResponseDto.from(
+                user, null, analysis,
+                new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0),
+                new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+
+        assertThat(response.getAnalysisStatus()).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    void reportsPendingStatusWhenAnalysisNotStartedYet() {
+        User user = surveyCompletedUser();
+
+        AdminStudentDetailResponseDto response = AdminStudentDetailResponseDto.from(
+                user, null, null,
+                new UserDevelopmentScore(0.0, 0.0, 0.0, 0.0, 0.0),
+                new UserPersonalityScore(0.0, 0.0, 0.0, 0.0, 0.0)
+        );
+
+        assertThat(response.getAnalysisStatus()).isEqualTo("PENDING");
+    }
+
+    private User surveyCompletedUser() {
+        User user = User.builder()
+                .userId("stu2301")
+                .name("홍길동")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        ReflectionTestUtils.setField(user, "surveyCompleted", true);
+        return user;
     }
 }
