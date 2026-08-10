@@ -48,4 +48,15 @@ class MatchingJobTest {
 
         assertThat(job.getRegenerationPrompt()).isEqualTo("백엔드 역할을 강화해줘");
     }
+
+    // 회귀 테스트: AI가 네트워크 재시도 등으로 같은 batch_index를 다시 보내도
+    // completedBatches가 중복으로 올라가지 않아야 한다(멱등 처리).
+    @Test
+    void markBatchReceivedIsIdempotentPerBatchIndex() {
+        MatchingJob job = new MatchingJob("job-id", Grade.GRADE_2);
+
+        assertThat(job.markBatchReceived(0)).isTrue();
+        assertThat(job.markBatchReceived(0)).isFalse();
+        assertThat(job.markBatchReceived(1)).isTrue();
+    }
 }

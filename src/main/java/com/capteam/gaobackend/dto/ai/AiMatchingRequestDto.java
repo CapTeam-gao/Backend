@@ -19,20 +19,10 @@ public class AiMatchingRequestDto {
     @JsonProperty("regeneration_prompt")
     private String regenerationPrompt;
 
-    @JsonProperty("teamSize")
-    private Integer teamSize;
-
     public static AiMatchingRequestDto of(List<AiStudentPayloadDto> students, String regenerationPrompt) {
         return AiMatchingRequestDto.builder()
                 .students(students)
                 .regenerationPrompt(regenerationPrompt)
-                .build();
-    }
-
-    public static AiMatchingRequestDto hackathon(List<AiStudentPayloadDto> students, int teamSize) {
-        return AiMatchingRequestDto.builder()
-                .students(students)
-                .teamSize(teamSize)
                 .build();
     }
 }

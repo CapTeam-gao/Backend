@@ -70,6 +70,8 @@ class TeamMatchingVersionServiceTest {
         TeamRecommendationMember fromMember = member(fromRecommendation, student("stu2301", "김진용", true), StudentRole.BACKEND, true);
         TeamRecommendationMember toMovedMember = member(toRecommendationTwo, student("stu2301", "김진용", true), StudentRole.FULLSTACK, false);
 
+        when(teamMatchingVersionRepository.findById(1L)).thenReturn(Optional.of(fromVersion));
+        when(teamMatchingVersionRepository.findById(2L)).thenReturn(Optional.of(toVersion));
         when(teamRecommendationRepository.findByMatchingVersionIdOrderByIdAsc(1L)).thenReturn(List.of(fromRecommendation));
         when(teamRecommendationRepository.findByMatchingVersionIdOrderByIdAsc(2L)).thenReturn(List.of(toRecommendation, toRecommendationTwo));
         when(teamRecommendationMemberRepository.findByRecommendationId(10L)).thenReturn(List.of(fromMember));
@@ -83,6 +85,42 @@ class TeamMatchingVersionServiceTest {
         assertThat(response.getMovedStudents().get(0).getFromStudentRole()).isEqualTo(StudentRole.BACKEND);
         assertThat(response.getMovedStudents().get(0).getToStudentRole()).isEqualTo(StudentRole.FULLSTACK);
         assertThat(response.getChangedTeamIds()).containsExactlyInAnyOrder("10", "21");
+    }
+
+    // 회귀 테스트: recommendationId(추천안 row PK)는 버전마다 새로 발급되므로, 같은 "1팀"에
+    // 같은 역할로 남아있어도 row id만 비교하면 항상 "이동"으로 잘못 표시되던 버그가 있었다.
+    // fromRecommendation(10L)과 toRecommendation(20L)처럼 id는 다르지만 둘 다 각 버전의
+    // 첫 번째 추천안(=1팀)이고 역할도 동일하면 movedStudents에 나타나면 안 된다.
+    @Test
+    void getVersionDiffTreatsSameTeamPositionAsUnchangedEvenWhenRecommendationIdDiffers() {
+        TeamMatchingVersion fromVersion = version(1L, Grade.GRADE_2, 1, TeamMatchingVersionStatus.APPLIED);
+        TeamMatchingVersion toVersion = version(2L, Grade.GRADE_2, 2, TeamMatchingVersionStatus.DRAFT);
+        TeamRecommendation fromRecommendation = recommendation(10L, fromVersion, "old-strength");
+        TeamRecommendation toRecommendation = recommendation(20L, toVersion, "new-strength");
+
+        TeamRecommendationMember fromMember = member(fromRecommendation, student("stu2301", "김진용", true), StudentRole.BACKEND, true);
+        TeamRecommendationMember toMember = member(toRecommendation, student("stu2301", "김진용", true), StudentRole.BACKEND, true);
+
+        when(teamMatchingVersionRepository.findById(1L)).thenReturn(Optional.of(fromVersion));
+        when(teamMatchingVersionRepository.findById(2L)).thenReturn(Optional.of(toVersion));
+        when(teamRecommendationRepository.findByMatchingVersionIdOrderByIdAsc(1L)).thenReturn(List.of(fromRecommendation));
+        when(teamRecommendationRepository.findByMatchingVersionIdOrderByIdAsc(2L)).thenReturn(List.of(toRecommendation));
+        when(teamRecommendationMemberRepository.findByRecommendationId(10L)).thenReturn(List.of(fromMember));
+        when(teamRecommendationMemberRepository.findByRecommendationId(20L)).thenReturn(List.of(toMember));
+
+        TeamMatchingVersionDiffResponseDto response = teamMatchingVersionService.getVersionDiff(1L, 2L);
+
+        assertThat(response.getMovedStudents()).isEmpty();
+        assertThat(response.getChangedTeamIds()).isEmpty();
+    }
+
+    @Test
+    void getVersionDiffRejectsUnknownVersionId() {
+        when(teamMatchingVersionRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> teamMatchingVersionService.getVersionDiff(999L, 1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("팀 추천 버전을 찾을 수 없습니다.");
     }
 
     @Test

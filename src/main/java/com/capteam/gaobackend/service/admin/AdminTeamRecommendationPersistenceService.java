@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,6 +57,9 @@ public class AdminTeamRecommendationPersistenceService {
     }
 
     // 비동기 작업과 재생성 프롬프트를 버전 메타데이터에 남기기 위한 저장 진입점입니다.
+    // AI가 최종 결과를 보내는 지점이라, 같은 jobId로 배치 스트리밍이 이미 만들어둔 버전이
+    // 있으면 그 버전을 재사용하고 임시로 쌓인 배치 결과는 비운 뒤 최종 결과로 다시 채웁니다.
+    // (재사용/정리를 안 하면 같은 job에 대해 버전이 두 개 생기고 팀도 중복으로 남습니다.)
     @Transactional
     public List<TeamRecommendationResponseDto> replacePendingRecommendations(
             Grade grade,
@@ -64,14 +68,17 @@ public class AdminTeamRecommendationPersistenceService {
             String jobId,
             String regenerationPrompt
     ) {
-        // 같은 학년 안에서 단조 증가하는 번호를 써야 버전 목록이 사람이 읽기 쉽습니다.
-        TeamMatchingVersion matchingVersion = createDraftVersion(grade, jobId, regenerationPrompt);
+        TeamMatchingVersion matchingVersion = findVersionByJobId(jobId)
+                .orElseGet(() -> createDraftVersion(grade, jobId, regenerationPrompt));
 
-        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams);
+        clearRecommendations(matchingVersion);
+
+        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams, false);
     }
 
     // 배치 스트리밍 콜백으로 도착한 팀 일부를, 이미 진행 중인 job의 버전에 이어서 저장합니다.
     // (동일 jobId로 처음 오는 배치면 버전을 새로 만들고, 이후 배치는 같은 버전에 계속 추가합니다.)
+    // 같은 팀이 team_update → team_ready처럼 여러 번 도착할 수 있어 upsert(true)로 저장합니다.
     @Transactional
     public List<TeamRecommendationResponseDto> appendBatchTeams(
             Grade grade,
@@ -80,19 +87,41 @@ public class AdminTeamRecommendationPersistenceService {
             Map<String, String> nameToUserId,
             List<AiTeamSummaryResponseDto.TeamDto> targetTeams
     ) {
-        TeamMatchingVersion matchingVersion = teamMatchingVersionRepository.findByJobId(jobId)
+        TeamMatchingVersion matchingVersion = findVersionByJobId(jobId)
                 .orElseGet(() -> createDraftVersion(grade, jobId, regenerationPrompt));
 
-        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams);
+        return saveTeams(matchingVersion, grade, nameToUserId, targetTeams, true);
+    }
+
+    // jobId가 없는 호출(수동 구성 등)까지 findByJobId(null)로 잘못 매칭되지 않도록 null을 먼저 걸러냅니다.
+    private Optional<TeamMatchingVersion> findVersionByJobId(String jobId) {
+        if (jobId == null) {
+            return Optional.empty();
+        }
+        return teamMatchingVersionRepository.findByJobId(jobId);
+    }
+
+    // 버전에 이미 저장된 추천안(배치 스트리밍 임시 결과)을 전부 지웁니다.
+    // 최종 결과로 완전히 교체하는 시점(replacePendingRecommendations)에만 사용합니다.
+    private void clearRecommendations(TeamMatchingVersion matchingVersion) {
+        List<TeamRecommendation> existing = recommendationRepository.findByMatchingVersionId(matchingVersion.getId());
+        for (TeamRecommendation recommendation : existing) {
+            recommendationMemberRepository.deleteByRecommendationId(recommendation.getId());
+            recommendationReasonRepository.deleteByRecommendationId(recommendation.getId());
+        }
+        recommendationRepository.deleteAll(existing);
     }
 
     // AI 팀 목록을 주어진 버전 아래에 저장하는 공통 로직입니다. 전체 교체(replacePendingRecommendations)와
     // 배치 이어붙이기(appendBatchTeams) 모두 이 메서드로 실제 저장을 수행합니다.
+    // upsertByTeamName=true면 같은 버전 안에서 aiTeamName이 같은 기존 row를 찾아 갱신하고,
+    // false면(최종 저장 직전에 clearRecommendations로 이미 비워진 상태) 항상 새로 만듭니다.
     private List<TeamRecommendationResponseDto> saveTeams(
             TeamMatchingVersion matchingVersion,
             Grade grade,
             Map<String, String> nameToUserId,
-            List<AiTeamSummaryResponseDto.TeamDto> targetTeams
+            List<AiTeamSummaryResponseDto.TeamDto> targetTeams,
+            boolean upsertByTeamName
     ) {
         // AI 응답에는 userId 또는 이름이 올 수 있으므로 저장 전에 실학생 엔티티 맵을 고정합니다.
         Map<String, User> usersById = userRepository.findAllById(nameToUserId.values()).stream()
@@ -110,14 +139,11 @@ public class AdminTeamRecommendationPersistenceService {
                 continue;
             }
 
-            TeamRecommendation recommendation = recommendationRepository.save(
-                    TeamRecommendation.builder()
-                            .matchingVersion(matchingVersion)
-                            .grade(grade)
-                            .strengths(aiTeam.getStrengths())
-                            .weaknesses(aiTeam.getWeaknesses())
-                            .build()
-            );
+            TeamRecommendation recommendation = upsertByTeamName
+                    ? findExistingTeam(matchingVersion, aiTeam.getTeamName())
+                            .map(existing -> updateExistingTeam(existing, aiTeam))
+                            .orElseGet(() -> createNewTeam(matchingVersion, grade, aiTeam))
+                    : createNewTeam(matchingVersion, grade, aiTeam);
 
             String leaderName = aiTeam.getLeader();
             for (AiTeamSummaryResponseDto.MemberDto member : validMembers) {
@@ -139,6 +165,33 @@ public class AdminTeamRecommendationPersistenceService {
             result.add(TeamRecommendationResponseDto.from(recommendation));
         }
         return result;
+    }
+
+    private Optional<TeamRecommendation> findExistingTeam(TeamMatchingVersion matchingVersion, String aiTeamName) {
+        if (aiTeamName == null || aiTeamName.isBlank()) {
+            return Optional.empty();
+        }
+        return recommendationRepository.findByMatchingVersionIdAndAiTeamName(matchingVersion.getId(), aiTeamName);
+    }
+
+    // 기존 row를 재사용하는 갱신이므로, 이전에 저장된 멤버/이유 카드를 먼저 지우고 새로 채웁니다.
+    private TeamRecommendation updateExistingTeam(TeamRecommendation existing, AiTeamSummaryResponseDto.TeamDto aiTeam) {
+        existing.updateFromAi(aiTeam.getStrengths(), aiTeam.getWeaknesses());
+        recommendationMemberRepository.deleteByRecommendationId(existing.getId());
+        recommendationReasonRepository.deleteByRecommendationId(existing.getId());
+        return existing;
+    }
+
+    private TeamRecommendation createNewTeam(TeamMatchingVersion matchingVersion, Grade grade, AiTeamSummaryResponseDto.TeamDto aiTeam) {
+        return recommendationRepository.save(
+                TeamRecommendation.builder()
+                        .matchingVersion(matchingVersion)
+                        .grade(grade)
+                        .strengths(aiTeam.getStrengths())
+                        .weaknesses(aiTeam.getWeaknesses())
+                        .aiTeamName(aiTeam.getTeamName())
+                        .build()
+        );
     }
 
     // 관리자가 직접 구성한 팀도 동일한 버전 단위로 저장해 나중에 apply/discard할 수 있게 합니다.

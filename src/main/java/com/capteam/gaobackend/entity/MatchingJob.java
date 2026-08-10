@@ -2,15 +2,21 @@ package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.Grade;
 import com.capteam.gaobackend.enums.MatchingJobStatus;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -49,6 +55,13 @@ public class MatchingJob extends BaseTimeEntity {
 
     @Column(name = "completed_batches", nullable = false)
     private int completedBatches;
+
+    // AI가 네트워크 재시도 등으로 같은 batch_index를 다시 보내도 completedBatches가
+    // 중복으로 올라가지 않도록(멱등 처리) 이미 받은 batch_index를 기억해둡니다.
+    @ElementCollection
+    @CollectionTable(name = "matching_job_batch_indices", joinColumns = @JoinColumn(name = "matching_job_id"))
+    @Column(name = "batch_index")
+    private Set<Integer> receivedBatchIndices = new HashSet<>();
 
     public MatchingJob(String id, Grade grade) {
         this(id, grade, null, null);
@@ -104,6 +117,12 @@ public class MatchingJob extends BaseTimeEntity {
 
     public void incrementCompletedBatches() {
         this.completedBatches++;
+    }
+
+    // 처음 보는 batch_index면 true를 반환하며 기억해두고, 이미 받은 적 있으면 false를
+    // 반환합니다. 호출부는 true일 때만 incrementCompletedBatches()를 호출해야 합니다.
+    public boolean markBatchReceived(int batchIndex) {
+        return receivedBatchIndices.add(batchIndex);
     }
 
     public boolean cancel() {

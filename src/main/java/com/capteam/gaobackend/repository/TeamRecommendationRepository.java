@@ -27,4 +27,8 @@ public interface TeamRecommendationRepository extends JpaRepository<TeamRecommen
 
     // 단건 추천안이 어느 버전에 속했는지 확인할 때 사용합니다.
     Optional<TeamRecommendation> findFirstByMatchingVersionId(Long matchingVersionId);
+
+    // 배치 스트리밍 중 같은 팀(team_update → team_ready)이 다시 도착했을 때 기존 row를
+    // 찾아 갱신(upsert)하기 위해 사용합니다.
+    Optional<TeamRecommendation> findByMatchingVersionIdAndAiTeamName(Long matchingVersionId, String aiTeamName);
 }

@@ -33,8 +33,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Component
 public class AiClient {
-    private static final int HACKATHON_TEAM_SIZE = 5;
-
 
     private final RestClient restClient;
     private final HttpClient cancellableHttpClient;
@@ -110,9 +108,9 @@ public class AiClient {
     ) {
         try {
             var request = restClient.post()
-                    .uri(matchingPath(grade, regenerationPrompt))
+                    .uri(matchingPath(regenerationPrompt))
                     .contentType(org.springframework.http.MediaType.APPLICATION_JSON);
-            request.body(buildMatchingRequestBody(students, grade, regenerationPrompt));
+            request.body(buildMatchingRequestBody(students, regenerationPrompt));
             AiTeamSummaryResponseDto response = request.retrieve().body(AiTeamSummaryResponseDto.class);
             if (response == null) throw new AiServerException("AI 팀 매칭 실행에 실패했습니다. AI 서버 응답이 비어 있습니다.");
             return response;
@@ -144,12 +142,12 @@ public class AiClient {
         }
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(aiServerUri(matchingPath(grade, regenerationPrompt)))
+                .uri(aiServerUri(matchingPath(regenerationPrompt)))
                 .timeout(Duration.ofMinutes(10))
                 .header("Content-Type", "application/json")
                 // AI 서버에서도 같은 작업 ID로 LLM 실행 상태를 관리하도록 전달합니다.
                 .header("X-Matching-Job-Id", jobId)
-                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, grade, regenerationPrompt)))
+                .POST(HttpRequest.BodyPublishers.ofString(writeJson(students, regenerationPrompt)))
                 .build();
 
         CompletableFuture<HttpResponse<String>> responseFuture = cancellableHttpClient.sendAsync(
@@ -202,19 +200,18 @@ public class AiClient {
                 .exceptionally(ignored -> null);
     }
 
-    private String writeJson(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
+    private String writeJson(List<AiStudentPayloadDto> students, String regenerationPrompt) {
         try {
-            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, grade, regenerationPrompt));
+            return objectMapper.writeValueAsString(buildMatchingRequestBody(students, regenerationPrompt));
         } catch (JsonProcessingException e) {
             throw new AiServerException("AI 팀 매칭 요청 데이터를 생성하지 못했습니다.", e);
         }
     }
 
-    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, Grade grade, String regenerationPrompt) {
+    // 해커톤 전용 매칭은 폐기되어 AI 서버가 /matching/hackathon/* URL도 캡스톤 로직으로
+    // 처리하므로, 학년과 무관하게 항상 캡스톤 요청 형식을 사용합니다.
+    private Object buildMatchingRequestBody(List<AiStudentPayloadDto> students, String regenerationPrompt) {
         List<AiStudentPayloadDto> safeStudents = students == null ? List.of() : students;
-        if (grade == Grade.GRADE_2 && (regenerationPrompt == null || regenerationPrompt.isBlank())) {
-            return AiMatchingRequestDto.hackathon(safeStudents, HACKATHON_TEAM_SIZE);
-        }
         if (regenerationPrompt == null || regenerationPrompt.isBlank()) {
             return safeStudents;
         }
@@ -237,13 +234,13 @@ public class AiClient {
         return URI.create(aiServerBaseUrl + normalizedPath);
     }
 
-    private String matchingPath(Grade grade, String regenerationPrompt) {
-        if (grade != Grade.GRADE_2) {
-            return "/matching/run";
-        }
+    // 해커톤 전용 엔드포인트(/matching/hackathon/*)는 AI 서버에서 폐기되어, 학년과
+    // 무관하게 항상 캡스톤 엔드포인트(/matching/run, /matching/regenerate)를 호출합니다.
+    // 배치 완료 콜백(POST /internal/matching/jobs/{jobId}/batch-complete)도 이 경로 기준으로만 옵니다.
+    private String matchingPath(String regenerationPrompt) {
         return regenerationPrompt == null || regenerationPrompt.isBlank()
-                ? "/matching/hackathon/run"
-                : "/matching/hackathon/regenerate";
+                ? "/matching/run"
+                : "/matching/regenerate";
     }
 
     private String normalizeBaseUrl(String baseUrl) {
