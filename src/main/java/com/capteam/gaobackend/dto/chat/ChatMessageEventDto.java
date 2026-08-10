@@ -26,4 +26,11 @@ public class ChatMessageEventDto {
                 .channelId(channelId)
                 .build();
     }
+
+    public static ChatMessageEventDto readStatusUpdated(Long channelId) {
+        return ChatMessageEventDto.builder()
+                .type("READ_STATUS_UPDATED")
+                .channelId(channelId)
+                .build();
+    }
 }

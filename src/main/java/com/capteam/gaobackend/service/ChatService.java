@@ -517,6 +517,7 @@ public class ChatService {
 
         saveReadStatus(channel, user);
         publishUserUnreadEventAfterCommit("CHANNEL_READ", channel, userId);
+        publishMessageEventAfterCommit(channelId, ChatMessageEventDto.readStatusUpdated(channelId));
     }
 
     // 관리자가 특정 채널의 학생 메시지를 읽음 처리하는 기능입니다.
