@@ -104,6 +104,13 @@ public class AdminTeamRecommendationController {
         return ApiResponse.ok(teamMatchingVersionService.getVersionDetails(versionId));
     }
 
+    @GetMapping("/versions/grade/{grade}/latest")
+    public ResponseEntity<ApiResponse<TeamMatchingVersionResponseDto>> getLatestVersion(
+            @PathVariable Grade grade
+    ) {
+        return ApiResponse.ok(teamMatchingVersionService.getLatestVersion(grade));
+    }
+
     // 두 버전 사이에서 이동 학생과 역할 변화를 계산해 diff 화면 데이터로 내려주는 기능입니다.
     @GetMapping("/versions/diff")
     public ResponseEntity<ApiResponse<TeamMatchingVersionDiffResponseDto>> getVersionDiff(

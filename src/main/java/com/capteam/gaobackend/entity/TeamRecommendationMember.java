@@ -7,7 +7,13 @@ import lombok.*;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "team_recommendation_members")
+@Table(
+        name = "team_recommendation_members",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_team_recommendation_member_user",
+                columnNames = {"recommendation_id", "user_id"}
+        )
+)
 public class TeamRecommendationMember extends BaseTimeEntity {
 
     @Id

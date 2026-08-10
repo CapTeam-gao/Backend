@@ -34,7 +34,7 @@ public class TeamMatchingVersion extends BaseTimeEntity {
     private Integer versionNumber;
 
     // 비동기 작업과 버전 저장 결과를 연결하기 위해 jobId를 함께 남깁니다.
-    @Column(name = "job_id", length = 36)
+    @Column(name = "job_id", length = 36, unique = true)
     private String jobId;
 
     // 실제 운영 반영 전 임시본과 적용본을 구분하기 위해 버전 상태를 저장합니다.
