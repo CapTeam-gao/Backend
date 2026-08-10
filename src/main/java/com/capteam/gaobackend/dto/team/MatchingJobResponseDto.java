@@ -24,6 +24,7 @@ public class MatchingJobResponseDto {
     private String origin;
     private int totalBatches;
     private int completedBatches;
+    private int progressStep;
     private Integer progressPercent;
 
     // 스트리밍 중 지금까지 완료된 팀 목록입니다(MatchingJobService가 versionId로 조회해서 채워줌).
@@ -51,6 +52,7 @@ public class MatchingJobResponseDto {
                 .origin(resolveOrigin(job))
                 .totalBatches(job.getTotalBatches())
                 .completedBatches(job.getCompletedBatches())
+                .progressStep(job.getProgressStep())
                 .progressPercent(resolveProgressPercent(job))
                 .createdAt(job.getCreatedAt())
                 .updatedAt(job.getUpdatedAt())

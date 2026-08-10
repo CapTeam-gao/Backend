@@ -96,6 +96,30 @@ class AdminTeamRecommendationPersistenceServiceTest {
     }
 
     @Test
+    void doesNotStoreReasonCardWhenAiReasonIsEmpty() {
+        User user = user("stu2301", "홍길동");
+        AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
+        team.setMembers(List.of(member("홍길동", "backend", "구현 강점")));
+        team.setLeader("홍길동");
+        team.setMatchingReason("   ");
+
+        when(userRepository.findAllById(any())).thenReturn(List.of(user));
+        when(teamMatchingVersionRepository.findFirstByGradeOrderByVersionNumberDesc(any())).thenReturn(Optional.empty());
+        when(teamMatchingVersionRepository.save(any(TeamMatchingVersion.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(recommendationRepository.save(any(TeamRecommendation.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        persistenceService.replacePendingRecommendations(
+                Grade.GRADE_2,
+                Map.of("홍길동", "stu2301"),
+                List.of(team)
+        );
+
+        verify(recommendationReasonRepository, never()).save(any());
+    }
+
+    @Test
     void storesMemberByUserIdWhenAiNameDoesNotMatchBackendName() {
         User user = User.builder()
                 .userId("stu2301")
