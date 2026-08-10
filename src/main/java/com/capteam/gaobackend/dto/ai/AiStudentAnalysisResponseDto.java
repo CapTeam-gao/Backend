@@ -24,4 +24,8 @@ public class AiStudentAnalysisResponseDto {
     @JsonProperty("student_level")
     @JsonAlias({"studentLevel", "skill_level", "skillLevel", "level"})
     private String studentLevel;
+
+    @JsonProperty("analysis_status")
+    @JsonAlias({"analysisStatus", "status"})
+    private String analysisStatus;
 }

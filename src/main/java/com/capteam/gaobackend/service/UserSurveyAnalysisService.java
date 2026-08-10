@@ -12,15 +12,12 @@ import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserSurveyAnalysisService {
@@ -54,41 +51,32 @@ public class UserSurveyAnalysisService {
         );
     }
 
-    // 여기서 실패해도 예외를 다시 던지지 않고 status를 FAILED로 남기고 끝냅니다. 예외를
-    // 다시 던지면 이 메서드의 트랜잭션(REQUIRES_NEW)이 롤백되면서 방금 저장한 FAILED
-    // 상태까지 함께 사라져, 관리자 화면에 "분석 중"만 계속 보이던 원래 버그가 재발합니다.
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    // AI 분석이 성공한 뒤 호출한 설문 저장 트랜잭션에 참여합니다. 분석이 실패하면
+    // 예외를 그대로 전파해 설문과 분석 결과가 함께 롤백되도록 합니다.
+    @Transactional
     public void analyzeSubmittedSurvey(User user) {
-        try {
-            List<AiStudentAnalysisResponseDto> results =
-                    aiClient.runAnalysisForResult(List.of(AiStudentPayloadDto.from(user)));
-            AiStudentAnalysisResponseDto result = findUserAnalysisResult(user, results);
-            if (result == null || result.getAnalysisResult() == null || result.getAnalysisResult().isBlank()) {
-                throw new IllegalStateException("AI 학생 분석 응답에서 사용자 분석 결과를 찾지 못했습니다. userId=" + user.getUserId());
-            }
-
-            StudentLevel studentLevel = parseStudentLevel(result.getStudentLevel());
-            userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
-                    analysis -> analysis.updateAnalysisResult(result.getAnalysisResult(), studentLevel),
-                    () -> userAnalysisRepository.save(UserAnalysis.builder()
-                            .user(user)
-                            .analysisResult(result.getAnalysisResult())
-                            .studentLevel(studentLevel)
-                            .status(UserAnalysisStatus.SUCCEEDED)
-                            .build())
-            );
-        } catch (AiServerException | IllegalStateException e) {
-            log.error("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
-            markAnalysisFailed(user);
+        List<AiStudentAnalysisResponseDto> results =
+                aiClient.runAnalysisForResult(List.of(AiStudentPayloadDto.from(user)));
+        AiStudentAnalysisResponseDto result = findUserAnalysisResult(user, results);
+        if (result == null
+                || "FAILED".equalsIgnoreCase(result.getAnalysisStatus())
+                || result.getAnalysisResult() == null
+                || result.getAnalysisResult().isBlank()) {
+            throw new AiServerException("AI 학생 분석 결과가 올바르지 않습니다. userId=" + user.getUserId());
         }
-    }
 
-    private void markAnalysisFailed(User user) {
+        StudentLevel studentLevel = parseStudentLevel(result.getStudentLevel());
+        if (studentLevel == null) {
+            throw new AiServerException("AI 학생 분석 결과에 실력 등급이 없습니다. userId=" + user.getUserId());
+        }
+
         userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
-                UserAnalysis::markAnalysisFailed,
+                analysis -> analysis.updateAnalysisResult(result.getAnalysisResult(), studentLevel),
                 () -> userAnalysisRepository.save(UserAnalysis.builder()
                         .user(user)
-                        .status(UserAnalysisStatus.FAILED)
+                        .analysisResult(result.getAnalysisResult())
+                        .studentLevel(studentLevel)
+                        .status(UserAnalysisStatus.SUCCEEDED)
                         .build())
         );
     }

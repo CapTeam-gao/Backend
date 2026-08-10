@@ -47,7 +47,7 @@ class MatchingBatchCallbackServiceTest {
     void sameBatchIndexArrivingTwiceOnlyIncrementsCompletedBatchesOnce() {
         MatchingJob job = new MatchingJob("job-1", Grade.GRADE_2);
         job.start();
-        when(matchingJobRepository.findById("job-1")).thenReturn(Optional.of(job));
+        when(matchingJobRepository.findWithLockById("job-1")).thenReturn(Optional.of(job));
         when(matchingPreparationService.prepare(Grade.GRADE_2))
                 .thenReturn(new AdminTeamMatchingPreparationService.PreparedMatching(Map.of(), List.of()));
 
@@ -60,7 +60,7 @@ class MatchingBatchCallbackServiceTest {
 
         assertThat(job.getCompletedBatches()).isEqualTo(1);
         assertThat(job.getTotalBatches()).isEqualTo(3);
-        verify(recommendationPersistenceService, times(2))
+        verify(recommendationPersistenceService, times(1))
                 .appendBatchTeams(any(), any(), any(), any(), any());
     }
 
@@ -68,7 +68,7 @@ class MatchingBatchCallbackServiceTest {
     void distinctBatchIndexesEachIncrementCompletedBatches() {
         MatchingJob job = new MatchingJob("job-1", Grade.GRADE_2);
         job.start();
-        when(matchingJobRepository.findById("job-1")).thenReturn(Optional.of(job));
+        when(matchingJobRepository.findWithLockById("job-1")).thenReturn(Optional.of(job));
         when(matchingPreparationService.prepare(Grade.GRADE_2))
                 .thenReturn(new AdminTeamMatchingPreparationService.PreparedMatching(Map.of(), List.of()));
 
@@ -88,7 +88,7 @@ class MatchingBatchCallbackServiceTest {
         MatchingJob job = new MatchingJob("job-1", Grade.GRADE_2);
         job.start();
         job.cancel();
-        when(matchingJobRepository.findById("job-1")).thenReturn(Optional.of(job));
+        when(matchingJobRepository.findWithLockById("job-1")).thenReturn(Optional.of(job));
 
         AiTeamSummaryResponseDto.TeamDto team = new AiTeamSummaryResponseDto.TeamDto();
         team.setTeamName("1팀");
@@ -103,7 +103,7 @@ class MatchingBatchCallbackServiceTest {
 
     @Test
     void unknownJobIdThrowsClearException() {
-        when(matchingJobRepository.findById("missing")).thenReturn(Optional.empty());
+        when(matchingJobRepository.findWithLockById("missing")).thenReturn(Optional.empty());
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
                         () -> callbackService.recordBatch("missing", 0, 1, List.of()))

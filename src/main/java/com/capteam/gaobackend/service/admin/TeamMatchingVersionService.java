@@ -79,6 +79,13 @@ public class TeamMatchingVersionService {
                 .toList();
     }
 
+    public TeamMatchingVersionResponseDto getLatestVersion(Grade grade) {
+        TeamMatchingVersion version = teamMatchingVersionRepository
+                .findFirstByGradeOrderByVersionNumberDesc(grade)
+                .orElseThrow(() -> new IllegalArgumentException("팀 추천 버전을 찾을 수 없습니다."));
+        return TeamMatchingVersionResponseDto.from(version);
+    }
+
     // 두 버전 사이에서 실제로 이동했거나 역할이 바뀐 학생만 골라 diff 응답을 구성합니다.
     public TeamMatchingVersionDiffResponseDto getVersionDiff(Long fromVersionId, Long toVersionId) {
         // 존재하지 않는 버전 id가 들어오면 빈 diff를 조용히 돌려주지 말고 바로 에러로 알립니다.
@@ -151,6 +158,8 @@ public class TeamMatchingVersionService {
         if (recommendations.isEmpty()) {
             throw new IllegalStateException("적용할 추천안이 없는 버전입니다.");
         }
+
+        validateVersionMembers(recommendations);
 
         // 이미 확정된 학년 팀이 있다면 히스토리 손실 없이 교체 가능한지 먼저 검사합니다.
         List<Team> existingTeams = teamRepository.findByGrade(targetVersion.getGrade());
@@ -350,6 +359,26 @@ public class TeamMatchingVersionService {
             }
             if (!assignedUserIds.add(user.getUserId())) {
                 throw new IllegalStateException("같은 학생이 추천안에 중복 포함되어 있습니다: " + user.getUserId());
+            }
+        }
+    }
+
+    // 버전 전체에서 한 학생이 여러 추천 팀에 들어간 경우 실제 팀 생성 전에 차단합니다.
+    private void validateVersionMembers(List<TeamRecommendation> recommendations) {
+        Set<String> assignedUserIds = new LinkedHashSet<>();
+
+        for (TeamRecommendation recommendation : recommendations) {
+            List<TeamRecommendationMember> members =
+                    teamRecommendationMemberRepository.findByRecommendationId(recommendation.getId());
+            validateRecommendedMembers(members);
+
+            for (TeamRecommendationMember member : members) {
+                String userId = member.getUser().getUserId();
+                if (!assignedUserIds.add(userId)) {
+                    throw new IllegalStateException(
+                            "같은 학생이 여러 추천 팀에 포함되어 있습니다: " + userId
+                    );
+                }
             }
         }
     }

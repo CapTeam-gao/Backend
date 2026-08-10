@@ -31,12 +31,19 @@ public class MatchingBatchCallbackService {
 
     @Transactional
     public void recordBatch(String jobId, int batchIndex, Integer totalBatches, List<AiTeamSummaryResponseDto.TeamDto> teams) {
-        MatchingJob job = matchingJobRepository.findById(jobId)
+        MatchingJob job = matchingJobRepository.findWithLockById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("팀 매칭 작업을 찾을 수 없습니다: " + jobId));
 
         if (!ACCEPTING_BATCHES_STATUSES.contains(job.getStatus())) {
             // 취소되었거나 이미 끝난 작업으로 뒤늦게 도착한 배치는 저장하지 않습니다.
             log.warn("배치 콜백 무시. jobId={}, batchIndex={}, status={}", jobId, batchIndex, job.getStatus());
+            return;
+        }
+
+        // 같은 배치 재전송은 저장 작업 자체를 다시 실행하지 않습니다.
+        // 작업 row를 비관적 잠금으로 읽었기 때문에 동시에 들어온 콜백도 순서대로 검사됩니다.
+        if (job.getReceivedBatchIndices().contains(batchIndex)) {
+            log.info("이미 저장된 배치 콜백 무시. jobId={}, batchIndex={}", jobId, batchIndex);
             return;
         }
 

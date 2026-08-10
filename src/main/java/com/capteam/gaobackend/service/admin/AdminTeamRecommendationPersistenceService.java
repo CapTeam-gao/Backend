@@ -137,6 +137,8 @@ public class AdminTeamRecommendationPersistenceService {
         Map<String, User> usersById = userRepository.findAllById(nameToUserId.values()).stream()
                 .collect(Collectors.toMap(User::getUserId, user -> user));
 
+        validateTargetTeams(targetTeams, nameToUserId);
+
         // 저장 결과를 바로 응답으로 돌려주기 위해 생성한 추천안 목록을 모읍니다.
         List<TeamRecommendationResponseDto> result = new ArrayList<>();
         for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
@@ -185,6 +187,25 @@ public class AdminTeamRecommendationPersistenceService {
             result.add(TeamRecommendationResponseDto.from(recommendation));
         }
         return result;
+    }
+
+    // 한 번의 AI 배치 안에서 같은 학생이 여러 팀에 들어간 결과는 저장하지 않습니다.
+    // 배치가 다음 단계에서 같은 팀을 갱신하는 경우는 기존 팀을 upsert하므로 허용합니다.
+    private void validateTargetTeams(
+            List<AiTeamSummaryResponseDto.TeamDto> targetTeams,
+            Map<String, String> nameToUserId
+    ) {
+        Set<String> assignedUserIds = new java.util.HashSet<>();
+        for (AiTeamSummaryResponseDto.TeamDto aiTeam : targetTeams) {
+            for (AiTeamSummaryResponseDto.MemberDto member : aiTeam.getMembers()) {
+                String userId = AiTeamMemberUserResolver.resolveUserId(member, nameToUserId);
+                if (userId != null && !assignedUserIds.add(userId)) {
+                    throw new IllegalStateException(
+                            "AI 추천 결과에 같은 학생이 여러 팀으로 배정되었습니다: " + userId
+                    );
+                }
+            }
+        }
     }
 
     // 이번 배치에 새로 들어온 학생과 한 명이라도 겹치는 기존 팀을 통째로 지웁니다.
