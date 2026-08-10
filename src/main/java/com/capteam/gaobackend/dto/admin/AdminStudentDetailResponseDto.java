@@ -6,6 +6,7 @@ import com.capteam.gaobackend.enums.LeaderRole;
 import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.StudentRole;
+import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -157,13 +158,32 @@ public class AdminStudentDetailResponseDto {
         };
     }
 
+    // 버그 이력: 예전엔 analysisResult 텍스트가 있는지로만 완료 여부를 판단해서, AI 호출이
+    // 실패한 학생은 "분석 실패"가 아니라 계속 "분석 중"으로만 보였다(UserAnalysis.status가
+    // 있었는데도 안 쓰고 있었음). 이제 status를 우선 확인하고, status가 없는 과거 row는
+    // analysisResult/studentLevel 존재 여부로 폴백 판단한다.
     private static String resolveAnalysisStatus(User user, UserAnalysis userAnalysis) {
         if (!user.isSurveyCompleted()) {
             return "PENDING";
         }
 
+        if (userAnalysis == null) {
+            return "PENDING";
+        }
+
+        if (userAnalysis.getStatus() == UserAnalysisStatus.FAILED) {
+            return "FAILED";
+        }
+
+        if (userAnalysis.getStatus() == UserAnalysisStatus.SUCCEEDED) {
+            return "SUCCESS";
+        }
+
+        // status가 없는 레거시 row(이 필드가 생기기 전에 분석이 끝난 학생)를 위한 폴백입니다.
         String analysisResult = resolveAnalysisResult(userAnalysis);
-        if (analysisResult != null && !analysisResult.isBlank()) {
+        boolean hasLegacyResult = (analysisResult != null && !analysisResult.isBlank())
+                || userAnalysis.getStudentLevel() != null;
+        if (hasLegacyResult) {
             return "SUCCESS";
         }
 

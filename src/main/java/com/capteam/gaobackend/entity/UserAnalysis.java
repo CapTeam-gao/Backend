@@ -2,6 +2,7 @@ package com.capteam.gaobackend.entity;
 
 import com.capteam.gaobackend.enums.StudentLevel;
 import com.capteam.gaobackend.enums.ResponseReliability;
+import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.domain.Persistable;
@@ -45,6 +46,13 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
     // 개발 성향 문항 불일치 수를 저장하는 필드입니다.
     private Integer developmentInconsistentCount;
 
+    // AI 설명/실력 등급 분석의 성공·실패 여부를 저장하는 필드입니다. null(레거시 row)이거나
+    // SUCCEEDED가 아니면 관리자 화면은 "분석 중"으로 보여줍니다 — FAILED가 아니라 계속
+    // "분석 중"으로만 보이던 문제(AI 호출 실패가 조용히 삼켜져 상태가 갱신되지 않던 버그)를
+    // 고치기 위해 추가한 필드입니다.
+    @Enumerated(EnumType.STRING)
+    private UserAnalysisStatus status;
+
     @Transient
     // 직접 할당하는 userId 기본키 엔티티를 새 엔티티로 persist할지 판단하는 필드입니다.
     private boolean isNew = true;
@@ -58,7 +66,8 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
             ResponseReliability responseReliability,
             Integer inconsistentAnswers,
             Integer personalityInconsistentCount,
-            Integer developmentInconsistentCount
+            Integer developmentInconsistentCount,
+            UserAnalysisStatus status
     ) {
         if (user == null || user.getUserId() == null) {
             throw new IllegalArgumentException("분석 대상 사용자가 필요합니다.");
@@ -71,12 +80,20 @@ public class UserAnalysis extends BaseTimeEntity implements Persistable<String> 
         this.inconsistentAnswers = inconsistentAnswers;
         this.personalityInconsistentCount = personalityInconsistentCount;
         this.developmentInconsistentCount = developmentInconsistentCount;
+        this.status = status;
     }
 
     // 기존 분석 결과와 실력 등급을 최신 값으로 갱신하는 기능입니다.
     public void updateAnalysisResult(String analysisResult, StudentLevel studentLevel) {
         this.analysisResult = analysisResult;
         this.studentLevel = studentLevel;
+        this.status = UserAnalysisStatus.SUCCEEDED;
+    }
+
+    // AI 분석 호출이 실패했을 때, 관리자 화면에 "분석 중"이 아니라 "분석 실패"로
+    // 보이도록 상태만 남깁니다(기존 analysisResult/studentLevel은 건드리지 않음).
+    public void markAnalysisFailed() {
+        this.status = UserAnalysisStatus.FAILED;
     }
 
     // 설문 응답 신뢰도와 불일치 수를 최신 값으로 갱신하는 기능입니다.

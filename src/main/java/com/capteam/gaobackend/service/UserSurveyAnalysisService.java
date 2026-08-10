@@ -8,6 +8,7 @@ import com.capteam.gaobackend.entity.User;
 import com.capteam.gaobackend.entity.UserAnalysis;
 import com.capteam.gaobackend.enums.ResponseReliability;
 import com.capteam.gaobackend.enums.StudentLevel;
+import com.capteam.gaobackend.enums.UserAnalysisStatus;
 import com.capteam.gaobackend.exception.AiServerException;
 import com.capteam.gaobackend.repository.UserAnalysisRepository;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +54,9 @@ public class UserSurveyAnalysisService {
         );
     }
 
+    // 여기서 실패해도 예외를 다시 던지지 않고 status를 FAILED로 남기고 끝냅니다. 예외를
+    // 다시 던지면 이 메서드의 트랜잭션(REQUIRES_NEW)이 롤백되면서 방금 저장한 FAILED
+    // 상태까지 함께 사라져, 관리자 화면에 "분석 중"만 계속 보이던 원래 버그가 재발합니다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void analyzeSubmittedSurvey(User user) {
         try {
@@ -70,12 +74,23 @@ public class UserSurveyAnalysisService {
                             .user(user)
                             .analysisResult(result.getAnalysisResult())
                             .studentLevel(studentLevel)
+                            .status(UserAnalysisStatus.SUCCEEDED)
                             .build())
             );
-        } catch (AiServerException e) {
+        } catch (AiServerException | IllegalStateException e) {
             log.error("설문 저장 후 AI 학생 분석 생성에 실패했습니다. userId={}", user.getUserId(), e);
-            throw new IllegalStateException("AI 학생 분석 생성에 실패했습니다.", e);
+            markAnalysisFailed(user);
         }
+    }
+
+    private void markAnalysisFailed(User user) {
+        userAnalysisRepository.findById(user.getUserId()).ifPresentOrElse(
+                UserAnalysis::markAnalysisFailed,
+                () -> userAnalysisRepository.save(UserAnalysis.builder()
+                        .user(user)
+                        .status(UserAnalysisStatus.FAILED)
+                        .build())
+        );
     }
 
     private AiStudentAnalysisResponseDto findUserAnalysisResult(
