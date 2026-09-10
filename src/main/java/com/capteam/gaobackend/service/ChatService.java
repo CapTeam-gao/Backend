@@ -334,7 +334,7 @@ public class ChatService {
         return response;
     }
 
-    // 새 메시지를 보낸 사람을 제외한 팀원 전원에게, 채팅 화면을 보고 있으면 토스트를, 아니면 FCM 푸시를 보내는 기능입니다.
+    // 새 메시지를 보낸 사람을 제외한 팀원 전원에게, 실시간 토스트와(앱을 안 보고 있으면) FCM 푸시를 보내는 기능입니다.
     private void notifyTeamMembersOfNewMessage(ChatChannel channel, User sender, ChatMessage message) {
         String teamName = resolveDisplayTeamName(channel.getChatRoom());
         String preview = message.getMessage() != null ? message.getMessage() : "파일을 보냈습니다.";
@@ -346,7 +346,7 @@ public class ChatService {
                 .forEach(recipient -> notifyChatMessage(recipient, channel, message, teamName, sender.getName(), preview));
     }
 
-    // 한 명의 수신자에게 온라인이면 토스트, 오프라인이면 FCM 푸시를 보내는 기능입니다.
+    // 한 명의 수신자에게 실시간 토스트와, 앱을 안 보고 있으면 FCM 푸시까지 보내는 기능입니다.
     private void notifyChatMessage(
             User recipient,
             ChatChannel channel,
@@ -355,25 +355,31 @@ public class ChatService {
             String senderName,
             String preview
     ) {
-        if (chatPresenceService.isOnline(recipient.getUserId())) {
-            ChatNotificationEventDto event = ChatNotificationEventDto.of(
-                    channel.getId(),
-                    channel.getChannelName(),
-                    teamName,
-                    senderName,
-                    preview,
-                    message.getCreatedAt()
-            );
+        ChatNotificationEventDto event = ChatNotificationEventDto.of(
+                channel.getId(),
+                channel.getChannelName(),
+                teamName,
+                senderName,
+                preview,
+                message.getCreatedAt()
+        );
 
-            publishAfterCommit(() -> messagingTemplate.convertAndSendToUser(
-                    recipient.getUserId(),
-                    USER_CHAT_NOTIFICATION_DESTINATION,
-                    event
-            ));
-            return;
+        // 실시간 토스트는 WebSocket에 붙어 있기만 하면 항상 보낸다.
+        // isOnline은 "채팅 채널(/sub/chat/{id})을 구독 중"이라는 뜻이라, 이 조건으로 걸러버리면
+        // 채팅 화면 밖(대시보드 등)에 있는 팀원은 프론트가 토스트를 띄우려 해도 이벤트 자체가 안 왔다.
+        // "지금 이 채널을 보고 있어서 토스트가 필요 없는지"는 프론트가 판단한다.
+        publishAfterCommit(() -> messagingTemplate.convertAndSendToUser(
+                recipient.getUserId(),
+                USER_CHAT_NOTIFICATION_DESTINATION,
+                event
+        ));
+
+        // FCM 푸시는 앱이 닫혀 있어도 알림을 받게 하기 위한 것이므로,
+        // 채팅 채널을 보고 있는 사람에게는 중복이라 보내지 않는다.
+        if (!chatPresenceService.isOnline(recipient.getUserId())) {
+            publishAfterCommit(
+                    () -> sendChatPushNotification(recipient, channel, message, teamName, senderName, preview));
         }
-
-        publishAfterCommit(() -> sendChatPushNotification(recipient, channel, message, teamName, senderName, preview));
     }
 
     // 오프라인 수신자에게 FCM 푸시를 보내고 발송 이력을 남기는 기능입니다.
