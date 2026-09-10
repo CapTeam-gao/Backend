@@ -260,6 +260,43 @@ class ChatServiceEventTest {
     }
 
     @Test
+    void sendsRealtimeNotificationEventToTeammateNotViewingChatChannel() {
+        User recipient = User.builder()
+                .userId("stu2302")
+                .name("위재성")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        TeamUser recipientTeamUser = TeamUser.builder()
+                .team(team)
+                .user(recipient)
+                .studentRole(StudentRole.BACKEND)
+                .leaderRole(LeaderRole.MEMBER)
+                .build();
+        ChatMessageRequestDto request = new ChatMessageRequestDto();
+        ReflectionTestUtils.setField(request, "message", "새 메시지");
+
+        when(chatAccessService.getUser("stu2301")).thenReturn(user);
+        when(chatAccessService.getAccessibleChannel(10L, "stu2301")).thenReturn(channel);
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "id", 2L);
+            return savedMessage;
+        });
+        when(teamUserRepository.findByTeamId(1L)).thenReturn(List.of(recipientTeamUser));
+        // 채팅 채널을 구독하지 않은(=채팅 화면 밖) 팀원.
+        when(chatPresenceService.isOnline("stu2302")).thenReturn(false);
+
+        chatService.saveMessage(10L, "stu2301", request);
+
+        // isOnline 여부와 상관없이 실시간 알림 이벤트는 항상 발행되어야 한다.
+        verify(messagingTemplate).convertAndSendToUser(
+                eq("stu2302"),
+                eq("/queue/chat/notifications"),
+                any()
+        );
+    }
+
+    @Test
     void persistsFailedPushLogWhenOfflineTeammateHasNoFcmToken() {
         User recipient = User.builder()
                 .userId("stu2302")
