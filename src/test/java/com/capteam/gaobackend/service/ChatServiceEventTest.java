@@ -6,6 +6,7 @@ import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatAdminUnreadEventDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageEventDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageRequestDto;
+import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageUpdateRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatUnreadSummaryResponseDto;
@@ -294,6 +295,43 @@ class ChatServiceEventTest {
                 eq("/queue/chat/notifications"),
                 any()
         );
+    }
+
+    @Test
+    void commitSideEffectFailureDoesNotBreakMessageSave() {
+        User recipient = User.builder()
+                .userId("stu2302")
+                .name("위재성")
+                .accountRole(AccountRole.STUDENT)
+                .build();
+        TeamUser recipientTeamUser = TeamUser.builder()
+                .team(team)
+                .user(recipient)
+                .studentRole(StudentRole.BACKEND)
+                .leaderRole(LeaderRole.MEMBER)
+                .build();
+        ChatMessageRequestDto request = new ChatMessageRequestDto();
+        ReflectionTestUtils.setField(request, "message", "새 메시지");
+
+        when(chatAccessService.getUser("stu2301")).thenReturn(user);
+        when(chatAccessService.getAccessibleChannel(10L, "stu2301")).thenReturn(channel);
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenAnswer(invocation -> {
+            ChatMessage savedMessage = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedMessage, "id", 2L);
+            return savedMessage;
+        });
+        when(teamUserRepository.findByTeamId(1L)).thenReturn(List.of(recipientTeamUser));
+        when(chatPresenceService.isOnline("stu2302")).thenReturn(false);
+        // 발송 이력 저장이 유니크 제약 등으로 실패하는 상황(과거 로그와 메시지 id 충돌 등).
+        when(notificationLogPersistenceService.save(any(NotificationLog.class)))
+                .thenThrow(new RuntimeException("Duplicate entry"));
+
+        // 부가 기능(FCM 이력)이 실패해도 메시지 저장·응답은 정상이어야 한다.
+        // (예외가 올라가면 @SendTo 브로드캐스트가 실행되지 않아 "실시간으로 안 보임"이 됨)
+        ChatMessageResponseDto response = chatService.saveMessage(10L, "stu2301", request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getMessage()).isEqualTo("새 메시지");
     }
 
     @Test

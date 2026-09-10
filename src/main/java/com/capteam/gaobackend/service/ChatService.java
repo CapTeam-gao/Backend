@@ -41,6 +41,7 @@ import com.capteam.gaobackend.service.push.PushDispatchResult;
 import com.capteam.gaobackend.service.push.PushMessageRequest;
 import com.capteam.gaobackend.service.push.PushNotificationGateway;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatService {
@@ -777,15 +779,28 @@ public class ChatService {
 
     private void publishAfterCommit(Runnable publisher) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            publisher.run();
+            runIsolated(publisher);
             return;
         }
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                publisher.run();
+                runIsolated(publisher);
             }
         });
+    }
+
+    // 커밋 후 처리(unread 이벤트 발행, 실시간 토스트, FCM 푸시·발송 이력)는 채팅의 "부가 기능"이다.
+    // 여기서 던진 예외는 STOMP 핸들러(ChatWebSocketController.sendMessage)까지 올라가
+    // @SendTo("/sub/chat/{channelId}") 브로드캐스트를 건너뛰게 만든다
+    // (= "메시지는 저장됐는데 실시간으로 안 보임"). 그래서 여기서 끊고 로그만 남긴다.
+    // 예: notification_logs 유니크 제약 충돌(과거 로그와 chat_messages id가 겹칠 때).
+    private void runIsolated(Runnable publisher) {
+        try {
+            publisher.run();
+        } catch (Exception e) {
+            log.warn("[CHAT] 커밋 후 알림 처리에 실패했습니다. 채팅 전달은 계속 진행합니다.", e);
+        }
     }
 }
