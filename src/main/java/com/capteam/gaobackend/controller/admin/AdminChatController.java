@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.controller.admin;
 
 import com.capteam.gaobackend.dto.chat.AdminChatRoomCreateRequestDto;
+import com.capteam.gaobackend.dto.chat.AdminChatRoomSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatMessageResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatRoomResponseDto;
@@ -29,6 +30,14 @@ public class AdminChatController {
         // 선생님 관리 화면에서 전체 팀 채팅방 목록을 볼 때 사용합니다.
         // SecurityConfig에서 /api/admin/**는 ADMIN만 접근 가능하게 막고 있습니다.
         return ApiResponse.ok(chatService.getAdminRooms());
+    }
+
+    // 관리자 채팅 목록의 모든 방 요약을 한 번에 조회하는 기능입니다.
+    @GetMapping("/room-summaries")
+    public ResponseEntity<ApiResponse<List<AdminChatRoomSummaryResponseDto>>> getRoomSummaries(
+            Authentication authentication
+    ) {
+        return ApiResponse.ok(chatService.getAdminRoomSummaries(authentication.getName()));
     }
 
     // 관리자가 전체 팀 채팅에서 아직 읽지 않은 학생 메시지 수를 조회하는 기능입니다.

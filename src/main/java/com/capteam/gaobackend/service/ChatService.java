@@ -1,6 +1,7 @@
 package com.capteam.gaobackend.service;
 
 import com.capteam.gaobackend.dto.chat.ChatAdminUnreadEventDto;
+import com.capteam.gaobackend.dto.chat.AdminChatRoomSummaryResponseDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelRequestDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelEventDto;
 import com.capteam.gaobackend.dto.chat.ChatChannelResponseDto;
@@ -178,6 +179,21 @@ public class ChatService {
         return chatRoomRepository.findAll()
                 .stream()
                 .map(this::buildRoomResponse)
+                .toList();
+    }
+
+    // 관리자 채팅 목록에 필요한 모든 방의 채널 요약을 한 번에 묶어 내려주는 기능입니다.
+    public List<AdminChatRoomSummaryResponseDto> getAdminRoomSummaries(String adminId) {
+        return chatRoomRepository.findAll()
+                .stream()
+                .map(room -> AdminChatRoomSummaryResponseDto.builder()
+                        .roomId(room.getId())
+                        .channelSummaries(chatChannelRepository
+                                .findByChatRoomIdOrderByCreatedAtAsc(room.getId())
+                                .stream()
+                                .map(channel -> buildAdminChannelSummary(channel, adminId))
+                                .toList())
+                        .build())
                 .toList();
     }
 
