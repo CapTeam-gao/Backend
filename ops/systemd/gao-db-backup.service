@@ -1,0 +1,17 @@
+[Unit]
+Description=CapTeam MySQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=ec2-user
+Group=ec2-user
+SupplementaryGroups=docker
+Environment=BACKUP_RETENTION_DAYS=14
+ExecStart=/home/ec2-user/apps/Backend/scripts/ops/backup-db.sh /home/ec2-user/backups/mysql
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ec2-user/backups/mysql
