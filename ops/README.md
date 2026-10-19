@@ -12,6 +12,28 @@ cd /home/ec2-user/apps/Backend
 The command checks all three containers, the public service processes, both
 Backend/AI network directions, and the MySQL user count.
 
+After production data and test accounts are available, run the authenticated
+API checks without changing survey or team data:
+
+```bash
+SMOKE_USER_ID='student-id' \
+SMOKE_USER_PASSWORD='student-password' \
+  ./scripts/ops/api-smoke-test.sh
+```
+
+To also create and wait for an actual AI matching job, provide an administrator
+test account and opt in explicitly:
+
+```bash
+SMOKE_USER_ID='student-id' \
+SMOKE_USER_PASSWORD='student-password' \
+SMOKE_ADMIN_ID='admin-id' \
+SMOKE_ADMIN_PASSWORD='admin-password' \
+SMOKE_MATCHING_GRADE='GRADE_2' \
+RUN_AI_MATCHING=YES \
+  ./scripts/ops/api-smoke-test.sh
+```
+
 ## Database backup
 
 The `gao-db-backup.timer` unit runs every day at 03:30 Asia/Seoul and retains
