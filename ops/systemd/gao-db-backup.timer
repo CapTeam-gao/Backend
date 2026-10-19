@@ -1,0 +1,11 @@
+[Unit]
+Description=Run CapTeam MySQL backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Seoul
+RandomizedDelaySec=10m
+Persistent=true
+Unit=gao-db-backup.service
+
+[Install]
+WantedBy=timers.target
