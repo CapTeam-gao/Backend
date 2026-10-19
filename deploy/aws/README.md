@@ -34,8 +34,9 @@ aws ec2 modify-instance-metadata-options \
 ## 3. EC2 준비
 
 - Security Group 인바운드는 SSH 관리 IP, HTTP 80, HTTPS 443만 허용합니다.
-- MySQL 3306과 Spring Boot 8080은 외부에 열지 않습니다.
+- MySQL 3306, Spring Boot 8080, AI 8000은 외부에 열지 않습니다.
 - Docker Engine, Docker Compose plugin, Nginx를 설치합니다.
+- 배포 사용자를 `docker` 그룹에 추가한 뒤 다시 로그인합니다.
 
 ```bash
 cp .env.example .env
@@ -45,16 +46,51 @@ chmod 600 .env
 `.env`에서 비밀번호, JWT Secret, 프론트 Origin, S3 버킷명을 실제 값으로 교체합니다.
 
 ```bash
-docker compose config
-docker compose build
-docker compose up -d
-docker compose ps
+docker compose -f docker-compose.prod.yml config
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml ps
 curl --fail http://127.0.0.1:8080/actuator/health
 ```
 
-## 4. Nginx와 HTTPS
+백엔드 Compose가 `backend_internal` 네트워크와 MySQL 볼륨을 생성합니다. 따라서 같은 EC2에 배포할 때는 백엔드를 먼저 배포하고 AI를 나중에 배포합니다.
 
-`deploy/nginx/gao-backend.conf`의 `api.example.com`을 실제 API 도메인으로 변경해 Nginx에 설치합니다. 이 설정은 WebSocket Upgrade 헤더와 업로드 크기 20MB를 포함합니다.
+## 4. GitHub Actions Secrets
+
+Backend 저장소에는 다음 Actions Secrets를 등록합니다.
+
+```text
+EC2_HOST, EC2_USER, EC2_PORT, EC2_SSH_KEY
+MYSQL_ROOT_PASSWORD, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD
+SPRING_DATASOURCE_URL
+JWT_SECRET, JWT_ACCESS_TOKEN_EXPIRATION, JWT_REFRESH_TOKEN_EXPIRATION
+JWT_REFRESH_COOKIE_SECURE, JWT_REFRESH_COOKIE_SAME_SITE
+WEBSOCKET_ALLOWED_ORIGINS
+AI_SERVER_BASE_URL, INTERNAL_MATCHING_API_KEY
+FIREBASE_ENABLED, FIREBASE_PROJECT_ID, FIREBASE_CREDENTIALS_JSON
+AWS_REGION, AWS_S3_BUCKET, AWS_S3_KEY_PREFIX, AWS_S3_PRESIGNED_URL_DURATION
+CHAT_FILE_STORAGE_TYPE, CHAT_FILE_LOCAL_ROOT
+CHAT_FILE_MAX_SIZE, CHAT_FILE_MAX_REQUEST_SIZE
+BACKEND_BIND_ADDRESS, BACKEND_PORT, BACKEND_CPUS, MYSQL_CPUS
+```
+
+권장 핵심 값은 다음과 같습니다.
+
+```properties
+SPRING_DATASOURCE_URL=jdbc:mysql://gao-mysql:3306/gao_db?serverTimezone=Asia/Seoul&useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_unicode_ci
+AI_SERVER_BASE_URL=http://ai-server:8000
+BACKEND_BIND_ADDRESS=127.0.0.1
+BACKEND_PORT=8080
+JWT_REFRESH_COOKIE_SECURE=true
+JWT_REFRESH_COOKIE_SAME_SITE=None
+WEBSOCKET_ALLOWED_ORIGINS=https://capteam.n-e.kr
+CHAT_FILE_STORAGE_TYPE=s3
+```
+
+`FIREBASE_ENABLED=true`이면 `FIREBASE_PROJECT_ID`와 `FIREBASE_CREDENTIALS_JSON`이 필수입니다. JSON은 서비스 계정 파일을 한 줄 JSON으로 변환해 Secret에 저장합니다. `INTERNAL_MATCHING_API_KEY`는 AI 저장소 Secret과 완전히 같아야 합니다.
+
+## 5. Nginx와 HTTPS
+
+`deploy/nginx/gao-backend.conf`를 Nginx에 설치합니다. 이 설정은 `api.capteam.n-e.kr`, WebSocket Upgrade 헤더와 업로드 크기 20MB를 포함합니다.
 
 ```bash
 sudo cp deploy/nginx/gao-backend.conf /etc/nginx/sites-available/gao-backend
@@ -71,7 +107,24 @@ JWT_REFRESH_COOKIE_SAME_SITE=None
 WEBSOCKET_ALLOWED_ORIGINS=https://frontend.example.com
 ```
 
-## 5. 동작 확인
+## 6. 배포 순서와 동작 확인
+
+1. Backend 저장소의 `main` 또는 `master`를 배포합니다.
+2. `gao-backend`, `gao-mysql`이 healthy인지 확인합니다.
+3. AI 저장소의 `main`을 배포합니다.
+4. `ai-server`가 healthy인지 확인합니다.
+5. DNS와 TLS 적용 후 외부 health endpoint를 확인합니다.
+
+```bash
+docker compose -f /home/$USER/apps/Backend/docker-compose.prod.yml ps
+docker logs --tail=200 gao-backend
+docker logs --tail=200 ai-server
+curl --fail http://127.0.0.1:8080/actuator/health
+curl --fail http://127.0.0.1:8000/health
+curl --fail https://api.capteam.n-e.kr/actuator/health
+```
+
+애플리케이션 검증은 다음 순서로 진행합니다.
 
 1. 로그인한 팀원이 `/api/chat/channels/{channelId}/files`에 파일을 업로드합니다.
 2. 응답의 `fileUrl`이 `/chat-files/{channelId}/{storedFileName}`인지 확인합니다.
@@ -81,6 +134,6 @@ WEBSOCKET_ALLOWED_ORIGINS=https://frontend.example.com
 
 ## 배포 전 전제 조건
 
-- `spring.jpa.hibernate.ddl-auto=validate`이므로 운영 DB 스키마가 엔티티와 일치해야 합니다. 현재 저장소에는 Flyway/Liquibase 마이그레이션이 없으므로 빈 DB에 바로 배포하면 시작되지 않습니다.
-- AI 서버가 같은 EC2 호스트에서 실행되면 `host.docker.internal:8000`을 사용하고, 별도 서버면 `AI_SERVER_BASE_URL`을 내부 또는 HTTPS 주소로 변경합니다.
+- 현재 `spring.jpa.hibernate.ddl-auto=update`입니다. 첫 실행 시 스키마가 자동 갱신되므로 기존 DB를 옮길 때는 반드시 먼저 백업합니다.
+- Backend와 AI는 `backend_internal` Docker 네트워크에서 각각 `gao-backend:8080`, `ai-server:8000`으로 통신합니다.
 - EC2 한 대의 내장 WebSocket broker 구성입니다. 여러 EC2로 수평 확장할 때는 외부 broker relay와 세션 라우팅 구성이 추가로 필요합니다.
