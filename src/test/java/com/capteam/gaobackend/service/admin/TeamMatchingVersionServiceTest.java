@@ -133,7 +133,9 @@ class TeamMatchingVersionServiceTest {
 
         when(teamMatchingVersionRepository.findById(2L)).thenReturn(Optional.of(targetVersion));
         when(teamRecommendationRepository.findByMatchingVersionIdOrderByIdAsc(2L)).thenReturn(List.of(recommendation));
-        when(teamRepository.findByGrade(Grade.GRADE_2)).thenReturn(List.of());
+        Team existingTeam = Team.builder().grade(Grade.GRADE_2).teamName("old").build();
+        ReflectionTestUtils.setField(existingTeam, "id", 99L);
+        when(teamRepository.findByGrade(Grade.GRADE_2)).thenReturn(List.of(existingTeam));
         when(teamRecommendationMemberRepository.findByRecommendationId(10L)).thenReturn(List.of(recommendedMember));
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> {
             Team team = invocation.getArgument(0);
@@ -159,6 +161,20 @@ class TeamMatchingVersionServiceTest {
         verify(chatRoomRepository).save(any(ChatRoom.class));
         verify(chatChannelRepository).save(any(ChatChannel.class));
         verify(teamAssignmentNoticeService).createNotice(Grade.GRADE_2);
+        var order = inOrder(teamRepository);
+        order.verify(teamRepository).delete(existingTeam);
+        order.verify(teamRepository).flush();
+        order.verify(teamRepository).save(any(Team.class));
+    }
+
+    @Test
+    void applyingCurrentVersionIsIdempotent() {
+        TeamMatchingVersion appliedVersion = version(2L, Grade.GRADE_2, 2, TeamMatchingVersionStatus.APPLIED);
+        when(teamMatchingVersionRepository.findById(2L)).thenReturn(Optional.of(appliedVersion));
+
+        assertThat(teamMatchingVersionService.applyVersion(2L).getStatus())
+                .isEqualTo(TeamMatchingVersionStatus.APPLIED);
+        verifyNoInteractions(teamRepository, teamUserRepository, chatRoomRepository, teamAssignmentNoticeService);
     }
 
     @Test

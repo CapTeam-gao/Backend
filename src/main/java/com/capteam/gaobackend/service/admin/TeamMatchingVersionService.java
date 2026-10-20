@@ -152,6 +152,9 @@ public class TeamMatchingVersionService {
     public TeamMatchingVersionResponseDto applyVersion(Long versionId) {
         // 어떤 버전을 확정하는지 먼저 고정해 같은 트랜잭션 안에서 일관된 기준을 사용합니다.
         TeamMatchingVersion targetVersion = getVersion(versionId);
+        if (targetVersion.getStatus() == TeamMatchingVersionStatus.APPLIED) {
+            return TeamMatchingVersionResponseDto.from(targetVersion);
+        }
 
         // 실제 팀 생성에 필요한 추천안 묶음을 미리 읽어두어 중간 상태 없이 반영합니다.
         List<TeamRecommendation> recommendations = getVersionRecommendations(versionId);
@@ -167,6 +170,8 @@ public class TeamMatchingVersionService {
 
         // 교체 가능한 상태로 확인된 뒤에만 기존 팀 데이터를 제거해 중간 손실을 막습니다.
         deleteExistingGradeTeams(existingTeams);
+        // Hibernate queues deletes after inserts; release unique student assignments before rebuilding teams.
+        teamRepository.flush();
 
         // 버전 추천안을 실제 Team/TeamUser로 다시 만들면 롤백도 동일 로직으로 처리할 수 있습니다.
         createTeamsFromVersion(targetVersion.getGrade(), recommendations);

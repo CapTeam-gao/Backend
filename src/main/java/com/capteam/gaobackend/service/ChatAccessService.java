@@ -12,9 +12,11 @@ import com.capteam.gaobackend.repository.TeamUserRepository;
 import com.capteam.gaobackend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ChatAccessService {
 
     // 채팅 접근 권한 검사에 필요한 사용자 정보를 조회하는 Repository 필드입니다.
@@ -71,7 +73,7 @@ public class ChatAccessService {
     }
 
     // 관리자면 전체 허용하고 학생이면 자기 팀 채팅만 허용하는 기능입니다.
-    private void checkTeamAccess(Long teamId, String userId) {
+    public void checkTeamAccess(Long teamId, String userId) {
         User user = getUser(userId);
 
         // 선생님 계정은 팀 채팅 관리 화면에서 모든 팀 채팅을 볼 수 있게 열어둡니다.
