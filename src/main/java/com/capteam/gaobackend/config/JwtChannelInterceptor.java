@@ -2,6 +2,8 @@ package com.capteam.gaobackend.config;
 
 
 import lombok.RequiredArgsConstructor;
+import com.capteam.gaobackend.service.ChatAccessService;
+import com.capteam.gaobackend.enums.AccountRole;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -10,7 +12,12 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 @Slf4j
@@ -19,6 +26,13 @@ import org.springframework.stereotype.Component;
 public class JwtChannelInterceptor implements ChannelInterceptor {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final ChatAccessService chatAccessService;
+    private static final Pattern CHANNEL_TOPIC = Pattern.compile("/sub/chat/([1-9][0-9]*)(?:/events)?");
+    private static final Pattern ROOM_TOPIC = Pattern.compile("/sub/chat/rooms/([1-9][0-9]*)/channels");
+    private static final Pattern PRESENCE_TOPIC = Pattern.compile("/sub/presence/teams/([1-9][0-9]*)");
+    private static final Pattern CHAT_SEND = Pattern.compile("/pub/chat/([1-9][0-9]*)/send");
+    private static final Set<String> PERSONAL_TOPICS = Set.of(
+            "/user/queue/chat/unread", "/user/queue/chat/notifications", "/user/queue/errors");
 
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
@@ -58,11 +72,56 @@ public class JwtChannelInterceptor implements ChannelInterceptor {
             }
         }
 
+        if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+                || StompCommand.SEND.equals(accessor.getCommand())) {
+            if (!(accessor.getUser() instanceof Authentication authentication)
+                    || !authentication.isAuthenticated()) {
+                throw new AccessDeniedException("WebSocket authentication required");
+            }
+            authorizeDestination(accessor, authentication.getName());
+        }
+
         if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
             String userId = accessor.getUser() != null ? accessor.getUser().getName() : "unknown";
             log.info("[WS] DISCONNECT - user: {}", userId);
         }
 
         return message;
+    }
+
+    private void authorizeDestination(StompHeaderAccessor accessor, String userId) {
+        String destination = accessor.getDestination();
+        if (destination == null) {
+            throw new AccessDeniedException("Missing WebSocket destination");
+        }
+        Matcher channel = (StompCommand.SEND.equals(accessor.getCommand()) ? CHAT_SEND : CHANNEL_TOPIC)
+                .matcher(destination);
+        if (channel.matches()) {
+            chatAccessService.getAccessibleChannel(Long.valueOf(channel.group(1)), userId);
+            return;
+        }
+        // Clients may publish only through authenticated application handlers, never directly to the broker.
+        if (StompCommand.SEND.equals(accessor.getCommand())) {
+            throw new AccessDeniedException("WebSocket publication not allowed");
+        }
+        Matcher room = ROOM_TOPIC.matcher(destination);
+        if (room.matches()) {
+            chatAccessService.getAccessibleRoom(Long.valueOf(room.group(1)), userId);
+            return;
+        }
+        Matcher presence = PRESENCE_TOPIC.matcher(destination);
+        if (presence.matches()) {
+            chatAccessService.checkTeamAccess(Long.valueOf(presence.group(1)), userId);
+            return;
+        }
+        if (PERSONAL_TOPICS.contains(destination) || "/sub/notices".equals(destination)
+                || ("/sub/chat/unread/" + userId).equals(destination)) {
+            return;
+        }
+        if ("/sub/admin/chat/unread".equals(destination)
+                && chatAccessService.getUser(userId).getAccountRole() == AccountRole.ADMIN) {
+            return;
+        }
+        throw new AccessDeniedException("WebSocket subscription not allowed");
     }
 }
