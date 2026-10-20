@@ -21,6 +21,8 @@ WORKDIR /app
 
 COPY --from=builder --chown=app:app /workspace/build/libs/*SNAPSHOT.jar app.jar
 
+RUN mkdir -p /app/uploads && chown app:app /app/uploads
+
 USER app
 
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -Dfile.encoding=UTF-8"
