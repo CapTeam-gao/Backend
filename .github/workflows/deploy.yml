@@ -225,8 +225,8 @@ jobs:
           AWS_S3_KEY_PREFIX=${{ secrets.AWS_S3_KEY_PREFIX }}
           AWS_S3_PRESIGNED_URL_DURATION=${{ secrets.AWS_S3_PRESIGNED_URL_DURATION }}
 
-          CHAT_FILE_STORAGE_TYPE=${{ secrets.CHAT_FILE_STORAGE_TYPE }}
-          CHAT_FILE_LOCAL_ROOT=${{ secrets.CHAT_FILE_LOCAL_ROOT }}
+          CHAT_FILE_STORAGE_TYPE=${{ secrets.CHAT_FILE_STORAGE_TYPE || 'local' }}
+          CHAT_FILE_LOCAL_ROOT=${{ secrets.CHAT_FILE_LOCAL_ROOT || '/app/uploads' }}
           CHAT_FILE_MAX_SIZE=${{ secrets.CHAT_FILE_MAX_SIZE }}
           CHAT_FILE_MAX_REQUEST_SIZE=${{ secrets.CHAT_FILE_MAX_REQUEST_SIZE }}
           TZ=Asia/Seoul

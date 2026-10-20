@@ -1,5 +1,13 @@
 # CapTeam Operations
 
+## Chat attachments
+
+Production uses `CHAT_FILE_STORAGE_TYPE=local` and
+`CHAT_FILE_LOCAL_ROOT=/app/uploads`. The `backend_chat_files` Docker volume
+persists uploaded files across backend container replacement and deployments.
+Do not remove this volume or use `docker compose down --volumes` on the server.
+When moving to another EC2, back up and transfer this volume alongside MySQL.
+
 ## Health check
 
 Run on the EC2 host:

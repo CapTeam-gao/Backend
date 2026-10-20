@@ -57,8 +57,8 @@ services:
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:?AWS_S3_BUCKET is required}
       AWS_S3_KEY_PREFIX: ${AWS_S3_KEY_PREFIX:-chat}
       AWS_S3_PRESIGNED_URL_DURATION: ${AWS_S3_PRESIGNED_URL_DURATION:-PT10M}
-      CHAT_FILE_STORAGE_TYPE: ${CHAT_FILE_STORAGE_TYPE:-s3}
-      CHAT_FILE_LOCAL_ROOT: ${CHAT_FILE_LOCAL_ROOT:-/tmp/gao-chat-files}
+      CHAT_FILE_STORAGE_TYPE: ${CHAT_FILE_STORAGE_TYPE:-local}
+      CHAT_FILE_LOCAL_ROOT: ${CHAT_FILE_LOCAL_ROOT:-/app/uploads}
       CHAT_FILE_MAX_SIZE: ${CHAT_FILE_MAX_SIZE:-20MB}
       CHAT_FILE_MAX_REQUEST_SIZE: ${CHAT_FILE_MAX_REQUEST_SIZE:-20MB}
     extra_hosts:
@@ -73,6 +73,8 @@ services:
       retries: 5
       start_period: 60s
     read_only: true
+    volumes:
+      - chat_files:/app/uploads
     tmpfs:
       - /tmp:size=128m,mode=1777
     security_opt:
@@ -94,3 +96,5 @@ networks:
 
 volumes:
   mysql_data:
+  chat_files:
+    name: backend_chat_files
